@@ -1,0 +1,170 @@
+{
+  "project_name": "Automaton_Clone_Orchestrator",
+  "design_philosophy": {
+    "identity": "E1",
+    "theme_name": "Electric Void",
+    "core_vibe": "Cyberpunk Trading Terminal meets AI Hive Mind",
+    "archetype": "ELECTRIC & NEON",
+    "principles": [
+      "Fusion over Imitation: Mix High-Frequency Trading density with Video Game HUD aesthetics.",
+      "Emotion First: The UI should feel 'alive' and 'intelligent'. Use pulsing glows for active agents.",
+      "Content is King: Data is the protagonist. Legibility of numbers is paramount.",
+      "Negative Space: Use deep black voids to make neon data pop."
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "heading": "Rajdhani, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace",
+      "display": "Orbitron, sans-serif"
+    },
+    "usage_rules": {
+      "headings": "Uppercase, tracking-widest, font-bold. Use 'Rajdhani' for all section titles and metric labels.",
+      "data": "Use 'JetBrains Mono' for all prices, hash rates, and code snippets.",
+      "body": "Use 'Inter' for long-form text only (descriptions, chat logs).",
+      "banned_fonts": ["Space Grotesk", "Roboto", "Open Sans"]
+    },
+    "scale": {
+      "hero": "text-6xl md:text-8xl font-black tracking-tighter uppercase",
+      "h1": "text-4xl md:text-5xl font-bold tracking-wide uppercase",
+      "h2": "text-3xl font-semibold tracking-normal",
+      "h3": "text-xl font-medium tracking-wide uppercase text-muted-foreground",
+      "mono_lg": "text-lg font-mono tracking-tight",
+      "mono_sm": "text-xs font-mono tracking-wide text-muted-foreground"
+    }
+  },
+  "colors": {
+    "mode": "dark",
+    "palette": {
+      "background": "#050505",
+      "foreground": "#FAFAFA",
+      "card": "rgba(10, 10, 10, 0.6)",
+      "card_foreground": "#FFFFFF",
+      "popover": "#0A0A0A",
+      "popover_foreground": "#FAFAFA",
+      "primary": "#00F3FF",
+      "primary_foreground": "#000000",
+      "secondary": "#7000FF",
+      "secondary_foreground": "#FAFAFA",
+      "muted": "#1A1A1A",
+      "muted_foreground": "#A1A1AA",
+      "accent": "#2A2A2A",
+      "accent_foreground": "#FAFAFA",
+      "destructive": "#FF003C",
+      "destructive_foreground": "#FAFAFA",
+      "border": "#333333",
+      "input": "#1A1A1A",
+      "ring": "#00F3FF"
+    },
+    "gradients": {
+      "active_agent": "linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, rgba(0, 0, 0, 0) 100%)",
+      "dead_agent": "linear-gradient(135deg, rgba(255, 0, 60, 0.1) 0%, rgba(0, 0, 0, 0) 100%)",
+      "hero_glow": "radial-gradient(circle at center, rgba(0, 243, 255, 0.15) 0%, rgba(0,0,0,0) 70%)"
+    },
+    "status": {
+      "success": "#39FF14",
+      "warning": "#FAFF00",
+      "error": "#FF003C",
+      "info": "#00F3FF"
+    }
+  },
+  "layout": {
+    "container": "max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8",
+    "grid_system": {
+      "dashboard_mode": "Bento Grid Mode B (High Density)",
+      "base_grid": "grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-4",
+      "spacing": "p-4 md:p-6"
+    },
+    "strategies": {
+      "sidebar": "Fixed left sidebar, w-64, glassmorphism border-r border-white/10",
+      "topbar": "Sticky top, h-16, glassmorphism border-b border-white/10, z-50",
+      "widgets": "h-full w-full rounded-sm border border-white/10 bg-black/40 backdrop-blur-md"
+    }
+  },
+  "components": {
+    "cards": {
+      "style": "Techno-Utilitarian",
+      "border": "1px solid rgba(255,255,255,0.1)",
+      "radius": "rounded-none md:rounded-lg",
+      "hover": "hover:border-primary/50 transition-colors duration-300",
+      "features": [
+        "Use 'Tracing Beam' effect for high-priority agents.",
+        "Include corner accents (brackets) for a HUD look."
+      ]
+    },
+    "buttons": {
+      "primary": "bg-primary text-black hover:bg-primary/90 font-bold uppercase tracking-widest text-xs py-3 px-6 rounded-sm shadow-[0_0_15px_rgba(0,243,255,0.3)] hover:shadow-[0_0_25px_rgba(0,243,255,0.6)] transition-all",
+      "secondary": "bg-transparent border border-white/20 text-white hover:border-white/50 hover:bg-white/5 uppercase tracking-widest text-xs py-3 px-6 rounded-sm",
+      "destructive": "bg-destructive/20 border border-destructive/50 text-destructive hover:bg-destructive/30 uppercase tracking-widest text-xs"
+    },
+    "inputs": {
+      "style": "bg-black/50 border-white/10 focus:border-primary focus:ring-1 focus:ring-primary/50 rounded-sm text-mono placeholder:text-muted-foreground/50 h-12"
+    },
+    "charts": {
+      "library": "Recharts",
+      "style": "Minimal axes, neon strokes (2px), gradient fills (opacity 0.2 to 0)",
+      "colors": ["#00F3FF", "#7000FF", "#39FF14", "#FF003C"]
+    },
+    "visual_enhancers": {
+      "glassmorphism": "backdrop-blur-xl bg-black/60 border border-white/10",
+      "scanlines": "pointer-events-none fixed inset-0 z-[100] bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%),linear-gradient(90deg,rgba(255,0,0,0.03),rgba(0,255,0,0.01),rgba(0,0,255,0.03))] bg-[length:100%_2px,3px_100%] opacity-20",
+      "noise": "fixed inset-0 z-[99] opacity-[0.03] pointer-events-none mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_bg": "https://images.unsplash.com/photo-1607555557810-f99617a505d7?q=80&w=2000&auto=format&fit=crop",
+      "login_bg": "https://images.unsplash.com/photo-1746470427657-eb0b0115455f?q=80&w=2000&auto=format&fit=crop",
+      "agent_avatar_placeholder": "https://images.unsplash.com/photo-1750969185331-e03829f72c7d?q=80&w=400&auto=format&fit=crop",
+      "crypto_bg": "https://images.unsplash.com/photo-1613535167523-0da946b83ffb?q=80&w=2000&auto=format&fit=crop"
+    },
+    "icons_library": "lucide-react (primary), simple-icons (for crypto logos)"
+  },
+  "motion": {
+    "defaults": {
+      "duration": "0.3s",
+      "ease": "ease-out"
+    },
+    "animations": {
+      "fade_in": "animate-in fade-in duration-500",
+      "slide_up": "animate-in slide-in-from-bottom-4 duration-500",
+      "pulse_slow": "animate-pulse duration-[3000ms]"
+    }
+  },
+  "accessibility": {
+    "contrast_check": "Ensure neon text has sufficient contrast against black backgrounds. Use shading or glows to enhance visibility.",
+    "reduced_motion": "Disable scanlines and heavy parallax if prefers-reduced-motion is true.",
+    "testing": "All interactive elements MUST have data-testid attributes (e.g., data-testid='login-submit')."
+  },
+  "instructions_to_main_agent": [
+    "1. SETUP: Install 'lucide-react', 'recharts', 'framer-motion', 'clsx', 'tailwind-merge'.",
+    "2. THEME: Apply the dark mode colors to tailwind.config.js immediately. Force 'dark' class on the html/body.",
+    "3. LAYOUT: Create a 'DashboardLayout' component with the sidebar and topbar structure.",
+    "4. COMPONENTS: Build 'AgentCard', 'CryptoChart', 'MetricWidget' using the defined styles.",
+    "5. MOCK DATA: Create realistic mock data for Agents (ROI, Status, Age) and Crypto Markets.",
+    "6. VIEW: Ensure the 'Agent Lifecycle' (replication/destruction) has clear visual feedback (Green glow vs Red decay).",
+    "7. UNIVERSAL RULES: Follow the E1 identity. No generic designs. Make it look like a tool for a cyberpunk hacker."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use 'sonner' for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
