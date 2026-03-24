@@ -96,11 +96,21 @@ const AgentStatusBadge = ({ status }) => {
 };
 
 const MiniAgentCard = ({ agent }) => {
+  // Extract data from new schema structure
+  const finances = agent.finances || {};
+  const performance = agent.performance || {};
+  
+  const balance = finances.current_balance ?? agent.balance ?? 0;
+  const roi = performance.roi_percent ?? agent.roi ?? 0;
+  const generation = agent.generation ?? 1;
+
   const statusClass = {
     active: "status-active",
     replicating: "status-replicating",
     dying: "status-dying",
-    dead: "status-dead"
+    dead: "status-dead",
+    paused: "status-active",
+    hibernating: "status-active"
   }[agent.status] || "";
 
   return (
@@ -112,21 +122,22 @@ const MiniAgentCard = ({ agent }) => {
         <div className="flex items-center gap-2">
           <Bot className="w-4 h-4 text-primary" />
           <span className="font-mono text-sm">{agent.name}</span>
+          <span className="text-[10px] text-secondary">G{generation}</span>
         </div>
         <AgentStatusBadge status={agent.status} />
       </div>
       <div className="grid grid-cols-2 gap-4 text-xs">
         <div>
           <p className="text-muted-foreground mb-1">BALANCE</p>
-          <p className="font-mono font-semibold">${agent.balance.toFixed(2)}</p>
+          <p className="font-mono font-semibold">${balance.toFixed(2)}</p>
         </div>
         <div>
           <p className="text-muted-foreground mb-1">ROI</p>
           <p className={cn(
             "font-mono font-semibold",
-            agent.roi >= 0 ? "text-cyber-green" : "text-destructive"
+            roi >= 0 ? "text-cyber-green" : "text-destructive"
           )}>
-            {agent.roi >= 0 ? "+" : ""}{agent.roi.toFixed(1)}%
+            {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
           </p>
         </div>
       </div>

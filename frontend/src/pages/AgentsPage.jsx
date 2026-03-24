@@ -71,11 +71,37 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
       label: "TERMINATED", 
       color: "text-muted-foreground",
       bgColor: "bg-white/5"
+    },
+    paused: {
+      class: "status-active",
+      label: "PAUSED",
+      color: "text-warning",
+      bgColor: "bg-warning/10"
+    },
+    hibernating: {
+      class: "status-active",
+      label: "HIBERNATING",
+      color: "text-secondary",
+      bgColor: "bg-secondary/10"
     }
   };
 
+  // Extract data from new schema structure
+  const finances = agent.finances || {};
+  const performance = agent.performance || {};
+  const tradingStats = agent.trading_stats || {};
+  const lineage = agent.lineage || {};
+  
+  const balance = finances.current_balance ?? agent.balance ?? 0;
+  const initialBalance = finances.initial_capital ?? agent.initial_balance ?? 100;
+  const roi = performance.roi_percent ?? agent.roi ?? 0;
+  const tradesCount = tradingStats.total_trades ?? agent.trades_count ?? 0;
+  const successfulTrades = tradingStats.winning_trades ?? agent.successful_trades ?? 0;
+  const childrenCount = lineage.children_ids?.length ?? agent.children_ids?.length ?? 0;
+  const generation = agent.generation ?? 1;
+
   const config = statusConfig[agent.status] || statusConfig.active;
-  const healthPercent = Math.max(0, Math.min(100, (agent.balance / agent.initial_balance) * 100));
+  const healthPercent = Math.max(0, Math.min(100, (balance / initialBalance) * 100));
 
   return (
     <Card className={cn(
@@ -119,7 +145,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
               <DropdownMenuItem 
                 onClick={() => onReplicate(agent.id)}
                 className="gap-2"
-                disabled={agent.balance < 50 || agent.status === 'dead'}
+                disabled={balance < 50 || agent.status === 'dead'}
               >
                 <Copy className="w-4 h-4 text-secondary" />
                 Replicate
@@ -155,15 +181,15 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <p className="text-[10px] font-heading uppercase text-muted-foreground mb-1">Balance</p>
-            <p className="font-mono font-bold text-lg">${agent.balance.toFixed(2)}</p>
+            <p className="font-mono font-bold text-lg">${balance.toFixed(2)}</p>
           </div>
           <div>
             <p className="text-[10px] font-heading uppercase text-muted-foreground mb-1">ROI</p>
             <p className={cn(
               "font-mono font-bold text-lg",
-              agent.roi >= 0 ? "text-cyber-green" : "text-destructive"
+              roi >= 0 ? "text-cyber-green" : "text-destructive"
             )}>
-              {agent.roi >= 0 ? "+" : ""}{agent.roi.toFixed(1)}%
+              {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
             </p>
           </div>
         </div>
@@ -181,18 +207,22 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-white/10">
+        <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-white/10">
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">GEN</p>
+            <p className="font-mono text-sm text-secondary">{generation}</p>
+          </div>
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">TRADES</p>
-            <p className="font-mono text-sm">{agent.trades_count}</p>
+            <p className="font-mono text-sm">{tradesCount}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">SUCCESS</p>
-            <p className="font-mono text-sm">{agent.successful_trades}</p>
+            <p className="text-[10px] text-muted-foreground">WINS</p>
+            <p className="font-mono text-sm text-cyber-green">{successfulTrades}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">CHILDREN</p>
-            <p className="font-mono text-sm">{agent.children_ids?.length || 0}</p>
+            <p className="text-[10px] text-muted-foreground">CLONES</p>
+            <p className="font-mono text-sm">{childrenCount}</p>
           </div>
         </div>
       </CardContent>
