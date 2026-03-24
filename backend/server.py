@@ -152,6 +152,23 @@ async def get_agents(status: Optional[str] = None):
     agents = await db_service.get_agents(status=status_enum)
     return {"agents": agents}
 
+@api_router.get("/agents/status-summary")
+async def get_agents_status_summary():
+    """Get summary of agent statuses"""
+    agents = await db_service.get_agents()
+    
+    summary = {
+        "total": len(agents),
+        "active": len([a for a in agents if a.get('status') == 'active']),
+        "paused": len([a for a in agents if a.get('status') == 'paused']),
+        "replicating": len([a for a in agents if a.get('status') == 'replicating']),
+        "dying": len([a for a in agents if a.get('status') == 'dying']),
+        "dead": len([a for a in agents if a.get('status') == 'dead']),
+        "hibernating": len([a for a in agents if a.get('status') == 'hibernating'])
+    }
+    
+    return summary
+
 @api_router.post("/agents")
 async def create_agent(request: AgentCreateRequest):
     """Create a new agent with full schema"""
@@ -578,6 +595,111 @@ async def get_dashboard_stats():
     }
     
     return stats
+
+# ==================== BULK AGENT ACTIONS API ====================
+
+@api_router.post("/agents/pause-all")
+async def pause_all_agents():
+    """Pause all active agents"""
+    agents = await db_service.get_agents(status=AgentStatus.ACTIVE)
+    paused_count = 0
+    
+    for agent in agents:
+        await db_service.update_agent_status(agent['id'], AgentStatus.PAUSED, reason="bulk_pause")
+        await notification_service.log_activity(
+            type="agent_paused",
+            title="Agent Paused",
+            description=f"{agent['name']} paused by bulk action",
+            icon="pause",
+            color="yellow",
+            agent_id=agent['id'],
+            agent_name=agent['name']
+        )
+        paused_count += 1
+    
+    if paused_count > 0:
+        await notification_service.create_notification(
+            type="system_info",
+            title="All Agents Paused",
+            message=f"{paused_count} agents have been paused",
+            icon="pause",
+            color="yellow",
+            priority="high"
+        )
+    
+    return {
+        "success": True,
+        "paused_count": paused_count,
+        "message": f"Paused {paused_count} agents"
+    }
+
+@api_router.post("/agents/resume-all")
+async def resume_all_agents():
+    """Resume all paused agents"""
+    agents = await db_service.get_agents(status=AgentStatus.PAUSED)
+    resumed_count = 0
+    
+    for agent in agents:
+        await db_service.update_agent_status(agent['id'], AgentStatus.ACTIVE, reason="bulk_resume")
+        resumed_count += 1
+    
+    if resumed_count > 0:
+        await notification_service.create_notification(
+            type="system_info",
+            title="Agents Resumed",
+            message=f"{resumed_count} agents have been resumed",
+            icon="play",
+            color="green",
+            priority="medium"
+        )
+    
+    return {
+        "success": True,
+        "resumed_count": resumed_count,
+        "message": f"Resumed {resumed_count} agents"
+    }
+
+@api_router.post("/agents/emergency-stop")
+async def emergency_stop_all_agents(confirm: bool = Query(default=False)):
+    """Emergency stop - terminates ALL agents immediately. Requires confirmation."""
+    if not confirm:
+        return {
+            "success": False,
+            "error": "confirmation_required",
+            "message": "This action will TERMINATE ALL AGENTS. Add ?confirm=true to proceed."
+        }
+    
+    # Get all non-dead agents
+    all_agents = await db_service.get_agents()
+    active_agents = [a for a in all_agents if a.get('status') != 'dead']
+    
+    terminated_count = 0
+    total_balance_lost = 0
+    
+    for agent in active_agents:
+        balance = agent.get('finances', {}).get('current_balance', 0) or agent.get('balance', 0)
+        total_balance_lost += balance
+        
+        await db_service.update_agent_status(agent['id'], AgentStatus.DEAD, reason="emergency_stop")
+        await notification_service.notify_agent_dead(agent['id'], agent['name'], "emergency_stop")
+        terminated_count += 1
+    
+    # Create critical notification
+    await notification_service.create_notification(
+        type="system_info",
+        title="EMERGENCY STOP EXECUTED",
+        message=f"{terminated_count} agents terminated. Total balance affected: ${total_balance_lost:.2f}",
+        icon="alert-triangle",
+        color="red",
+        priority="critical"
+    )
+    
+    return {
+        "success": True,
+        "terminated_count": terminated_count,
+        "total_balance_affected": total_balance_lost,
+        "message": f"Emergency stop executed. {terminated_count} agents terminated."
+    }
 
 # ==================== PORTFOLIO HISTORY API ====================
 

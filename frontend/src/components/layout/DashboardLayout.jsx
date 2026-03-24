@@ -276,7 +276,7 @@ const CommandPalette = ({ open, onClose }) => {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="glass border-white/10 p-0 max-w-lg">
+      <DialogContent className="glass border-white/10 p-0 max-w-lg" data-testid="command-palette">
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
           <Search className="w-5 h-5 text-muted-foreground" />
           <Input
@@ -285,6 +285,7 @@ const CommandPalette = ({ open, onClose }) => {
             onChange={(e) => setSearch(e.target.value)}
             className="border-0 bg-transparent focus-visible:ring-0 px-0 text-base"
             autoFocus
+            data-testid="command-palette-input"
           />
           <kbd className="px-2 py-1 text-[10px] font-mono bg-white/10 rounded">ESC</kbd>
         </div>

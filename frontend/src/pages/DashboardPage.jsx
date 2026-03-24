@@ -21,14 +21,26 @@ import {
   Pause,
   RotateCcw,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  OctagonX
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import axios from "axios";
 import {
   AreaChart,
@@ -297,6 +309,8 @@ export default function DashboardPage() {
   const [portfolioPeriod, setPortfolioPeriod] = useState("7d");
   const [loading, setLoading] = useState(true);
   const [agentTab, setAgentTab] = useState("all");
+  const [actionLoading, setActionLoading] = useState(null);
+  const [emergencyDialogOpen, setEmergencyDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -340,6 +354,52 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchPortfolioHistory();
   }, [fetchPortfolioHistory]);
+
+  // ==================== BULK ACTIONS ====================
+  const handlePauseAll = async () => {
+    setActionLoading('pause');
+    try {
+      const res = await axios.post(`${API}/agents/pause-all`);
+      toast.success(res.data.message);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to pause agents");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleResumeAll = async () => {
+    setActionLoading('resume');
+    try {
+      const res = await axios.post(`${API}/agents/resume-all`);
+      toast.success(res.data.message);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to resume agents");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleEmergencyStop = async () => {
+    setActionLoading('emergency');
+    try {
+      const res = await axios.post(`${API}/agents/emergency-stop?confirm=true`);
+      toast.error(res.data.message, { duration: 5000 });
+      setEmergencyDialogOpen(false);
+      fetchData();
+      fetchPortfolioHistory();
+    } catch (error) {
+      toast.error("Emergency stop failed");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Check if there are paused agents
+  const hasPausedAgents = agents.some(a => a.status === 'paused');
+  const hasActiveAgents = agents.some(a => a.status === 'active' || a.status === 'replicating');
 
   // Generate sparkline data
   const generateSparkline = (base, variance, trend = 0) => 
@@ -713,21 +773,68 @@ export default function DashboardPage() {
                 color="primary"
                 onClick={() => navigate('/agents')}
               />
+              {hasPausedAgents ? (
+                <QuickActionButton 
+                  icon={Play} 
+                  label="Resume" 
+                  color="green"
+                  onClick={handleResumeAll}
+                  disabled={actionLoading === 'resume'}
+                />
+              ) : (
+                <QuickActionButton 
+                  icon={Pause} 
+                  label="Pause All" 
+                  color="yellow"
+                  onClick={handlePauseAll}
+                  disabled={!hasActiveAgents || actionLoading === 'pause'}
+                />
+              )}
               <QuickActionButton 
-                icon={Pause} 
-                label="Pause All" 
-                color="yellow"
-                onClick={() => {}}
-              />
-              <QuickActionButton 
-                icon={AlertTriangle} 
+                icon={OctagonX} 
                 label="Emergency" 
                 color="red"
-                onClick={() => {}}
+                onClick={() => setEmergencyDialogOpen(true)}
+                disabled={!hasActiveAgents && !hasPausedAgents}
               />
             </div>
           </CardContent>
         </Card>
+
+        {/* Emergency Stop Dialog */}
+        <AlertDialog open={emergencyDialogOpen} onOpenChange={setEmergencyDialogOpen}>
+          <AlertDialogContent className="glass border-destructive/50">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                Emergency Stop
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>This action will <strong className="text-destructive">TERMINATE ALL AGENTS</strong> immediately.</p>
+                <p className="text-sm">• All active and paused agents will be killed</p>
+                <p className="text-sm">• Agent balances will be set to $0</p>
+                <p className="text-sm">• This action <strong>cannot be undone</strong></p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-white/20">Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleEmergencyStop}
+                className="bg-destructive hover:bg-destructive/90"
+                disabled={actionLoading === 'emergency'}
+              >
+                {actionLoading === 'emergency' ? (
+                  <span className="flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 animate-spin" />
+                    Stopping...
+                  </span>
+                ) : (
+                  "Confirm Emergency Stop"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Crypto Market */}
         <Card className="glass border-white/10 col-span-2 md:col-span-4 lg:col-span-6 xl:col-span-8">
