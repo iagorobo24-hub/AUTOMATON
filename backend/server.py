@@ -579,6 +579,98 @@ async def get_dashboard_stats():
     
     return stats
 
+# ==================== PORTFOLIO HISTORY API ====================
+
+@api_router.get("/portfolio/history")
+async def get_portfolio_history(period: str = "7d"):
+    """Get portfolio value history based on trades"""
+    from datetime import timedelta
+    
+    # Determine time range
+    now = datetime.now(timezone.utc)
+    periods = {
+        "1d": timedelta(days=1),
+        "7d": timedelta(days=7),
+        "1m": timedelta(days=30),
+        "3m": timedelta(days=90),
+        "all": timedelta(days=365)
+    }
+    delta = periods.get(period, timedelta(days=7))
+    start_date = now - delta
+    
+    # Get all trades
+    trades = await db.trades.find(
+        {"created_at": {"$gte": start_date.isoformat()}},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(10000)
+    
+    # Get all agents for initial capital
+    agents = await db_service.get_agents()
+    initial_capital = sum(a.get('finances', {}).get('initial_capital', 0) or a.get('initial_balance', 100) for a in agents)
+    
+    # Build cumulative PnL over time
+    history = []
+    cumulative_pnl = 0
+    
+    # Group trades by hour/day depending on period
+    if period == "1d":
+        # Group by hour
+        interval_seconds = 3600
+    elif period in ["7d", "1m"]:
+        # Group by 4 hours
+        interval_seconds = 14400
+    else:
+        # Group by day
+        interval_seconds = 86400
+    
+    # Create time buckets
+    current_time = start_date
+    trade_index = 0
+    
+    while current_time <= now:
+        # Sum all trades in this bucket
+        bucket_end = current_time + timedelta(seconds=interval_seconds)
+        
+        while trade_index < len(trades):
+            trade_time = datetime.fromisoformat(trades[trade_index]['created_at'].replace('Z', '+00:00'))
+            if trade_time < bucket_end:
+                pnl = trades[trade_index].get('result', {}).get('pnl_usd', 0)
+                cumulative_pnl += pnl
+                trade_index += 1
+            else:
+                break
+        
+        history.append({
+            "timestamp": current_time.isoformat(),
+            "time": current_time.strftime("%H:%M" if period == "1d" else "%m/%d"),
+            "value": initial_capital + cumulative_pnl,
+            "pnl": cumulative_pnl
+        })
+        
+        current_time = bucket_end
+    
+    # If no trades, create flat line at initial capital
+    if not history or len(history) < 2:
+        points = 24 if period == "1d" else 7 if period == "7d" else 30
+        history = []
+        for i in range(points):
+            t = start_date + timedelta(seconds=interval_seconds * i)
+            history.append({
+                "timestamp": t.isoformat(),
+                "time": t.strftime("%H:%M" if period == "1d" else "%m/%d"),
+                "value": initial_capital,
+                "pnl": 0
+            })
+    
+    return {
+        "period": period,
+        "initial_capital": initial_capital,
+        "current_value": initial_capital + cumulative_pnl,
+        "total_pnl": cumulative_pnl,
+        "pnl_percent": (cumulative_pnl / initial_capital * 100) if initial_capital > 0 else 0,
+        "history": history
+    }
+
 # ==================== NOTIFICATIONS API ====================
 
 @api_router.get("/notifications")

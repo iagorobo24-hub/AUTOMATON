@@ -292,6 +292,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState(null);
   const [agents, setAgents] = useState([]);
   const [cryptoData, setCryptoData] = useState([]);
+  const [portfolioData, setPortfolioData] = useState([]);
+  const [portfolioStats, setPortfolioStats] = useState(null);
+  const [portfolioPeriod, setPortfolioPeriod] = useState("7d");
   const [loading, setLoading] = useState(true);
   const [agentTab, setAgentTab] = useState("all");
 
@@ -313,24 +316,36 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const fetchPortfolioHistory = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/portfolio/history?period=${portfolioPeriod}`);
+      setPortfolioData(res.data.history || []);
+      setPortfolioStats({
+        initialCapital: res.data.initial_capital,
+        currentValue: res.data.current_value,
+        totalPnl: res.data.total_pnl,
+        pnlPercent: res.data.pnl_percent
+      });
+    } catch (error) {
+      console.error("Error fetching portfolio history:", error);
+    }
+  }, [portfolioPeriod]);
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  useEffect(() => {
+    fetchPortfolioHistory();
+  }, [fetchPortfolioHistory]);
+
   // Generate sparkline data
   const generateSparkline = (base, variance, trend = 0) => 
     Array.from({ length: 12 }, (_, i) => ({
       value: base + (Math.random() - 0.5) * variance + (i * trend)
     }));
-
-  // Portfolio chart data
-  const portfolioData = Array.from({ length: 24 }, (_, i) => ({
-    time: `${i}:00`,
-    value: 1000 + Math.random() * 500 + (i * 20),
-    agents: 800 + Math.random() * 400 + (i * 15)
-  }));
 
   // Agent distribution for pie chart
   const agentDistribution = [
@@ -469,16 +484,27 @@ export default function DashboardPage() {
         <Card className="glass border-white/10 col-span-2 md:col-span-4 lg:col-span-4 xl:col-span-8 row-span-2">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-                Portfolio Performance
-              </CardTitle>
-              <div className="flex gap-2">
-                {['1D', '7D', '1M', 'ALL'].map((period) => (
+              <div className="flex items-center gap-3">
+                <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
+                  Portfolio Performance
+                </CardTitle>
+                {portfolioStats && (
+                  <span className={cn(
+                    "text-xs font-mono",
+                    portfolioStats.totalPnl >= 0 ? "text-cyber-green" : "text-destructive"
+                  )}>
+                    {portfolioStats.totalPnl >= 0 ? "+" : ""}${portfolioStats.totalPnl.toFixed(2)} ({portfolioStats.pnlPercent.toFixed(1)}%)
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-1">
+                {['1d', '7d', '1m', 'all'].map((period) => (
                   <button
                     key={period}
+                    onClick={() => setPortfolioPeriod(period)}
                     className={cn(
-                      "px-2 py-1 text-[10px] font-mono rounded-sm transition-colors",
-                      period === '7D' ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"
+                      "px-2 py-1 text-[10px] font-mono rounded-sm transition-colors uppercase",
+                      period === portfolioPeriod ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"
                     )}
                   >
                     {period}
@@ -493,8 +519,8 @@ export default function DashboardPage() {
                 <AreaChart data={portfolioData}>
                   <defs>
                     <linearGradient id="colorPortfolio" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00F3FF" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#00F3FF" stopOpacity={0}/>
+                      <stop offset="5%" stopColor={portfolioStats?.totalPnl >= 0 ? "#39FF14" : "#FF003C"} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={portfolioStats?.totalPnl >= 0 ? "#39FF14" : "#FF003C"} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
                   <XAxis 
@@ -502,14 +528,15 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: '#666', fontSize: 9 }}
-                    interval={3}
+                    interval="preserveStartEnd"
                   />
                   <YAxis 
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: '#666', fontSize: 9 }}
-                    tickFormatter={(v) => `$${v}`}
+                    tickFormatter={(v) => `$${v.toFixed(0)}`}
                     width={50}
+                    domain={['dataMin - 10', 'dataMax + 10']}
                   />
                   <Tooltip
                     contentStyle={{
@@ -518,11 +545,13 @@ export default function DashboardPage() {
                       borderRadius: '4px',
                       fontSize: '11px'
                     }}
+                    formatter={(value) => [`$${value.toFixed(2)}`, 'Portfolio Value']}
+                    labelFormatter={(label) => `Time: ${label}`}
                   />
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke="#00F3FF"
+                    stroke={portfolioStats?.totalPnl >= 0 ? "#39FF14" : "#FF003C"}
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorPortfolio)"
