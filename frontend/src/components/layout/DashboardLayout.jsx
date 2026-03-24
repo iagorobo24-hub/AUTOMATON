@@ -246,6 +246,7 @@ const CommandPalette = ({ open, onClose }) => {
     { label: "Go to Wallet", action: () => navigate('/wallet'), icon: Wallet },
     { label: "Go to Activity", action: () => navigate('/activity'), icon: Activity },
     { label: "Go to Orchestrator", action: () => navigate('/chat'), icon: MessageSquare },
+    { label: "Go to Settings", action: () => navigate('/settings'), icon: Settings },
     { label: "Deploy New Agent", action: () => navigate('/agents'), icon: Zap },
   ];
 
