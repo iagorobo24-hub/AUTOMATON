@@ -42,7 +42,7 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - Estadísticas de linaje (survival rate, combined ROI)
 
 ## What's Been Implemented
-**Date: 2026-01-12**
+**Date: 2025-12-24**
 
 ### Backend v2.0 (FastAPI + MongoDB)
 - ✅ Schema completo de agentes con 12 colecciones
@@ -56,14 +56,26 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - ✅ Integración Stripe (pagos con tarjeta + crypto)
 - ✅ Chat con Orquestador AI (GPT-4o)
 - ✅ Dashboard stats comprehensivo
+- ✅ **Quick Actions API**: Pause All, Resume All, Emergency Stop
+- ✅ **Portfolio History API**: Datos reales de gráfico basados en trades
+- ✅ **Notifications API**: Sistema completo de notificaciones
 
 ### Frontend (React + Tailwind)
 - ✅ Login page (estilo Electric Void)
-- ✅ Dashboard con métricas, gráficos, crypto ticker
+- ✅ Dashboard Bento Grid con métricas KPI (Win Rate, PnL 24h, Tokens Used)
+- ✅ **Quick Actions Panel**: Deploy, Pause All/Resume, Emergency Stop
+- ✅ **Emergency Stop Dialog**: Modal de confirmación con advertencias
+- ✅ **Command Palette**: Navegación rápida (⌘K) con búsqueda
+- ✅ **System Health Gauge**: Indicador visual del estado del sistema
+- ✅ **Agent Distribution Pie Chart**: Distribución visual de estados
+- ✅ **Portfolio Performance Chart**: Gráfico conectado a datos reales con selector de período
+- ✅ **Notifications Dropdown**: Bell icon con contador de no leídos
 - ✅ Agents page con visualización de generación y clones
 - ✅ Crypto page (lista de coins, charts, trending)
 - ✅ Wallet page (balance, funding, transacciones)
 - ✅ Chat page (conversación con Orquestador AI)
+- ✅ Activity page (feed de actividad filtrable)
+- ✅ Settings page (configuración del sistema)
 
 ### Integraciones
 - ✅ CoinGecko API (datos crypto en tiempo real)
@@ -76,27 +88,33 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - Ninguno pendiente
 
 ### P1 (High Priority)
+- Background worker para snapshots periódicos del portfolio
+- Intervalos granulares en gráfico de portfolio (15min, 1hr)
 - Implementar ejecución real de trades (Binance API)
 - Auto-replicación automática cuando ROI > 50%
 - Sistema de señales activas compartidas entre agentes
-- Background jobs para actualización de market_data
 
 ### P2 (Medium Priority)
+- Dashboard widgets arrastrables/reorganizables
+- Contadores animados al cambiar valores
+- Animaciones especiales (confeti para replicación, shake para agentes dying)
+- Árbol visual de jerarquía de agentes (family tree)
 - Alpha Vantage para análisis técnico avanzado
 - Múltiples LLMs (Claude, Gemini) con selección automática
-- Sistema de oportunidades de negocio detectadas
 - Alertas de precio crypto personalizables
-- Notificaciones cuando agentes están "dying"
 
 ### P3 (Nice to have)
 - Backtesting de estrategias
-- Modo oscuro/claro toggle
 - Exportar datos a CSV
 - Webhooks para eventos de agentes
 - API pública documentada
 
 ## Next Tasks
-1. Conectar con exchange real (Binance) para ejecutar trades
-2. Implementar background worker para auto-replicación
-3. Sistema de señales compartidas entre agentes
-4. Visualización del árbol genealógico en el frontend
+1. Implementar background worker para snapshots periódicos del portfolio
+2. Añadir intervalos granulares al gráfico (15 min, 1 hora, 24 horas)
+3. Implementar árbol visual de jerarquía de agentes
+4. Conectar con exchange real (Binance) para ejecutar trades
+
+## Refactoring Pendiente
+- Dividir `server.py` en routers más pequeños (`/routers/agents.py`, `/routers/dashboard.py`)
+- Extraer tarjetas de métricas del dashboard en componente reutilizable
