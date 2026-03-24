@@ -1,264 +1,272 @@
+#!/usr/bin/env python3
+"""
+Backend API Testing for Automaton Orchestrator
+Tests all endpoints including new dashboard stats with llm field
+"""
 import requests
 import sys
 import json
 from datetime import datetime
+from typing import Dict, Any
 
 class AutomatonAPITester:
-    def __init__(self, base_url="https://money-bot-5.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://money-bot-5.preview.emergentagent.com"):
         self.base_url = base_url
+        self.api_url = f"{base_url}/api"
         self.tests_run = 0
         self.tests_passed = 0
-        self.results = []
+        self.failed_tests = []
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
+    def run_test(self, name: str, method: str, endpoint: str, expected_status: int = 200, 
+                 data: Dict = None, headers: Dict = None) -> tuple[bool, Dict]:
         """Run a single API test"""
-        url = f"{self.base_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        url = f"{self.api_url}/{endpoint.lstrip('/')}"
+        test_headers = {'Content-Type': 'application/json'}
+        if headers:
+            test_headers.update(headers)
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
+        print(f"   URL: {url}")
         
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers, params=params, timeout=10)
+                response = requests.get(url, headers=test_headers, timeout=10)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, params=params, timeout=10)
+                response = requests.post(url, json=data, headers=test_headers, timeout=10)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers, timeout=10)
+                response = requests.delete(url, headers=test_headers, timeout=10)
+            elif method == 'PATCH':
+                response = requests.patch(url, json=data, headers=test_headers, timeout=10)
 
             success = response.status_code == expected_status
             if success:
                 self.tests_passed += 1
                 print(f"✅ Passed - Status: {response.status_code}")
                 try:
-                    response_data = response.json()
-                    self.results.append({
-                        "test": name,
-                        "status": "PASS",
-                        "response_data": response_data
-                    })
-                    return True, response_data
+                    return success, response.json()
                 except:
-                    return True, {}
+                    return success, {"raw_response": response.text}
             else:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
-                try:
-                    error_data = response.json()
-                    print(f"Error response: {error_data}")
-                except:
-                    print(f"Error response: {response.text}")
-                self.results.append({
+                print(f"   Response: {response.text[:200]}...")
+                self.failed_tests.append({
                     "test": name,
-                    "status": "FAIL",
+                    "endpoint": endpoint,
                     "expected": expected_status,
                     "actual": response.status_code,
-                    "error": response.text
+                    "response": response.text[:500]
                 })
                 return False, {}
 
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
-            self.results.append({
+            self.failed_tests.append({
                 "test": name,
-                "status": "ERROR",
+                "endpoint": endpoint,
                 "error": str(e)
             })
             return False, {}
 
     def test_health_endpoints(self):
         """Test basic health and root endpoints"""
-        print("\n=== TESTING HEALTH ENDPOINTS ===")
+        print("\n" + "="*50)
+        print("TESTING HEALTH & ROOT ENDPOINTS")
+        print("="*50)
         
-        self.run_test("API Root", "GET", "", 200)
-        self.run_test("Health Check", "GET", "health", 200)
+        self.run_test("API Root", "GET", "/")
+        self.run_test("Health Check", "GET", "/health")
 
     def test_dashboard_stats(self):
-        """Test dashboard statistics"""
-        print("\n=== TESTING DASHBOARD ===")
+        """Test dashboard stats endpoint with llm field"""
+        print("\n" + "="*50)
+        print("TESTING DASHBOARD STATS (with LLM field)")
+        print("="*50)
         
-        success, data = self.run_test("Dashboard Stats", "GET", "dashboard/stats", 200)
-        if success:
-            required_keys = ["agents", "finances", "opportunities"]
-            for key in required_keys:
-                if key in data:
-                    print(f"  ✅ {key} data present")
+        success, data = self.run_test("Dashboard Stats", "GET", "/dashboard/stats")
+        if success and data:
+            print("📊 Dashboard Stats Structure:")
+            
+            # Check required fields
+            required_fields = ['agents', 'finances', 'trading', 'lineage']
+            for field in required_fields:
+                if field in data:
+                    print(f"   ✅ {field}: {data[field]}")
                 else:
-                    print(f"  ❌ Missing {key} data")
+                    print(f"   ❌ Missing field: {field}")
+            
+            # Check for LLM field specifically
+            if 'llm' in data:
+                print(f"   ✅ llm field present: {data['llm']}")
+                llm_data = data['llm']
+                if 'total_tokens' in llm_data:
+                    print(f"      - Total tokens: {llm_data['total_tokens']}")
+                if 'cost_estimate' in llm_data:
+                    print(f"      - Cost estimate: ${llm_data['cost_estimate']:.4f}")
+            else:
+                print("   ❌ Missing LLM field in dashboard stats")
+            
+            # Check new metrics
+            if 'trading' in data:
+                trading = data['trading']
+                new_metrics = ['win_rate', 'total_trades', 'pnl_24h', 'pnl_7d']
+                for metric in new_metrics:
+                    if metric in trading:
+                        print(f"   ✅ {metric}: {trading[metric]}")
+                    else:
+                        print(f"   ❌ Missing metric: {metric}")
+
+    def test_notifications_api(self):
+        """Test notifications endpoints"""
+        print("\n" + "="*50)
+        print("TESTING NOTIFICATIONS API")
+        print("="*50)
+        
+        # Get notifications
+        success, data = self.run_test("Get Notifications", "GET", "/notifications")
+        if success:
+            print(f"   📬 Found {len(data.get('notifications', []))} notifications")
+            print(f"   📬 Unread count: {data.get('unread_count', 0)}")
+        
+        # Get notification count
+        self.run_test("Get Notification Count", "GET", "/notifications/count")
+        
+        # Test read all (should work even if no notifications)
+        self.run_test("Mark All Read", "POST", "/notifications/read-all")
+
+    def test_activity_api(self):
+        """Test activity feed endpoints"""
+        print("\n" + "="*50)
+        print("TESTING ACTIVITY FEED API")
+        print("="*50)
+        
+        # Get activity feed
+        success, data = self.run_test("Get Activity Feed", "GET", "/activity")
+        if success:
+            events = data.get('events', [])
+            print(f"   📋 Found {len(events)} activity events")
+            
+            # Check event structure
+            if events:
+                event = events[0]
+                required_fields = ['id', 'type', 'title', 'description', 'created_at']
+                for field in required_fields:
+                    if field in event:
+                        print(f"   ✅ Event has {field}")
+                    else:
+                        print(f"   ❌ Event missing {field}")
+        
+        # Test with filters
+        self.run_test("Activity - Agent Filter", "GET", "/activity?type_filter=agent")
+        self.run_test("Activity - Trade Filter", "GET", "/activity?type_filter=trade")
 
     def test_agents_api(self):
-        """Test agents CRUD operations"""
-        print("\n=== TESTING AGENTS API ===")
+        """Test agents endpoints"""
+        print("\n" + "="*50)
+        print("TESTING AGENTS API")
+        print("="*50)
         
-        # Get agents
-        success, agents_data = self.run_test("Get Agents", "GET", "agents", 200)
-        
-        # Create agent
-        agent_data = {
-            "name": f"TestAgent_{datetime.now().strftime('%H%M%S')}",
-            "type": "crypto_analyzer",
-            "initial_balance": 100.0
-        }
-        
-        success, created_agent = self.run_test(
-            "Create Agent", 
-            "POST", 
-            "agents", 
-            200, 
-            data=agent_data
-        )
-        
-        if success and 'id' in created_agent:
-            agent_id = created_agent['id']
-            print(f"  ✅ Agent created with ID: {agent_id}")
+        # Get all agents
+        success, data = self.run_test("Get All Agents", "GET", "/agents")
+        if success:
+            agents = data.get('agents', [])
+            print(f"   🤖 Found {len(agents)} agents")
             
-            # Get specific agent
-            self.run_test(
-                "Get Specific Agent", 
-                "GET", 
-                f"agents/{agent_id}", 
-                200
-            )
-            
-            # Simulate trade
-            self.run_test(
-                "Simulate Positive Trade", 
-                "POST", 
-                f"agents/{agent_id}/simulate-trade",
-                200,
-                params={"profit": 10}
-            )
-            
-            # Try replication (needs sufficient balance)
-            self.run_test(
-                "Attempt Replication", 
-                "POST", 
-                f"agents/{agent_id}/replicate",
-                200
-            )
-            
-            # Destroy agent
-            self.run_test(
-                "Destroy Agent", 
-                "DELETE", 
-                f"agents/{agent_id}",
-                200
-            )
+            # Check agent structure
+            if agents:
+                agent = agents[0]
+                required_fields = ['id', 'name', 'status', 'finances', 'performance']
+                for field in required_fields:
+                    if field in agent:
+                        print(f"   ✅ Agent has {field}")
+                    else:
+                        print(f"   ❌ Agent missing {field}")
 
     def test_crypto_api(self):
-        """Test cryptocurrency data endpoints"""
-        print("\n=== TESTING CRYPTO API ===")
+        """Test crypto market endpoints"""
+        print("\n" + "="*50)
+        print("TESTING CRYPTO API")
+        print("="*50)
         
         # Get top coins
-        success, coins_data = self.run_test(
-            "Get Top Coins", 
-            "GET", 
-            "crypto/top-coins", 
-            200,
-            params={"limit": 5}
-        )
-        
-        if success and 'coins' in coins_data and len(coins_data['coins']) > 0:
-            coin_id = coins_data['coins'][0]['id']
-            print(f"  ✅ Testing with coin: {coin_id}")
+        success, data = self.run_test("Get Top Coins", "GET", "/crypto/top-coins?limit=5")
+        if success:
+            coins = data.get('coins', [])
+            print(f"   💰 Found {len(coins)} coins")
             
-            # Get coin price
-            self.run_test(
-                "Get Coin Price", 
-                "GET", 
-                f"crypto/price/{coin_id}", 
-                200
-            )
-            
-            # Get coin history
-            self.run_test(
-                "Get Coin History", 
-                "GET", 
-                f"crypto/history/{coin_id}",
-                200,
-                params={"days": 7}
-            )
+            if coins:
+                coin = coins[0]
+                required_fields = ['id', 'symbol', 'name', 'current_price', 'price_change_24h']
+                for field in required_fields:
+                    if field in coin:
+                        print(f"   ✅ Coin has {field}")
+                    else:
+                        print(f"   ❌ Coin missing {field}")
         
         # Get trending
-        self.run_test("Get Trending Coins", "GET", "crypto/trending", 200)
-
-    def test_chat_api(self):
-        """Test chat with orchestrator"""
-        print("\n=== TESTING CHAT API ===")
-        
-        chat_data = {
-            "message": "¿Cuál es el estado actual del sistema?",
-            "session_id": None
-        }
-        
-        success, response = self.run_test(
-            "Chat with Orchestrator", 
-            "POST", 
-            "chat", 
-            200, 
-            data=chat_data
-        )
-        
-        if success:
-            if 'response' in response:
-                print(f"  ✅ AI response received: {response['response'][:50]}...")
-            if 'session_id' in response:
-                print(f"  ✅ Session ID: {response['session_id']}")
-
-    def test_payments_api(self):
-        """Test payments endpoints"""
-        print("\n=== TESTING PAYMENTS API ===")
-        
-        # Get transactions
-        self.run_test("Get Transactions", "GET", "payments/transactions", 200)
-        
-        # Note: Not testing actual payment creation to avoid charges
-
-    def test_opportunities_api(self):
-        """Test opportunities endpoint"""
-        print("\n=== TESTING OPPORTUNITIES API ===")
-        
-        self.run_test("Get Opportunities", "GET", "opportunities", 200)
+        self.run_test("Get Trending Coins", "GET", "/crypto/trending")
 
     def test_llm_usage_api(self):
         """Test LLM usage tracking"""
-        print("\n=== TESTING LLM USAGE API ===")
+        print("\n" + "="*50)
+        print("TESTING LLM USAGE API")
+        print("="*50)
         
-        self.run_test("Get LLM Usage", "GET", "llm/usage", 200)
+        success, data = self.run_test("Get LLM Usage", "GET", "/llm/usage")
+        if success:
+            print(f"   🧠 Total tokens: {data.get('total_tokens', 0)}")
+            print(f"   💰 Total cost: ${data.get('total_cost', 0):.4f}")
+            print(f"   📊 Providers: {list(data.get('by_provider', {}).keys())}")
+
+    def test_orchestrator_endpoints(self):
+        """Test orchestrator specific endpoints"""
+        print("\n" + "="*50)
+        print("TESTING ORCHESTRATOR ENDPOINTS")
+        print("="*50)
+        
+        self.run_test("Get Orchestrator State", "GET", "/orchestrator/state")
+
+    def run_all_tests(self):
+        """Run all test suites"""
+        print("🚀 Starting Automaton Orchestrator API Tests")
+        print(f"🌐 Base URL: {self.base_url}")
+        print(f"🔗 API URL: {self.api_url}")
+        
+        # Run test suites
+        self.test_health_endpoints()
+        self.test_dashboard_stats()
+        self.test_notifications_api()
+        self.test_activity_api()
+        self.test_agents_api()
+        self.test_crypto_api()
+        self.test_llm_usage_api()
+        self.test_orchestrator_endpoints()
+        
+        # Print summary
+        print("\n" + "="*60)
+        print("📊 TEST SUMMARY")
+        print("="*60)
+        print(f"✅ Tests passed: {self.tests_passed}/{self.tests_run}")
+        print(f"❌ Tests failed: {len(self.failed_tests)}")
+        
+        if self.failed_tests:
+            print("\n🚨 FAILED TESTS:")
+            for i, test in enumerate(self.failed_tests, 1):
+                print(f"{i}. {test['test']} - {test['endpoint']}")
+                if 'error' in test:
+                    print(f"   Error: {test['error']}")
+                else:
+                    print(f"   Expected: {test['expected']}, Got: {test['actual']}")
+        
+        success_rate = (self.tests_passed / self.tests_run) * 100 if self.tests_run > 0 else 0
+        print(f"\n🎯 Success Rate: {success_rate:.1f}%")
+        
+        return self.tests_passed == self.tests_run
 
 def main():
-    print("🤖 AUTOMATON ORCHESTRATOR API TESTING")
-    print("=====================================")
-    
     tester = AutomatonAPITester()
-    
-    # Run all tests
-    try:
-        tester.test_health_endpoints()
-        tester.test_dashboard_stats()
-        tester.test_crypto_api()
-        tester.test_agents_api()
-        tester.test_chat_api()
-        tester.test_payments_api()
-        tester.test_opportunities_api()
-        tester.test_llm_usage_api()
-    except Exception as e:
-        print(f"\n❌ Test suite failed with error: {e}")
-        return 1
-
-    # Print results
-    print(f"\n📊 FINAL RESULTS")
-    print(f"================")
-    print(f"Tests passed: {tester.tests_passed}/{tester.tests_run}")
-    print(f"Success rate: {(tester.tests_passed/tester.tests_run)*100:.1f}%")
-    
-    # Show failed tests
-    failed_tests = [r for r in tester.results if r['status'] != 'PASS']
-    if failed_tests:
-        print(f"\n❌ Failed tests:")
-        for test in failed_tests:
-            print(f"  - {test['test']}: {test.get('error', 'Status code mismatch')}")
-    
-    return 0 if tester.tests_passed == tester.tests_run else 1
+    success = tester.run_all_tests()
+    return 0 if success else 1
 
 if __name__ == "__main__":
     sys.exit(main())

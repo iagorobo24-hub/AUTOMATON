@@ -21,6 +21,7 @@ from models import (
     RiskProfile, OrchestratorState
 )
 from database import DatabaseService
+from notifications import NotificationService, NotificationType
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -30,8 +31,9 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Initialize database service
+# Initialize services
 db_service = DatabaseService(db)
+notification_service = NotificationService(db)
 
 # Create the main app
 app = FastAPI(
@@ -154,6 +156,14 @@ async def get_agents(status: Optional[str] = None):
 async def create_agent(request: AgentCreateRequest):
     """Create a new agent with full schema"""
     agent = await db_service.create_agent(request)
+    
+    # Send notification
+    await notification_service.notify_agent_created(
+        agent.id, 
+        agent.name, 
+        request.initial_capital
+    )
+    
     return agent.model_dump()
 
 @api_router.get("/agents/{agent_id}")
@@ -171,9 +181,18 @@ async def replicate_agent(agent_id: str, request: AgentReplicateRequest = None):
         request = AgentReplicateRequest()
     
     try:
+        parent = await db_service.get_agent(agent_id)
         child = await db_service.replicate_agent(agent_id, request)
         if not child:
             raise HTTPException(status_code=404, detail="Parent agent not found")
+        
+        # Send notification
+        await notification_service.notify_agent_replicated(
+            parent['name'],
+            child.name,
+            child.id,
+            child.finances.current_balance
+        )
         
         return {
             "parent_id": agent_id,
@@ -529,7 +548,90 @@ async def get_dashboard_stats():
     # Update orchestrator metrics
     await db_service.update_orchestrator_metrics()
     
+    # Get LLM usage stats
+    llm_usage = await db.llm_usage.find({}, {"_id": 0}).to_list(1000)
+    total_tokens = sum(u.get("tokens_used", 0) for u in llm_usage)
+    
+    # Calculate PnL periods
+    trades = await db_service.get_all_trades(limit=1000)
+    now = datetime.now(timezone.utc)
+    
+    pnl_24h = sum(
+        t.get('result', {}).get('pnl_usd', 0) 
+        for t in trades 
+        if t.get('created_at') and (now - datetime.fromisoformat(t['created_at'].replace('Z', '+00:00'))).days < 1
+    )
+    
+    pnl_7d = sum(
+        t.get('result', {}).get('pnl_usd', 0) 
+        for t in trades 
+        if t.get('created_at') and (now - datetime.fromisoformat(t['created_at'].replace('Z', '+00:00'))).days < 7
+    )
+    
+    # Add extended stats
+    stats["trading"]["pnl_24h"] = pnl_24h
+    stats["trading"]["pnl_7d"] = pnl_7d
+    stats["llm"] = {
+        "total_tokens": total_tokens,
+        "total_calls": len(llm_usage),
+        "cost_estimate": total_tokens * 0.00001  # Rough estimate
+    }
+    
     return stats
+
+# ==================== NOTIFICATIONS API ====================
+
+@api_router.get("/notifications")
+async def get_notifications(unread_only: bool = False, limit: int = 50):
+    """Get notifications"""
+    notifications = await notification_service.get_notifications(unread_only, limit)
+    unread_count = await notification_service.get_unread_count()
+    return {
+        "notifications": notifications,
+        "unread_count": unread_count
+    }
+
+@api_router.get("/notifications/count")
+async def get_notification_count():
+    """Get unread notification count"""
+    count = await notification_service.get_unread_count()
+    return {"unread_count": count}
+
+@api_router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str):
+    """Mark a notification as read"""
+    success = await notification_service.mark_as_read(notification_id)
+    return {"success": success}
+
+@api_router.post("/notifications/read-all")
+async def mark_all_notifications_read():
+    """Mark all notifications as read"""
+    count = await notification_service.mark_all_as_read()
+    return {"marked_count": count}
+
+@api_router.delete("/notifications/{notification_id}")
+async def dismiss_notification(notification_id: str):
+    """Dismiss/delete a notification"""
+    success = await notification_service.dismiss_notification(notification_id)
+    return {"success": success}
+
+@api_router.delete("/notifications")
+async def dismiss_all_notifications():
+    """Dismiss all notifications"""
+    count = await notification_service.dismiss_all()
+    return {"dismissed_count": count}
+
+# ==================== ACTIVITY FEED API ====================
+
+@api_router.get("/activity")
+async def get_activity_feed(
+    agent_id: Optional[str] = None,
+    type_filter: Optional[str] = None,
+    limit: int = 100
+):
+    """Get activity feed"""
+    events = await notification_service.get_activity_feed(agent_id, type_filter, limit)
+    return {"events": events}
 
 # ==================== ORCHESTRATOR STATE ====================
 

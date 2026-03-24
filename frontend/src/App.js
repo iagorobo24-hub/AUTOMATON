@@ -9,6 +9,8 @@ import AgentsPage from "@/pages/AgentsPage";
 import CryptoPage from "@/pages/CryptoPage";
 import WalletPage from "@/pages/WalletPage";
 import ChatPage from "@/pages/ChatPage";
+import ActivityPage from "@/pages/ActivityPage";
+import SettingsPage from "@/pages/SettingsPage";
 
 // Layout
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -25,7 +27,9 @@ function App() {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="crypto" element={<CryptoPage />} />
             <Route path="wallet" element={<WalletPage />} />
+            <Route path="activity" element={<ActivityPage />} />
             <Route path="chat" element={<ChatPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
