@@ -600,16 +600,16 @@ async def get_dashboard_stats():
 
 @api_router.post("/agents/pause-all")
 async def pause_all_agents():
-    """Pause all active agents"""
+    """Pausar todos los agentes activos"""
     agents = await db_service.get_agents(status=AgentStatus.ACTIVE)
     paused_count = 0
     
     for agent in agents:
-        await db_service.update_agent_status(agent['id'], AgentStatus.PAUSED, reason="bulk_pause")
+        await db_service.update_agent_status(agent['id'], AgentStatus.PAUSED, reason="pausa_masiva")
         await notification_service.log_activity(
             type="agent_paused",
-            title="Agent Paused",
-            description=f"{agent['name']} paused by bulk action",
+            title="Agente Pausado",
+            description=f"{agent['name']} pausado por acción masiva",
             icon="pause",
             color="yellow",
             agent_id=agent['id'],
@@ -620,8 +620,8 @@ async def pause_all_agents():
     if paused_count > 0:
         await notification_service.create_notification(
             type="system_info",
-            title="All Agents Paused",
-            message=f"{paused_count} agents have been paused",
+            title="Todos los Agentes Pausados",
+            message=f"{paused_count} agentes han sido pausados",
             icon="pause",
             color="yellow",
             priority="high"
@@ -630,7 +630,7 @@ async def pause_all_agents():
     return {
         "success": True,
         "paused_count": paused_count,
-        "message": f"Paused {paused_count} agents"
+        "message": f"{paused_count} agentes pausados"
     }
 
 @api_router.post("/agents/resume-all")
@@ -646,8 +646,8 @@ async def resume_all_agents():
     if resumed_count > 0:
         await notification_service.create_notification(
             type="system_info",
-            title="Agents Resumed",
-            message=f"{resumed_count} agents have been resumed",
+            title="Agentes Reanudados",
+            message=f"{resumed_count} agentes han sido reanudados",
             icon="play",
             color="green",
             priority="medium"
@@ -656,17 +656,17 @@ async def resume_all_agents():
     return {
         "success": True,
         "resumed_count": resumed_count,
-        "message": f"Resumed {resumed_count} agents"
+        "message": f"{resumed_count} agentes reanudados"
     }
 
 @api_router.post("/agents/emergency-stop")
 async def emergency_stop_all_agents(confirm: bool = Query(default=False)):
-    """Emergency stop - terminates ALL agents immediately. Requires confirmation."""
+    """Parada de emergencia - termina TODOS los agentes inmediatamente. Requiere confirmación."""
     if not confirm:
         return {
             "success": False,
             "error": "confirmation_required",
-            "message": "This action will TERMINATE ALL AGENTS. Add ?confirm=true to proceed."
+            "message": "Esta acción TERMINARÁ TODOS LOS AGENTES. Añade ?confirm=true para proceder."
         }
     
     # Get all non-dead agents
@@ -680,15 +680,15 @@ async def emergency_stop_all_agents(confirm: bool = Query(default=False)):
         balance = agent.get('finances', {}).get('current_balance', 0) or agent.get('balance', 0)
         total_balance_lost += balance
         
-        await db_service.update_agent_status(agent['id'], AgentStatus.DEAD, reason="emergency_stop")
-        await notification_service.notify_agent_dead(agent['id'], agent['name'], "emergency_stop")
+        await db_service.update_agent_status(agent['id'], AgentStatus.DEAD, reason="parada_emergencia")
+        await notification_service.notify_agent_dead(agent['id'], agent['name'], "parada_emergencia")
         terminated_count += 1
     
     # Create critical notification
     await notification_service.create_notification(
         type="system_info",
-        title="EMERGENCY STOP EXECUTED",
-        message=f"{terminated_count} agents terminated. Total balance affected: ${total_balance_lost:.2f}",
+        title="¡PARADA DE EMERGENCIA EJECUTADA!",
+        message=f"{terminated_count} agentes terminados. Balance total afectado: ${total_balance_lost:.2f}",
         icon="alert-triangle",
         color="red",
         priority="critical"
@@ -698,7 +698,7 @@ async def emergency_stop_all_agents(confirm: bool = Query(default=False)):
         "success": True,
         "terminated_count": terminated_count,
         "total_balance_affected": total_balance_lost,
-        "message": f"Emergency stop executed. {terminated_count} agents terminated."
+        "message": f"Parada de emergencia ejecutada. {terminated_count} agentes terminados."
     }
 
 # ==================== PORTFOLIO HISTORY API ====================

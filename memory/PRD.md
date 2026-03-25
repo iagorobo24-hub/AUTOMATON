@@ -69,13 +69,15 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - ✅ **System Health Gauge**: Indicador visual del estado del sistema
 - ✅ **Agent Distribution Pie Chart**: Distribución visual de estados
 - ✅ **Portfolio Performance Chart**: Gráfico conectado a datos reales con selector de período
-- ✅ **Notifications Dropdown**: Bell icon con contador de no leídos
+- ✅ **Notifications Dropdown**: Bell icon con botones Read All, Clear y X funcionales
 - ✅ Agents page con visualización de generación y clones
 - ✅ Crypto page (lista de coins, charts, trending)
 - ✅ Wallet page (balance, funding, transacciones)
 - ✅ Chat page (conversación con Orquestador AI)
 - ✅ Activity page (feed de actividad filtrable)
 - ✅ Settings page (configuración del sistema)
+- ✅ **Animaciones del Dashboard**: Contadores animados, confeti para replicación, shake para dying
+- ✅ **Traducción completa al Castellano**: Toda la UI traducida con coherencia
 
 ### Integraciones
 - ✅ CoinGecko API (datos crypto en tiempo real)
@@ -96,8 +98,6 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 
 ### P2 (Medium Priority)
 - Dashboard widgets arrastrables/reorganizables
-- Contadores animados al cambiar valores
-- Animaciones especiales (confeti para replicación, shake para agentes dying)
 - Árbol visual de jerarquía de agentes (family tree)
 - Alpha Vantage para análisis técnico avanzado
 - Múltiples LLMs (Claude, Gemini) con selección automática

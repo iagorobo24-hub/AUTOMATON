@@ -86,15 +86,15 @@ const ActivityEventCard = ({ event, onClick }) => {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
     
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
-    return date.toLocaleDateString();
+    if (seconds < 60) return 'Ahora mismo';
+    if (seconds < 3600) return `Hace ${Math.floor(seconds / 60)} min`;
+    if (seconds < 86400) return `Hace ${Math.floor(seconds / 3600)} horas`;
+    if (seconds < 604800) return `Hace ${Math.floor(seconds / 86400)} días`;
+    return date.toLocaleDateString('es-ES');
   };
 
   const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString([], { 
+    return new Date(dateString).toLocaleTimeString('es-ES', { 
       hour: '2-digit', 
       minute: '2-digit' 
     });
@@ -165,10 +165,10 @@ const ActivityStats = ({ events }) => {
   const replications = events.filter(e => e.type === 'agent_replicated');
   
   const stats = [
-    { label: "Today's Events", value: todayEvents.length, color: "primary" },
+    { label: "Eventos Hoy", value: todayEvents.length, color: "primary" },
     { label: "Total Trades", value: trades.length, color: "purple" },
-    { label: "Winning Trades", value: wins.length, color: "green" },
-    { label: "Replications", value: replications.length, color: "green" }
+    { label: "Trades Ganados", value: wins.length, color: "green" },
+    { label: "Replicaciones", value: replications.length, color: "green" }
   ];
 
   return (
@@ -215,7 +215,7 @@ const TimelineView = ({ events, onNavigate }) => {
             </div>
             <div className="flex-1 h-px bg-white/10" />
             <span className="text-[10px] text-muted-foreground">
-              {dateEvents.length} events
+              {dateEvents.length} eventos
             </span>
           </div>
           <div className="space-y-2 pl-4 border-l border-white/10">
@@ -275,10 +275,10 @@ export default function ActivityPage() {
 
   // Filter tabs
   const filterTabs = [
-    { value: "all", label: "All Activity" },
-    { value: "agent", label: "Agents" },
+    { value: "all", label: "Toda la Actividad" },
+    { value: "agent", label: "Agentes" },
     { value: "trade", label: "Trades" },
-    { value: "alert", label: "Alerts" }
+    { value: "alert", label: "Alertas" }
   ];
 
   const getFilteredByTab = (events, tab) => {
@@ -295,10 +295,10 @@ export default function ActivityPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Activity Feed
+            Feed de Actividad
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            System events and notifications history
+            Historial de eventos y notificaciones del sistema
           </p>
         </div>
         
@@ -306,7 +306,7 @@ export default function ActivityPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search events..."
+              placeholder="Buscar eventos..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-black/50 border-white/10 w-48"
@@ -318,8 +318,8 @@ export default function ActivityPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="glass border-white/10">
-              <SelectItem value="list">List View</SelectItem>
-              <SelectItem value="timeline">Timeline</SelectItem>
+              <SelectItem value="list">Vista Lista</SelectItem>
+              <SelectItem value="timeline">Línea Temporal</SelectItem>
             </SelectContent>
           </Select>
           
@@ -330,7 +330,7 @@ export default function ActivityPage() {
             className="border-white/20"
           >
             <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-            Refresh
+            Actualizar
           </Button>
         </div>
       </div>
@@ -387,11 +387,11 @@ export default function ActivityPage() {
                 ) : (
                   <div className="text-center py-16">
                     <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-                    <h3 className="font-heading text-lg mb-2">No Activity Yet</h3>
+                    <h3 className="font-heading text-lg mb-2">Sin Actividad Aún</h3>
                     <p className="text-sm text-muted-foreground">
                       {tab.value === "all" 
-                        ? "Events will appear here as your agents operate"
-                        : `No ${tab.label.toLowerCase()} events found`
+                        ? "Los eventos aparecerán aquí mientras tus agentes operan"
+                        : `No se encontraron eventos de ${tab.label.toLowerCase()}`
                       }
                     </p>
                   </div>

@@ -97,7 +97,7 @@ export default function SettingsPage() {
     setSaving(true);
     // Simulate save
     await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success("Settings saved successfully");
+    toast.success("Ajustes guardados correctamente");
     setSaving(false);
   };
 
@@ -111,10 +111,10 @@ export default function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Settings
+            Ajustes
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure system preferences and defaults
+            Configura preferencias del sistema y valores por defecto
           </p>
         </div>
         
@@ -128,7 +128,7 @@ export default function SettingsPage() {
           ) : (
             <Save className="w-4 h-4 mr-2" />
           )}
-          Save Changes
+          Guardar Cambios
         </Button>
       </div>
 
@@ -136,11 +136,11 @@ export default function SettingsPage() {
         <TabsList className="bg-white/5 border border-white/10">
           <TabsTrigger value="notifications" className="data-[state=active]:bg-primary/20">
             <Bell className="w-4 h-4 mr-2" />
-            Notifications
+            Notificaciones
           </TabsTrigger>
           <TabsTrigger value="agents" className="data-[state=active]:bg-primary/20">
             <Bot className="w-4 h-4 mr-2" />
-            Agents
+            Agentes
           </TabsTrigger>
           <TabsTrigger value="trading" className="data-[state=active]:bg-primary/20">
             <Zap className="w-4 h-4 mr-2" />
@@ -148,7 +148,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="system" className="data-[state=active]:bg-primary/20">
             <Database className="w-4 h-4 mr-2" />
-            System
+            Sistema
           </TabsTrigger>
         </TabsList>
 
@@ -156,12 +156,12 @@ export default function SettingsPage() {
         <TabsContent value="notifications" className="space-y-6">
           <SettingsSection
             icon={Bell}
-            title="Notification Preferences"
-            description="Control which events trigger notifications"
+            title="Preferencias de Notificación"
+            description="Controla qué eventos generan notificaciones"
           >
             <SettingRow 
-              label="Trade Notifications" 
-              description="Notify on trade open/close events"
+              label="Notificaciones de Trade" 
+              description="Notificar al abrir/cerrar trades"
             >
               <Switch 
                 checked={settings.notifyOnTrade}
@@ -170,8 +170,8 @@ export default function SettingsPage() {
             </SettingRow>
             
             <SettingRow 
-              label="Replication Events" 
-              description="Notify when agents replicate"
+              label="Eventos de Replicación" 
+              description="Notificar cuando los agentes se replican"
             >
               <Switch 
                 checked={settings.notifyOnReplication}
@@ -180,8 +180,8 @@ export default function SettingsPage() {
             </SettingRow>
             
             <SettingRow 
-              label="Risk Alerts" 
-              description="Notify when agents are at risk"
+              label="Alertas de Riesgo" 
+              description="Notificar cuando los agentes están en riesgo"
             >
               <Switch 
                 checked={settings.notifyOnRisk}
@@ -190,8 +190,8 @@ export default function SettingsPage() {
             </SettingRow>
             
             <SettingRow 
-              label="Opportunity Alerts" 
-              description="Notify on detected trading opportunities"
+              label="Alertas de Oportunidad" 
+              description="Notificar oportunidades de trading detectadas"
             >
               <Switch 
                 checked={settings.notifyOnOpportunity}
@@ -200,8 +200,8 @@ export default function SettingsPage() {
             </SettingRow>
             
             <SettingRow 
-              label="Email Notifications" 
-              description="Send notifications to email (requires setup)"
+              label="Notificaciones por Email" 
+              description="Enviar notificaciones por email (requiere configuración)"
             >
               <Switch 
                 checked={settings.emailNotifications}
@@ -216,10 +216,10 @@ export default function SettingsPage() {
         <TabsContent value="agents" className="space-y-6">
           <SettingsSection
             icon={Bot}
-            title="Agent Defaults"
-            description="Default settings for new agents"
+            title="Configuración de Agentes"
+            description="Ajustes por defecto para nuevos agentes"
           >
-            <SettingRow label="Default Initial Capital">
+            <SettingRow label="Capital Inicial por Defecto">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">$</span>
                 <Input
@@ -231,7 +231,7 @@ export default function SettingsPage() {
               </div>
             </SettingRow>
             
-            <SettingRow label="Default Risk Level">
+            <SettingRow label="Nivel de Riesgo por Defecto">
               <Select 
                 value={settings.defaultRiskLevel}
                 onValueChange={(value) => updateSetting('defaultRiskLevel', value)}
@@ -240,9 +240,9 @@ export default function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass border-white/10">
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="low">Bajo</SelectItem>
+                  <SelectItem value="medium">Medio</SelectItem>
+                  <SelectItem value="high">Alto</SelectItem>
                 </SelectContent>
               </Select>
             </SettingRow>
@@ -250,12 +250,12 @@ export default function SettingsPage() {
 
           <SettingsSection
             icon={Zap}
-            title="Auto-Replication"
-            description="Configure automatic agent replication"
+            title="Auto-Replicación"
+            description="Configurar replicación automática de agentes"
           >
             <SettingRow 
-              label="Enable Auto-Replication" 
-              description="Automatically replicate successful agents"
+              label="Habilitar Auto-Replicación" 
+              description="Replicar automáticamente agentes exitosos"
             >
               <Switch 
                 checked={settings.autoReplicate}
@@ -264,8 +264,8 @@ export default function SettingsPage() {
             </SettingRow>
             
             <SettingRow 
-              label="Replication Threshold" 
-              description={`Replicate when ROI reaches ${settings.replicationThreshold}%`}
+              label="Umbral de Replicación" 
+              description={`Replicar cuando ROI alcance ${settings.replicationThreshold}%`}
             >
               <div className="flex items-center gap-4 w-48">
                 <Slider
@@ -285,12 +285,12 @@ export default function SettingsPage() {
 
           <SettingsSection
             icon={Shield}
-            title="Auto-Termination"
-            description="Configure automatic agent termination"
+            title="Auto-Terminación"
+            description="Configurar terminación automática de agentes"
           >
             <SettingRow 
-              label="Enable Auto-Termination" 
-              description="Automatically terminate failing agents"
+              label="Habilitar Auto-Terminación" 
+              description="Terminar automáticamente agentes que fallen"
             >
               <Switch 
                 checked={settings.autoTerminate}
@@ -298,7 +298,7 @@ export default function SettingsPage() {
               />
             </SettingRow>
             
-            <SettingRow label="Termination Balance">
+            <SettingRow label="Balance de Terminación">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">$</span>
                 <Input
@@ -316,10 +316,10 @@ export default function SettingsPage() {
         <TabsContent value="trading" className="space-y-6">
           <SettingsSection
             icon={Zap}
-            title="Trading Defaults"
-            description="Default parameters for trades"
+            title="Configuración de Trading"
+            description="Parámetros por defecto para trades"
           >
-            <SettingRow label="Max Concurrent Trades">
+            <SettingRow label="Trades Concurrentes Máx.">
               <Input
                 type="number"
                 value={settings.maxConcurrentTrades}
@@ -329,8 +329,8 @@ export default function SettingsPage() {
             </SettingRow>
             
             <SettingRow 
-              label="Default Position Size" 
-              description={`${settings.defaultPositionSize}% of available balance`}
+              label="Tamaño de Posición" 
+              description={`${settings.defaultPositionSize}% del balance disponible`}
             >
               <div className="flex items-center gap-4 w-48">
                 <Slider
@@ -347,7 +347,7 @@ export default function SettingsPage() {
               </div>
             </SettingRow>
             
-            <SettingRow label="Default Stop Loss">
+            <SettingRow label="Stop Loss por Defecto">
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -359,7 +359,7 @@ export default function SettingsPage() {
               </div>
             </SettingRow>
             
-            <SettingRow label="Default Take Profit">
+            <SettingRow label="Take Profit por Defecto">
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -377,10 +377,10 @@ export default function SettingsPage() {
         <TabsContent value="system" className="space-y-6">
           <SettingsSection
             icon={Database}
-            title="System Configuration"
-            description="General system settings"
+            title="Configuración del Sistema"
+            description="Ajustes generales del sistema"
           >
-            <SettingRow label="Data Refresh Interval">
+            <SettingRow label="Intervalo de Actualización">
               <Select 
                 value={String(settings.refreshInterval)}
                 onValueChange={(value) => updateSetting('refreshInterval', parseInt(value))}
@@ -389,15 +389,15 @@ export default function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass border-white/10">
-                  <SelectItem value="10">10 seconds</SelectItem>
-                  <SelectItem value="30">30 seconds</SelectItem>
-                  <SelectItem value="60">1 minute</SelectItem>
-                  <SelectItem value="300">5 minutes</SelectItem>
+                  <SelectItem value="10">10 segundos</SelectItem>
+                  <SelectItem value="30">30 segundos</SelectItem>
+                  <SelectItem value="60">1 minuto</SelectItem>
+                  <SelectItem value="300">5 minutos</SelectItem>
                 </SelectContent>
               </Select>
             </SettingRow>
             
-            <SettingRow label="Data Retention">
+            <SettingRow label="Retención de Datos">
               <Select 
                 value={String(settings.dataRetentionDays)}
                 onValueChange={(value) => updateSetting('dataRetentionDays', parseInt(value))}
@@ -406,17 +406,17 @@ export default function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="glass border-white/10">
-                  <SelectItem value="30">30 days</SelectItem>
-                  <SelectItem value="90">90 days</SelectItem>
-                  <SelectItem value="180">180 days</SelectItem>
-                  <SelectItem value="365">1 year</SelectItem>
+                  <SelectItem value="30">30 días</SelectItem>
+                  <SelectItem value="90">90 días</SelectItem>
+                  <SelectItem value="180">180 días</SelectItem>
+                  <SelectItem value="365">1 año</SelectItem>
                 </SelectContent>
               </Select>
             </SettingRow>
             
             <SettingRow 
-              label="Debug Mode" 
-              description="Enable verbose logging"
+              label="Modo Debug" 
+              description="Habilitar logging detallado"
             >
               <Switch 
                 checked={settings.debugMode}
@@ -427,29 +427,29 @@ export default function SettingsPage() {
 
           <SettingsSection
             icon={Shield}
-            title="Danger Zone"
-            description="Irreversible actions"
+            title="Zona de Peligro"
+            description="Acciones irreversibles"
           >
             <div className="space-y-3">
               <Button 
                 variant="outline" 
                 className="w-full justify-between border-destructive/30 text-destructive hover:bg-destructive/10"
               >
-                Reset All Settings
+                Restablecer Ajustes
                 <ChevronRight className="w-4 h-4" />
               </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-between border-destructive/30 text-destructive hover:bg-destructive/10"
               >
-                Clear All Data
+                Borrar Todos los Datos
                 <ChevronRight className="w-4 h-4" />
               </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-between border-destructive/30 text-destructive hover:bg-destructive/10"
               >
-                Terminate All Agents
+                Terminar Todos los Agentes
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>

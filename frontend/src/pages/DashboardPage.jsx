@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { 
   Bot, 
   TrendingUp, 
@@ -22,7 +22,8 @@ import {
   RotateCcw,
   ChevronRight,
   Sparkles,
-  OctagonX
+  OctagonX,
+  PartyPopper
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,72 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// ==================== ANIMATED NUMBER COMPONENT ====================
+const AnimatedNumber = ({ value, prefix = "", suffix = "", decimals = 0, duration = 800 }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+  const prevValue = useRef(0);
+  
+  useEffect(() => {
+    const startValue = prevValue.current;
+    const endValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+    const startTime = Date.now();
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function (ease-out-cubic)
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = startValue + (endValue - startValue) * eased;
+      
+      setDisplayValue(current);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        prevValue.current = endValue;
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [value, duration]);
+  
+  return (
+    <span className="tabular-nums">
+      {prefix}{displayValue.toFixed(decimals)}{suffix}
+    </span>
+  );
+};
+
+// ==================== CONFETTI COMPONENT ====================
+const Confetti = ({ active }) => {
+  if (!active) return null;
+  
+  const particles = Array.from({ length: 50 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    delay: Math.random() * 0.5,
+    color: ['#00F3FF', '#39FF14', '#FF003C', '#FAFF00', '#BC13FE'][Math.floor(Math.random() * 5)]
+  }));
+  
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute w-2 h-2 rounded-full animate-confetti"
+          style={{
+            left: `${p.x}%`,
+            backgroundColor: p.color,
+            animationDelay: `${p.delay}s`,
+            boxShadow: `0 0 6px ${p.color}`
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 // ==================== METRIC CARD COMPONENT ====================
 const MetricCard = ({ 
   title, 
@@ -70,7 +137,9 @@ const MetricCard = ({
   color = "primary",
   subtitle,
   sparkline,
-  size = "default" // default, small, large
+  size = "default", // default, small, large
+  animate = false,
+  isShaking = false
 }) => {
   const colorClasses = {
     primary: "text-primary",
@@ -90,8 +159,19 @@ const MetricCard = ({
 
   const isPositive = change >= 0;
 
+  // Parse numeric value for animation
+  const numericValue = typeof value === 'string' 
+    ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0 
+    : value;
+  const prefix = typeof value === 'string' && value.startsWith('$') ? '$' : '';
+  const suffix = typeof value === 'string' && value.endsWith('%') ? '%' : 
+                 typeof value === 'string' && value.endsWith('K') ? 'K' : '';
+
   return (
-    <Card className="glass border-white/10 card-hover metric-card h-full">
+    <Card className={cn(
+      "glass border-white/10 card-hover metric-card h-full transition-all",
+      isShaking && "animate-shake"
+    )}>
       <CardContent className={cn("p-4", size === "small" && "p-3")}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -103,7 +183,14 @@ const MetricCard = ({
               size === "large" ? "text-4xl" : size === "small" ? "text-xl" : "text-2xl",
               colorClasses[color]
             )}>
-              {value}
+              {animate ? (
+                <AnimatedNumber 
+                  value={numericValue} 
+                  prefix={prefix} 
+                  suffix={suffix}
+                  decimals={suffix === 'K' ? 1 : 0}
+                />
+              ) : value}
             </p>
             {change !== undefined && (
               <div className={cn(
@@ -148,10 +235,11 @@ const MetricCard = ({
 // ==================== AGENT STATUS BADGE ====================
 const AgentStatusBadge = ({ status }) => {
   const statusConfig = {
-    active: { color: "bg-primary/20 text-primary border-primary/30", label: "ACTIVE" },
-    replicating: { color: "bg-cyber-green/20 text-cyber-green border-cyber-green/30", label: "REPLICATING" },
-    dying: { color: "bg-destructive/20 text-destructive border-destructive/30", label: "DYING" },
-    dead: { color: "bg-white/10 text-muted-foreground border-white/10", label: "DEAD" }
+    active: { color: "bg-primary/20 text-primary border-primary/30", label: "ACTIVO" },
+    paused: { color: "bg-yellow-400/20 text-yellow-400 border-yellow-400/30", label: "PAUSADO" },
+    replicating: { color: "bg-cyber-green/20 text-cyber-green border-cyber-green/30", label: "REPLICANDO" },
+    dying: { color: "bg-destructive/20 text-destructive border-destructive/30", label: "MURIENDO" },
+    dead: { color: "bg-white/10 text-muted-foreground border-white/10", label: "MUERTO" }
   };
   const config = statusConfig[status] || statusConfig.active;
   
@@ -163,7 +251,7 @@ const AgentStatusBadge = ({ status }) => {
 };
 
 // ==================== MINI AGENT CARD ====================
-const MiniAgentCard = ({ agent, onAction }) => {
+const MiniAgentCard = ({ agent, onAction, isShaking = false }) => {
   const finances = agent.finances || {};
   const performance = agent.performance || {};
   const balance = finances.current_balance ?? agent.balance ?? 0;
@@ -172,13 +260,17 @@ const MiniAgentCard = ({ agent, onAction }) => {
 
   return (
     <div className={cn(
-      "p-3 rounded-sm border border-white/10 hover:border-primary/30 transition-colors cursor-pointer group",
-      agent.status === 'dying' && "border-destructive/30 bg-destructive/5",
-      agent.status === 'replicating' && "border-cyber-green/30 bg-cyber-green/5"
+      "p-3 rounded-sm border border-white/10 hover:border-primary/30 transition-all cursor-pointer group",
+      agent.status === 'dying' && "border-destructive/30 bg-destructive/5 animate-shake",
+      agent.status === 'replicating' && "border-cyber-green/30 bg-cyber-green/5 animate-pulse-slow",
+      isShaking && "animate-shake"
     )}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <Bot className="w-3.5 h-3.5 text-primary" />
+          <Bot className={cn(
+            "w-3.5 h-3.5 text-primary",
+            agent.status === 'replicating' && "animate-bounce"
+          )} />
           <span className="font-mono text-xs truncate max-w-[100px]">{agent.name}</span>
           <span className="text-[9px] text-secondary font-mono">G{generation}</span>
         </div>
@@ -261,7 +353,7 @@ const SystemHealthGauge = ({ health = 95 }) => {
           <span className="text-3xl font-mono font-bold" style={{ color: getColor(health) }}>
             {health}%
           </span>
-          <span className="text-[10px] text-muted-foreground uppercase">Health</span>
+          <span className="text-[10px] text-muted-foreground uppercase">Salud</span>
         </div>
       </div>
     </div>
@@ -286,7 +378,7 @@ const TopPerformerCard = ({ agent, rank }) => {
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-mono text-sm truncate">{agent.name}</p>
-        <p className="text-[10px] text-muted-foreground">${balance.toFixed(0)} balance</p>
+        <p className="text-[10px] text-muted-foreground">${balance.toFixed(0)} saldo</p>
       </div>
       <div className={cn(
         "font-mono font-bold",
@@ -311,6 +403,8 @@ export default function DashboardPage() {
   const [agentTab, setAgentTab] = useState("all");
   const [actionLoading, setActionLoading] = useState(null);
   const [emergencyDialogOpen, setEmergencyDialogOpen] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevReplicating = useRef(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -319,6 +413,14 @@ export default function DashboardPage() {
         axios.get(`${API}/agents`),
         axios.get(`${API}/crypto/top-coins?limit=5`)
       ]);
+      
+      // Check for new replications to trigger confetti
+      const newReplicating = statsRes.data.agents?.replicating || 0;
+      if (newReplicating > prevReplicating.current && prevReplicating.current > 0) {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      }
+      prevReplicating.current = newReplicating;
       
       setStats(statsRes.data);
       setAgents(agentsRes.data.agents || []);
@@ -360,10 +462,10 @@ export default function DashboardPage() {
     setActionLoading('pause');
     try {
       const res = await axios.post(`${API}/agents/pause-all`);
-      toast.success(res.data.message);
+      toast.success(`${res.data.paused_count} agentes pausados`);
       fetchData();
     } catch (error) {
-      toast.error("Failed to pause agents");
+      toast.error("Error al pausar agentes");
     } finally {
       setActionLoading(null);
     }
@@ -373,10 +475,10 @@ export default function DashboardPage() {
     setActionLoading('resume');
     try {
       const res = await axios.post(`${API}/agents/resume-all`);
-      toast.success(res.data.message);
+      toast.success(`${res.data.resumed_count} agentes reanudados`);
       fetchData();
     } catch (error) {
-      toast.error("Failed to resume agents");
+      toast.error("Error al reanudar agentes");
     } finally {
       setActionLoading(null);
     }
@@ -386,12 +488,12 @@ export default function DashboardPage() {
     setActionLoading('emergency');
     try {
       const res = await axios.post(`${API}/agents/emergency-stop?confirm=true`);
-      toast.error(res.data.message, { duration: 5000 });
+      toast.error(`¡PARADA DE EMERGENCIA! ${res.data.terminated_count} agentes terminados`, { duration: 5000 });
       setEmergencyDialogOpen(false);
       fetchData();
       fetchPortfolioHistory();
     } catch (error) {
-      toast.error("Emergency stop failed");
+      toast.error("Error en parada de emergencia");
     } finally {
       setActionLoading(null);
     }
@@ -400,6 +502,7 @@ export default function DashboardPage() {
   // Check if there are paused agents
   const hasPausedAgents = agents.some(a => a.status === 'paused');
   const hasActiveAgents = agents.some(a => a.status === 'active' || a.status === 'replicating');
+  const hasDyingAgents = agents.some(a => a.status === 'dying');
 
   // Generate sparkline data
   const generateSparkline = (base, variance, trend = 0) => 
@@ -409,10 +512,10 @@ export default function DashboardPage() {
 
   // Agent distribution for pie chart
   const agentDistribution = [
-    { name: 'Active', value: stats?.agents?.active || 0, color: '#00F3FF' },
-    { name: 'Replicating', value: stats?.agents?.replicating || 0, color: '#39FF14' },
-    { name: 'Dying', value: stats?.agents?.dying || 0, color: '#FF003C' },
-    { name: 'Dead', value: stats?.agents?.dead || 0, color: '#666666' }
+    { name: 'Activos', value: stats?.agents?.active || 0, color: '#00F3FF' },
+    { name: 'Replicando', value: stats?.agents?.replicating || 0, color: '#39FF14' },
+    { name: 'Muriendo', value: stats?.agents?.dying || 0, color: '#FF003C' },
+    { name: 'Muertos', value: stats?.agents?.dead || 0, color: '#666666' }
   ].filter(d => d.value > 0);
 
   // Filter agents by tab
@@ -452,20 +555,23 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-4" data-testid="dashboard-page">
+      {/* Confetti for replication celebrations */}
+      <Confetti active={showConfetti} />
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            System Overview
+            Vista General
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Real-time orchestrator metrics
+            Métricas del orquestador en tiempo real
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm bg-cyber-green/10 border border-cyber-green/30">
             <Activity className="w-3.5 h-3.5 text-cyber-green animate-pulse" />
-            <span className="text-[10px] font-mono text-cyber-green uppercase">Live</span>
+            <span className="text-[10px] font-mono text-cyber-green uppercase">EN VIVO</span>
           </div>
         </div>
       </div>
@@ -476,34 +582,37 @@ export default function DashboardPage() {
         {/* Row 1: Main Metrics */}
         <div className="col-span-2 lg:col-span-2 xl:col-span-2">
           <MetricCard
-            title="Active Agents"
+            title="Agentes Activos"
             value={stats?.agents?.active || 0}
             change={12.5}
             icon={Bot}
             color="primary"
-            subtitle={`${stats?.agents?.total || 0} total`}
+            subtitle={`${stats?.agents?.total || 0} en total`}
             sparkline={generateSparkline(3, 2, 0.1)}
+            animate
           />
         </div>
 
         <div className="col-span-2 lg:col-span-2 xl:col-span-2">
           <MetricCard
-            title="Total Balance"
+            title="Balance Total"
             value={`$${(stats?.finances?.total_balance || 0).toFixed(0)}`}
             change={stats?.finances?.avg_roi || 0}
             icon={DollarSign}
             color="green"
             sparkline={generateSparkline(200, 50, 5)}
+            animate
           />
         </div>
 
         <div className="col-span-1 lg:col-span-1 xl:col-span-2">
           <MetricCard
-            title="Win Rate"
+            title="Tasa de Éxito"
             value={`${((stats?.trading?.win_rate || 0) * 100).toFixed(0)}%`}
             icon={Target}
             color="primary"
             size="small"
+            animate
           />
         </div>
 
@@ -514,6 +623,7 @@ export default function DashboardPage() {
             icon={Hash}
             color="purple"
             size="small"
+            animate
           />
         </div>
 
@@ -525,17 +635,19 @@ export default function DashboardPage() {
             icon={TrendingUp}
             color={(stats?.trading?.pnl_24h || 0) >= 0 ? "green" : "red"}
             size="small"
+            animate
           />
         </div>
 
         <div className="col-span-1 lg:col-span-1 xl:col-span-2">
           <MetricCard
-            title="Tokens Used"
+            title="Tokens Usados"
             value={`${((stats?.llm?.total_tokens || 0) / 1000).toFixed(1)}K`}
             icon={Cpu}
             color="yellow"
             size="small"
             subtitle={`~$${(stats?.llm?.cost_estimate || 0).toFixed(3)}`}
+            animate
           />
         </div>
 
@@ -546,7 +658,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-                  Portfolio Performance
+                  Rendimiento del Portfolio
                 </CardTitle>
                 {portfolioStats && (
                   <span className={cn(
@@ -567,7 +679,7 @@ export default function DashboardPage() {
                       period === portfolioPeriod ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"
                     )}
                   >
-                    {period}
+                    {period === '1d' ? '1D' : period === '7d' ? '7D' : period === '1m' ? '1M' : 'TODO'}
                   </button>
                 ))}
               </div>
@@ -605,8 +717,8 @@ export default function DashboardPage() {
                       borderRadius: '4px',
                       fontSize: '11px'
                     }}
-                    formatter={(value) => [`$${value.toFixed(2)}`, 'Portfolio Value']}
-                    labelFormatter={(label) => `Time: ${label}`}
+                    formatter={(value) => [`$${value.toFixed(2)}`, 'Valor del Portfolio']}
+                    labelFormatter={(label) => `Hora: ${label}`}
                   />
                   <Area
                     type="monotone"
@@ -627,19 +739,25 @@ export default function DashboardPage() {
         <Card className="glass border-white/10 col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-4">
           <CardHeader className="pb-2">
             <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-              System Health
+              Salud del Sistema
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center">
             <SystemHealthGauge health={systemHealth} />
             <div className="grid grid-cols-2 gap-4 mt-4 w-full">
               <div className="text-center">
-                <p className="text-lg font-mono font-bold text-cyber-green">{stats?.agents?.replicating || 0}</p>
-                <p className="text-[9px] text-muted-foreground uppercase">Replicating</p>
+                <p className={cn(
+                  "text-lg font-mono font-bold text-cyber-green",
+                  (stats?.agents?.replicating || 0) > 0 && "animate-pulse"
+                )}>{stats?.agents?.replicating || 0}</p>
+                <p className="text-[9px] text-muted-foreground uppercase">Replicando</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-mono font-bold text-destructive">{stats?.agents?.dying || 0}</p>
-                <p className="text-[9px] text-muted-foreground uppercase">At Risk</p>
+                <p className={cn(
+                  "text-lg font-mono font-bold text-destructive",
+                  (stats?.agents?.dying || 0) > 0 && "animate-pulse"
+                )}>{stats?.agents?.dying || 0}</p>
+                <p className="text-[9px] text-muted-foreground uppercase">En Riesgo</p>
               </div>
             </div>
           </CardContent>
@@ -649,7 +767,7 @@ export default function DashboardPage() {
         <Card className="glass border-white/10 col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-4">
           <CardHeader className="pb-2">
             <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-              Agent Distribution
+              Distribución de Agentes
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -696,7 +814,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-                Agents
+                Agentes
               </CardTitle>
               <Button 
                 variant="ghost" 
@@ -704,28 +822,28 @@ export default function DashboardPage() {
                 className="h-6 text-[10px]"
                 onClick={() => navigate('/agents')}
               >
-                View All <ChevronRight className="w-3 h-3 ml-1" />
+                Ver Todos <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             </div>
           </CardHeader>
           <CardContent className="pb-3">
             <Tabs value={agentTab} onValueChange={setAgentTab} className="w-full">
               <TabsList className="w-full bg-white/5 mb-3">
-                <TabsTrigger value="all" className="flex-1 text-[10px]">All</TabsTrigger>
-                <TabsTrigger value="active" className="flex-1 text-[10px]">Active</TabsTrigger>
-                <TabsTrigger value="best" className="flex-1 text-[10px]">Best</TabsTrigger>
-                <TabsTrigger value="risk" className="flex-1 text-[10px]">At Risk</TabsTrigger>
+                <TabsTrigger value="all" className="flex-1 text-[10px]">Todos</TabsTrigger>
+                <TabsTrigger value="active" className="flex-1 text-[10px]">Activos</TabsTrigger>
+                <TabsTrigger value="best" className="flex-1 text-[10px]">Mejores</TabsTrigger>
+                <TabsTrigger value="risk" className="flex-1 text-[10px]">En Riesgo</TabsTrigger>
               </TabsList>
               <TabsContent value={agentTab} className="mt-0">
                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                   {filteredAgents.length > 0 ? (
                     filteredAgents.slice(0, 5).map((agent) => (
-                      <MiniAgentCard key={agent.id} agent={agent} />
+                      <MiniAgentCard key={agent.id} agent={agent} isShaking={agent.status === 'dying'} />
                     ))
                   ) : (
                     <div className="text-center py-6 text-muted-foreground">
                       <Bot className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                      <p className="text-xs">No agents found</p>
+                      <p className="text-xs">No se encontraron agentes</p>
                     </div>
                   )}
                 </div>
@@ -739,7 +857,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground flex items-center gap-2">
               <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-              Top Performers
+              Mejores Rendimientos
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
@@ -751,7 +869,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-6 text-muted-foreground">
                   <Trophy className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs">No data yet</p>
+                  <p className="text-xs">Sin datos aún</p>
                 </div>
               )}
             </div>
@@ -762,21 +880,21 @@ export default function DashboardPage() {
         <Card className="glass border-white/10 col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-4">
           <CardHeader className="pb-2">
             <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-              Quick Actions
+              Acciones Rápidas
             </CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
             <div className="grid grid-cols-3 gap-2">
               <QuickActionButton 
                 icon={Bot} 
-                label="Deploy" 
+                label="Desplegar" 
                 color="primary"
                 onClick={() => navigate('/agents')}
               />
               {hasPausedAgents ? (
                 <QuickActionButton 
                   icon={Play} 
-                  label="Resume" 
+                  label="Reanudar" 
                   color="green"
                   onClick={handleResumeAll}
                   disabled={actionLoading === 'resume'}
@@ -784,7 +902,7 @@ export default function DashboardPage() {
               ) : (
                 <QuickActionButton 
                   icon={Pause} 
-                  label="Pause All" 
+                  label="Pausar" 
                   color="yellow"
                   onClick={handlePauseAll}
                   disabled={!hasActiveAgents || actionLoading === 'pause'}
@@ -792,7 +910,7 @@ export default function DashboardPage() {
               )}
               <QuickActionButton 
                 icon={OctagonX} 
-                label="Emergency" 
+                label="Emergencia" 
                 color="red"
                 onClick={() => setEmergencyDialogOpen(true)}
                 disabled={!hasActiveAgents && !hasPausedAgents}
@@ -807,17 +925,17 @@ export default function DashboardPage() {
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="w-5 h-5" />
-                Emergency Stop
+                Parada de Emergencia
               </AlertDialogTitle>
               <AlertDialogDescription className="space-y-2">
-                <p>This action will <strong className="text-destructive">TERMINATE ALL AGENTS</strong> immediately.</p>
-                <p className="text-sm">• All active and paused agents will be killed</p>
-                <p className="text-sm">• Agent balances will be set to $0</p>
-                <p className="text-sm">• This action <strong>cannot be undone</strong></p>
+                <p>Esta acción <strong className="text-destructive">TERMINARÁ TODOS LOS AGENTES</strong> inmediatamente.</p>
+                <p className="text-sm">• Todos los agentes activos y pausados serán eliminados</p>
+                <p className="text-sm">• Los saldos de los agentes se establecerán en $0</p>
+                <p className="text-sm">• Esta acción <strong>NO se puede deshacer</strong></p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel className="border-white/20">Cancel</AlertDialogCancel>
+              <AlertDialogCancel className="border-white/20">Cancelar</AlertDialogCancel>
               <AlertDialogAction 
                 onClick={handleEmergencyStop}
                 className="bg-destructive hover:bg-destructive/90"
@@ -826,10 +944,10 @@ export default function DashboardPage() {
                 {actionLoading === 'emergency' ? (
                   <span className="flex items-center gap-2">
                     <RotateCcw className="w-4 h-4 animate-spin" />
-                    Stopping...
+                    Deteniendo...
                   </span>
                 ) : (
-                  "Confirm Emergency Stop"
+                  "Confirmar Parada"
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -841,7 +959,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-                Crypto Market
+                Mercado Crypto
               </CardTitle>
               <Button 
                 variant="ghost" 
@@ -849,7 +967,7 @@ export default function DashboardPage() {
                 className="h-6 text-[10px]"
                 onClick={() => navigate('/crypto')}
               >
-                View All <ChevronRight className="w-3 h-3 ml-1" />
+                Ver Todo <ChevronRight className="w-3 h-3 ml-1" />
               </Button>
             </div>
           </CardHeader>

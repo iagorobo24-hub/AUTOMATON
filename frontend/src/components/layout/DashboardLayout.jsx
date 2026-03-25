@@ -48,16 +48,16 @@ import axios from "axios";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const navItems = [
-  { path: "/dashboard", label: "DASHBOARD", icon: LayoutDashboard },
-  { path: "/agents", label: "AGENTS", icon: Bot },
+  { path: "/dashboard", label: "PANEL", icon: LayoutDashboard },
+  { path: "/agents", label: "AGENTES", icon: Bot },
   { path: "/crypto", label: "CRYPTO", icon: TrendingUp },
-  { path: "/wallet", label: "WALLET", icon: Wallet },
-  { path: "/activity", label: "ACTIVITY", icon: Activity },
-  { path: "/chat", label: "ORCHESTRATOR", icon: MessageSquare },
+  { path: "/wallet", label: "CARTERA", icon: Wallet },
+  { path: "/activity", label: "ACTIVIDAD", icon: Activity },
+  { path: "/chat", label: "ORQUESTADOR", icon: MessageSquare },
 ];
 
 const secondaryNavItems = [
-  { path: "/settings", label: "SETTINGS", icon: Settings },
+  { path: "/settings", label: "AJUSTES", icon: Settings },
 ];
 
 // ==================== NOTIFICATION ICON MAPPING ====================
@@ -92,10 +92,10 @@ const NotificationItem = ({ notification, onRead, onDismiss, onNavigate }) => {
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
     
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
+    if (seconds < 60) return 'Ahora mismo';
+    if (seconds < 3600) return `Hace ${Math.floor(seconds / 60)}m`;
+    if (seconds < 86400) return `Hace ${Math.floor(seconds / 3600)}h`;
+    return `Hace ${Math.floor(seconds / 86400)}d`;
   };
 
   const handleClick = () => {
@@ -154,10 +154,102 @@ const NotificationItem = ({ notification, onRead, onDismiss, onNavigate }) => {
   );
 };
 
+// ==================== NOTIFICATION ITEM FIXED (for dropdown) ====================
+const NotificationItemFixed = ({ notification, onRead, onDismiss, onNavigate }) => {
+  const Icon = notificationIcons[notification.type] || notificationIcons.default;
+  const colorClass = notificationColors[notification.color] || notificationColors.primary;
+  
+  const timeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    if (seconds < 60) return 'Ahora mismo';
+    if (seconds < 3600) return `Hace ${Math.floor(seconds / 60)}m`;
+    if (seconds < 86400) return `Hace ${Math.floor(seconds / 3600)}h`;
+    return `Hace ${Math.floor(seconds / 86400)}d`;
+  };
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    if (!notification.read) {
+      onRead(notification.id);
+    }
+    if (notification.link) {
+      onNavigate(notification.link);
+    }
+  };
+
+  return (
+    <div 
+      className={cn(
+        "flex items-start gap-3 p-3 rounded-sm border border-white/10 cursor-pointer transition-colors group",
+        !notification.read && "bg-white/5",
+        "hover:bg-white/10"
+      )}
+      onClick={handleClick}
+    >
+      <div className={cn("p-2 rounded-sm shrink-0", colorClass)}>
+        <Icon className="w-4 h-4" />
+      </div>
+      
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <p className={cn(
+            "text-sm font-medium",
+            !notification.read && "text-white",
+            notification.read && "text-muted-foreground"
+          )}>
+            {notification.title}
+          </p>
+          {!notification.read && (
+            <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+          {notification.message}
+        </p>
+        <p className="text-[10px] text-muted-foreground/60 mt-1">
+          {timeAgo(notification.created_at)}
+        </p>
+      </div>
+
+      <button
+        onPointerDown={(e) => onDismiss(e, notification.id)}
+        className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/20 rounded transition-all"
+        title="Eliminar notificación"
+      >
+        <X className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive" />
+      </button>
+    </div>
+  );
+};
+
 // ==================== NOTIFICATIONS DROPDOWN ====================
 const NotificationsDropdown = ({ notifications, unreadCount, onRead, onReadAll, onDismiss, onDismissAll, onNavigate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleReadAll = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await onReadAll();
+  };
+
+  const handleDismissAll = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await onDismissAll();
+    setIsOpen(false);
+  };
+
+  const handleDismissOne = async (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await onDismiss(id);
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <Button 
           variant="ghost" 
@@ -177,33 +269,30 @@ const NotificationsDropdown = ({ notifications, unreadCount, onRead, onReadAll, 
         align="end" 
         className="w-80 glass border-white/10"
         data-testid="notifications-dropdown"
+        onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
           <DropdownMenuLabel className="font-heading text-xs uppercase tracking-wider p-0">
-            Notifications
+            Notificaciones
           </DropdownMenuLabel>
           <div className="flex gap-1">
             {unreadCount > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 text-[10px] px-2"
-                onClick={onReadAll}
+              <button 
+                className="h-6 text-[10px] px-2 flex items-center rounded hover:bg-white/10 transition-colors"
+                onPointerDown={handleReadAll}
               >
                 <Check className="w-3 h-3 mr-1" />
-                Read All
-              </Button>
+                Marcar leídas
+              </button>
             )}
             {notifications.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 text-[10px] px-2 text-destructive hover:text-destructive"
-                onClick={onDismissAll}
+              <button 
+                className="h-6 text-[10px] px-2 flex items-center rounded text-destructive hover:bg-destructive/10 transition-colors"
+                onPointerDown={handleDismissAll}
               >
                 <Trash2 className="w-3 h-3 mr-1" />
-                Clear
-              </Button>
+                Limpiar
+              </button>
             )}
           </div>
         </div>
@@ -212,19 +301,22 @@ const NotificationsDropdown = ({ notifications, unreadCount, onRead, onReadAll, 
           <div className="p-2 space-y-2">
             {notifications.length > 0 ? (
               notifications.map((notification) => (
-                <NotificationItem
+                <NotificationItemFixed
                   key={notification.id}
                   notification={notification}
                   onRead={onRead}
-                  onDismiss={onDismiss}
-                  onNavigate={onNavigate}
+                  onDismiss={handleDismissOne}
+                  onNavigate={(link) => {
+                    onNavigate(link);
+                    setIsOpen(false);
+                  }}
                 />
               ))
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No notifications</p>
-                <p className="text-xs">You're all caught up!</p>
+                <p className="text-sm">Sin notificaciones</p>
+                <p className="text-xs">¡Estás al día!</p>
               </div>
             )}
           </div>
@@ -240,14 +332,14 @@ const CommandPalette = ({ open, onClose }) => {
   const [search, setSearch] = useState("");
 
   const commands = [
-    { label: "Go to Dashboard", action: () => navigate('/dashboard'), icon: LayoutDashboard },
-    { label: "Go to Agents", action: () => navigate('/agents'), icon: Bot },
-    { label: "Go to Crypto", action: () => navigate('/crypto'), icon: TrendingUp },
-    { label: "Go to Wallet", action: () => navigate('/wallet'), icon: Wallet },
-    { label: "Go to Activity", action: () => navigate('/activity'), icon: Activity },
-    { label: "Go to Orchestrator", action: () => navigate('/chat'), icon: MessageSquare },
-    { label: "Go to Settings", action: () => navigate('/settings'), icon: Settings },
-    { label: "Deploy New Agent", action: () => navigate('/agents'), icon: Zap },
+    { label: "Ir al Panel", action: () => navigate('/dashboard'), icon: LayoutDashboard },
+    { label: "Ir a Agentes", action: () => navigate('/agents'), icon: Bot },
+    { label: "Ir a Crypto", action: () => navigate('/crypto'), icon: TrendingUp },
+    { label: "Ir a Cartera", action: () => navigate('/wallet'), icon: Wallet },
+    { label: "Ir a Actividad", action: () => navigate('/activity'), icon: Activity },
+    { label: "Ir al Orquestador", action: () => navigate('/chat'), icon: MessageSquare },
+    { label: "Ir a Ajustes", action: () => navigate('/settings'), icon: Settings },
+    { label: "Desplegar Nuevo Agente", action: () => navigate('/agents'), icon: Zap },
   ];
 
   const filteredCommands = commands.filter(cmd => 
@@ -280,7 +372,7 @@ const CommandPalette = ({ open, onClose }) => {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
           <Search className="w-5 h-5 text-muted-foreground" />
           <Input
-            placeholder="Type a command or search..."
+            placeholder="Escribe un comando o busca..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="border-0 bg-transparent focus-visible:ring-0 px-0 text-base"
@@ -303,7 +395,7 @@ const CommandPalette = ({ open, onClose }) => {
             ))}
             {filteredCommands.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">No commands found</p>
+                <p className="text-sm">No se encontraron comandos</p>
               </div>
             )}
           </div>
@@ -372,7 +464,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
         {/* Main Navigation */}
         <nav className="p-4 space-y-1">
           <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground mb-2 px-4">
-            Main
+            Principal
           </p>
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -410,7 +502,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
         {/* Secondary Navigation */}
         <nav className="p-4 pt-0 space-y-1">
           <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground mb-2 px-4">
-            System
+            Sistema
           </p>
           {secondaryNavItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -444,7 +536,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
                 <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyber-green rounded-full animate-pulse" />
               </div>
               <span className="text-xs font-mono text-muted-foreground">
-                SYSTEM ONLINE
+                SISTEMA ACTIVO
               </span>
             </div>
             <span className="text-[10px] font-mono text-muted-foreground/50">v2.0</span>
@@ -466,15 +558,15 @@ export const Topbar = ({ onMenuClick }) => {
   // Get page title based on route
   const getPageTitle = () => {
     const titles = {
-      '/dashboard': 'Dashboard',
-      '/agents': 'Agent Management',
-      '/crypto': 'Crypto Market',
-      '/wallet': 'Wallet',
-      '/activity': 'Activity Feed',
-      '/chat': 'Orchestrator AI',
-      '/settings': 'Settings'
+      '/dashboard': 'Panel de Control',
+      '/agents': 'Gestión de Agentes',
+      '/crypto': 'Mercado Crypto',
+      '/wallet': 'Cartera',
+      '/activity': 'Actividad',
+      '/chat': 'Orquestador IA',
+      '/settings': 'Ajustes'
     };
-    return titles[location.pathname] || 'Control Center';
+    return titles[location.pathname] || 'Centro de Control';
   };
 
   // Fetch notifications
@@ -579,7 +671,7 @@ export const Topbar = ({ onMenuClick }) => {
               onClick={() => setCommandOpen(true)}
             >
               <Search className="w-4 h-4" />
-              <span className="text-xs">Search</span>
+              <span className="text-xs">Buscar</span>
               <kbd className="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-white/10 rounded">
                 ⌘K
               </kbd>
@@ -600,7 +692,7 @@ export const Topbar = ({ onMenuClick }) => {
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-sm bg-white/5 border border-white/10">
               <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
               <span className="text-[10px] font-mono text-muted-foreground">
-                CONNECTED
+                CONECTADO
               </span>
             </div>
           </div>

@@ -50,37 +50,37 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
   const statusConfig = {
     active: { 
       class: "status-active", 
-      label: "ACTIVE", 
+      label: "ACTIVO", 
       color: "text-primary",
       bgColor: "bg-primary/10"
     },
     replicating: { 
       class: "status-replicating", 
-      label: "REPLICATING", 
+      label: "REPLICANDO", 
       color: "text-cyber-green",
       bgColor: "bg-cyber-green/10"
     },
     dying: { 
       class: "status-dying", 
-      label: "DYING", 
+      label: "EN RIESGO", 
       color: "text-destructive",
       bgColor: "bg-destructive/10"
     },
     dead: { 
       class: "status-dead", 
-      label: "TERMINATED", 
+      label: "TERMINADO", 
       color: "text-muted-foreground",
       bgColor: "bg-white/5"
     },
     paused: {
       class: "status-active",
-      label: "PAUSED",
+      label: "PAUSADO",
       color: "text-warning",
       bgColor: "bg-warning/10"
     },
     hibernating: {
       class: "status-active",
-      label: "HIBERNATING",
+      label: "HIBERNANDO",
       color: "text-secondary",
       bgColor: "bg-secondary/10"
     }
@@ -133,14 +133,14 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
                 className="gap-2"
               >
                 <TrendingUp className="w-4 h-4 text-cyber-green" />
-                Simulate +$10
+                Simular +$10
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onSimulate(agent.id, -10)}
                 className="gap-2"
               >
                 <TrendingDown className="w-4 h-4 text-destructive" />
-                Simulate -$10
+                Simular -$10
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onReplicate(agent.id)}
@@ -148,7 +148,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
                 disabled={balance < 50 || agent.status === 'dead'}
               >
                 <Copy className="w-4 h-4 text-secondary" />
-                Replicate
+                Replicar
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onDestroy(agent.id)}
@@ -156,7 +156,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
                 disabled={agent.status === 'dead'}
               >
                 <Trash2 className="w-4 h-4" />
-                Destroy
+                Destruir
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -180,7 +180,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
         {/* Metrics */}
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <p className="text-[10px] font-heading uppercase text-muted-foreground mb-1">Balance</p>
+            <p className="text-[10px] font-heading uppercase text-muted-foreground mb-1">Saldo</p>
             <p className="font-mono font-bold text-lg">${balance.toFixed(2)}</p>
           </div>
           <div>
@@ -197,7 +197,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
         {/* Health Bar */}
         <div>
           <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-            <span>HEALTH</span>
+            <span>SALUD</span>
             <span>{healthPercent.toFixed(0)}%</span>
           </div>
           <Progress 
@@ -217,7 +217,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
             <p className="font-mono text-sm">{tradesCount}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">WINS</p>
+            <p className="text-[10px] text-muted-foreground">GANADOS</p>
             <p className="font-mono text-sm text-cyber-green">{successfulTrades}</p>
           </div>
           <div className="text-center">
@@ -246,7 +246,7 @@ export default function AgentsPage() {
       setAgents(response.data.agents || []);
     } catch (error) {
       console.error("Error fetching agents:", error);
-      toast.error("Failed to fetch agents");
+      toast.error("Error al cargar agentes");
     } finally {
       setLoading(false);
     }
@@ -258,48 +258,48 @@ export default function AgentsPage() {
 
   const handleCreateAgent = async () => {
     if (!newAgent.name) {
-      toast.error("Agent name is required");
+      toast.error("El nombre del agente es obligatorio");
       return;
     }
 
     try {
       await axios.post(`${API}/agents`, newAgent);
-      toast.success("Agent created successfully");
+      toast.success("Agente creado correctamente");
       setCreateDialogOpen(false);
       setNewAgent({ name: "", type: "crypto_analyzer", initial_balance: 100 });
       fetchAgents();
     } catch (error) {
-      toast.error("Failed to create agent");
+      toast.error("Error al crear agente");
     }
   };
 
   const handleReplicate = async (agentId) => {
     try {
       await axios.post(`${API}/agents/${agentId}/replicate`);
-      toast.success("Agent replicated successfully");
+      toast.success("Agente replicado correctamente");
       fetchAgents();
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to replicate agent");
+      toast.error(error.response?.data?.detail || "Error al replicar agente");
     }
   };
 
   const handleDestroy = async (agentId) => {
     try {
       await axios.delete(`${API}/agents/${agentId}`);
-      toast.success("Agent destroyed");
+      toast.success("Agente destruido");
       fetchAgents();
     } catch (error) {
-      toast.error("Failed to destroy agent");
+      toast.error("Error al destruir agente");
     }
   };
 
   const handleSimulate = async (agentId, profit) => {
     try {
       await axios.post(`${API}/agents/${agentId}/simulate-trade?profit=${profit}`);
-      toast.success(`Trade simulated: ${profit >= 0 ? '+' : ''}$${profit}`);
+      toast.success(`Trade simulado: ${profit >= 0 ? '+' : ''}$${profit}`);
       fetchAgents();
     } catch (error) {
-      toast.error("Failed to simulate trade");
+      toast.error("Error al simular trade");
     }
   };
 
@@ -314,10 +314,10 @@ export default function AgentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Agent Management
+            Gestión de Agentes
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Deploy, replicate, and manage autonomous agents
+            Despliega, replica y gestiona agentes autónomos
           </p>
         </div>
         
@@ -329,7 +329,7 @@ export default function AgentsPage() {
             className="border-white/20"
           >
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            Actualizar
           </Button>
           
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -339,22 +339,22 @@ export default function AgentsPage() {
                 data-testid="create-agent-btn"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Deploy Agent
+                Desplegar Agente
               </Button>
             </DialogTrigger>
             <DialogContent className="glass border-white/10">
               <DialogHeader>
                 <DialogTitle className="font-heading uppercase tracking-wider">
-                  Deploy New Agent
+                  Desplegar Nuevo Agente
                 </DialogTitle>
                 <DialogDescription>
-                  Create a new autonomous agent with initial funding
+                  Crea un nuevo agente autónomo con financiación inicial
                 </DialogDescription>
               </DialogHeader>
               
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider">Agent Name</Label>
+                  <Label className="text-xs uppercase tracking-wider">Nombre del Agente</Label>
                   <Input
                     placeholder="Alpha-001"
                     value={newAgent.name}
@@ -365,7 +365,7 @@ export default function AgentsPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider">Agent Type</Label>
+                  <Label className="text-xs uppercase tracking-wider">Tipo de Agente</Label>
                   <Select
                     value={newAgent.type}
                     onValueChange={(value) => setNewAgent({ ...newAgent, type: value })}
@@ -374,15 +374,15 @@ export default function AgentsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="glass border-white/10">
-                      <SelectItem value="crypto_analyzer">Crypto Analyzer</SelectItem>
-                      <SelectItem value="business_scout">Business Scout</SelectItem>
+                      <SelectItem value="crypto_analyzer">Analizador Crypto</SelectItem>
+                      <SelectItem value="business_scout">Explorador de Negocios</SelectItem>
                       <SelectItem value="trader">Trader</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider">Initial Balance ($)</Label>
+                  <Label className="text-xs uppercase tracking-wider">Saldo Inicial ($)</Label>
                   <Input
                     type="number"
                     min="10"
@@ -401,14 +401,14 @@ export default function AgentsPage() {
                   onClick={() => setCreateDialogOpen(false)}
                   className="border-white/20"
                 >
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button 
                   onClick={handleCreateAgent}
                   className="bg-primary text-black hover:bg-primary/90"
                   data-testid="confirm-create-agent-btn"
                 >
-                  Deploy
+                  Desplegar
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -421,28 +421,28 @@ export default function AgentsPage() {
         <div className="glass p-4 rounded-sm border border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-primary" />
-            <span className="text-xs text-muted-foreground">ACTIVE</span>
+            <span className="text-xs text-muted-foreground">ACTIVOS</span>
           </div>
           <p className="font-mono text-2xl font-bold mt-1">{activeCount}</p>
         </div>
         <div className="glass p-4 rounded-sm border border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
-            <span className="text-xs text-muted-foreground">REPLICATING</span>
+            <span className="text-xs text-muted-foreground">REPLICANDO</span>
           </div>
           <p className="font-mono text-2xl font-bold mt-1 text-cyber-green">{replicatingCount}</p>
         </div>
         <div className="glass p-4 rounded-sm border border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-            <span className="text-xs text-muted-foreground">DYING</span>
+            <span className="text-xs text-muted-foreground">EN RIESGO</span>
           </div>
           <p className="font-mono text-2xl font-bold mt-1 text-destructive">{dyingCount}</p>
         </div>
         <div className="glass p-4 rounded-sm border border-white/10">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-white/30" />
-            <span className="text-xs text-muted-foreground">TERMINATED</span>
+            <span className="text-xs text-muted-foreground">TERMINADOS</span>
           </div>
           <p className="font-mono text-2xl font-bold mt-1 text-muted-foreground">{deadCount}</p>
         </div>
@@ -471,16 +471,16 @@ export default function AgentsPage() {
         <Card className="glass border-white/10">
           <CardContent className="py-16 text-center">
             <Bot className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <h3 className="font-heading text-lg mb-2">No Agents Deployed</h3>
+            <h3 className="font-heading text-lg mb-2">Sin Agentes Desplegados</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Deploy your first autonomous agent to begin
+              Despliega tu primer agente autónomo para comenzar
             </p>
             <Button 
               onClick={() => setCreateDialogOpen(true)}
               className="bg-primary text-black hover:bg-primary/90"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Deploy First Agent
+              Desplegar Primer Agente
             </Button>
           </CardContent>
         </Card>

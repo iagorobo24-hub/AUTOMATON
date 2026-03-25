@@ -228,11 +228,11 @@ class NotificationService:
     # ==================== HELPER METHODS ====================
     
     async def notify_agent_created(self, agent_id: str, agent_name: str, capital: float):
-        """Notification when agent is created"""
+        """Notificación cuando se crea un agente"""
         await self.create_notification(
             type=NotificationType.AGENT_CREATED,
-            title="Agent Deployed",
-            message=f"{agent_name} created with ${capital:.2f}",
+            title="Agente Desplegado",
+            message=f"{agent_name} creado con ${capital:.2f}",
             icon="bot",
             color="primary",
             link=f"/agents",
@@ -240,8 +240,8 @@ class NotificationService:
         )
         await self.log_activity(
             type=NotificationType.AGENT_CREATED,
-            title="New Agent Deployed",
-            description=f"{agent_name} initialized with ${capital:.2f} capital",
+            title="Nuevo Agente Desplegado",
+            description=f"{agent_name} inicializado con ${capital:.2f} de capital",
             icon="bot",
             color="primary",
             agent_id=agent_id,
@@ -251,11 +251,11 @@ class NotificationService:
         )
     
     async def notify_agent_replicated(self, parent_name: str, child_name: str, child_id: str, capital: float):
-        """Notification when agent replicates"""
+        """Notificación cuando un agente se replica"""
         await self.create_notification(
             type=NotificationType.AGENT_REPLICATED,
-            title="Agent Replicated!",
-            message=f"{parent_name} created clone {child_name} with ${capital:.2f}",
+            title="¡Agente Replicado!",
+            message=f"{parent_name} creó clon {child_name} con ${capital:.2f}",
             icon="copy",
             color="green",
             priority=NotificationPriority.HIGH,
@@ -264,7 +264,7 @@ class NotificationService:
         )
         await self.log_activity(
             type=NotificationType.AGENT_REPLICATED,
-            title="Replication Event",
+            title="Evento de Replicación",
             description=f"{parent_name} → {child_name} (${capital:.2f})",
             icon="git-branch",
             color="green",
@@ -274,11 +274,11 @@ class NotificationService:
         )
     
     async def notify_agent_dying(self, agent_id: str, agent_name: str, balance: float):
-        """Alert when agent balance is critically low"""
+        """Alerta cuando el balance del agente es críticamente bajo"""
         await self.create_notification(
             type=NotificationType.AGENT_DYING,
-            title="Agent At Risk!",
-            message=f"{agent_name} balance critically low: ${balance:.2f}",
+            title="¡Agente en Riesgo!",
+            message=f"{agent_name} saldo crítico: ${balance:.2f}",
             icon="alert-triangle",
             color="red",
             priority=NotificationPriority.CRITICAL,
@@ -287,8 +287,8 @@ class NotificationService:
         )
         await self.log_activity(
             type=NotificationType.AGENT_DYING,
-            title="Agent Critical",
-            description=f"{agent_name} entered dying state",
+            title="Agente Crítico",
+            description=f"{agent_name} entró en estado crítico",
             icon="alert-triangle",
             color="red",
             agent_id=agent_id,
@@ -297,11 +297,11 @@ class NotificationService:
         )
     
     async def notify_agent_dead(self, agent_id: str, agent_name: str, reason: str):
-        """Notification when agent dies"""
+        """Notificación cuando un agente muere"""
         await self.create_notification(
             type=NotificationType.AGENT_DEAD,
-            title="Agent Terminated",
-            message=f"{agent_name} terminated: {reason}",
+            title="Agente Terminado",
+            message=f"{agent_name} terminado: {reason}",
             icon="skull",
             color="red",
             link=f"/agents",
@@ -309,7 +309,7 @@ class NotificationService:
         )
         await self.log_activity(
             type=NotificationType.AGENT_DEAD,
-            title="Agent Terminated",
+            title="Agente Terminado",
             description=f"{agent_name} - {reason}",
             icon="skull",
             color="red",
@@ -326,14 +326,14 @@ class NotificationService:
         pnl: float,
         is_win: bool
     ):
-        """Notification for trade result"""
+        """Notificación de resultado de trade"""
         type_ = NotificationType.TRADE_WIN if is_win else NotificationType.TRADE_LOSS
         color = "green" if is_win else "red"
         icon = "trending-up" if is_win else "trending-down"
         
         await self.log_activity(
             type=type_,
-            title=f"Trade {'Won' if is_win else 'Lost'}",
+            title=f"Trade {'Ganado' if is_win else 'Perdido'}",
             description=f"{agent_name} {symbol}: {'+' if pnl >= 0 else ''}${pnl:.2f}",
             icon=icon,
             color=color,
@@ -342,12 +342,12 @@ class NotificationService:
             amount=pnl
         )
         
-        # Only create notification for significant wins/losses
+        # Solo crear notificación para ganancias/pérdidas significativas
         if abs(pnl) >= 10:
             await self.create_notification(
                 type=type_,
-                title=f"Trade {'Won' if is_win else 'Lost'}: ${abs(pnl):.2f}",
-                message=f"{agent_name} closed {symbol} position",
+                title=f"Trade {'Ganado' if is_win else 'Perdido'}: ${abs(pnl):.2f}",
+                message=f"{agent_name} cerró posición de {symbol}",
                 icon=icon,
                 color=color,
                 link=f"/agents",
@@ -356,11 +356,11 @@ class NotificationService:
             )
     
     async def notify_replication_ready(self, agent_id: str, agent_name: str, roi: float):
-        """Alert when agent is ready to replicate"""
+        """Alerta cuando un agente está listo para replicar"""
         await self.create_notification(
             type=NotificationType.ALERT_REPLICATION_READY,
-            title="Ready to Replicate!",
-            message=f"{agent_name} reached {roi:.1f}% ROI - eligible for replication",
+            title="¡Listo para Replicar!",
+            message=f"{agent_name} alcanzó {roi:.1f}% ROI - elegible para replicación",
             icon="zap",
             color="purple",
             priority=NotificationPriority.HIGH,
@@ -369,19 +369,19 @@ class NotificationService:
         )
     
     async def notify_opportunity(self, symbol: str, signal_type: str, confidence: float):
-        """Notification for detected trading opportunity"""
+        """Notificación de oportunidad de trading detectada"""
         await self.create_notification(
             type=NotificationType.OPPORTUNITY_DETECTED,
-            title=f"Opportunity: {symbol}",
-            message=f"{signal_type} signal detected ({confidence*100:.0f}% confidence)",
+            title=f"Oportunidad: {symbol}",
+            message=f"Señal {signal_type} detectada ({confidence*100:.0f}% confianza)",
             icon="target",
             color="yellow",
             link=f"/crypto"
         )
         await self.log_activity(
             type=NotificationType.OPPORTUNITY_DETECTED,
-            title=f"Signal: {symbol}",
-            description=f"{signal_type} - {confidence*100:.0f}% confidence",
+            title=f"Señal: {symbol}",
+            description=f"{signal_type} - {confidence*100:.0f}% confianza",
             icon="target",
             color="yellow"
         )
