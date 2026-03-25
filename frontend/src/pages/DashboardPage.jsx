@@ -277,7 +277,7 @@ const MiniAgentCard = ({ agent, onAction, isShaking = false }) => {
         <AgentStatusBadge status={agent.status} />
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="font-mono">${balance.toFixed(0)}</span>
+        <span className="font-mono">€{balance.toFixed(0)}</span>
         <span className={cn(
           "font-mono",
           roi >= 0 ? "text-cyber-green" : "text-destructive"
@@ -378,7 +378,7 @@ const TopPerformerCard = ({ agent, rank }) => {
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-mono text-sm truncate">{agent.name}</p>
-        <p className="text-[10px] text-muted-foreground">${balance.toFixed(0)} saldo</p>
+        <p className="text-[10px] text-muted-foreground">€{balance.toFixed(0)} saldo</p>
       </div>
       <div className={cn(
         "font-mono font-bold",
@@ -596,7 +596,7 @@ export default function DashboardPage() {
         <div className="col-span-2 lg:col-span-2 xl:col-span-2">
           <MetricCard
             title="Balance Total"
-            value={`$${(stats?.finances?.total_balance || 0).toFixed(0)}`}
+            value={`€${(stats?.finances?.total_balance || 0).toFixed(0)}`}
             change={stats?.finances?.avg_roi || 0}
             icon={DollarSign}
             color="green"
@@ -630,7 +630,7 @@ export default function DashboardPage() {
         <div className="col-span-1 lg:col-span-1 xl:col-span-2">
           <MetricCard
             title="PnL 24h"
-            value={`$${(stats?.trading?.pnl_24h || 0).toFixed(0)}`}
+            value={`€${(stats?.trading?.pnl_24h || 0).toFixed(0)}`}
             change={(stats?.trading?.pnl_24h || 0) > 0 ? 5.2 : -3.1}
             icon={TrendingUp}
             color={(stats?.trading?.pnl_24h || 0) >= 0 ? "green" : "red"}
@@ -646,7 +646,7 @@ export default function DashboardPage() {
             icon={Cpu}
             color="yellow"
             size="small"
-            subtitle={`~$${(stats?.llm?.cost_estimate || 0).toFixed(3)}`}
+            subtitle={`~€${(stats?.llm?.cost_estimate || 0).toFixed(3)}`}
             animate
           />
         </div>
@@ -665,7 +665,7 @@ export default function DashboardPage() {
                     "text-xs font-mono",
                     portfolioStats.totalPnl >= 0 ? "text-cyber-green" : "text-destructive"
                   )}>
-                    {portfolioStats.totalPnl >= 0 ? "+" : ""}${portfolioStats.totalPnl.toFixed(2)} ({portfolioStats.pnlPercent.toFixed(1)}%)
+                    {portfolioStats.totalPnl >= 0 ? "+" : ""}€{portfolioStats.totalPnl.toFixed(2)} ({portfolioStats.pnlPercent.toFixed(1)}%)
                   </span>
                 )}
               </div>
@@ -706,7 +706,7 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: '#666', fontSize: 9 }}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
+                    tickFormatter={(v) => `€${v.toFixed(0)}`}
                     width={50}
                     domain={['dataMin - 10', 'dataMax + 10']}
                   />
@@ -717,7 +717,7 @@ export default function DashboardPage() {
                       borderRadius: '4px',
                       fontSize: '11px'
                     }}
-                    formatter={(value) => [`$${value.toFixed(2)}`, 'Valor del Portfolio']}
+                    formatter={(value) => [`€${value.toFixed(2)}`, 'Valor del Portfolio']}
                     labelFormatter={(label) => `Hora: ${label}`}
                   />
                   <Area
@@ -983,7 +983,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-mono text-xs font-semibold">{coin.symbol}</p>
                     <p className="font-mono text-[10px] text-muted-foreground">
-                      ${coin.current_price?.toLocaleString()}
+                      €{coin.current_price?.toLocaleString()}
                     </p>
                   </div>
                   <div className={cn(

@@ -688,7 +688,7 @@ async def emergency_stop_all_agents(confirm: bool = Query(default=False)):
     await notification_service.create_notification(
         type="system_info",
         title="¡PARADA DE EMERGENCIA EJECUTADA!",
-        message=f"{terminated_count} agentes terminados. Balance total afectado: ${total_balance_lost:.2f}",
+        message=f"{terminated_count} agentes terminados. Balance total afectado: €{total_balance_lost:.2f}",
         icon="alert-triangle",
         color="red",
         priority="critical"

@@ -29,11 +29,11 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const formatNumber = (num) => {
-  if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
-  if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-  if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-  if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
-  return `$${num?.toFixed(2) || 0}`;
+  if (num >= 1e12) return `€${(num / 1e12).toFixed(2)}T`;
+  if (num >= 1e9) return `€${(num / 1e9).toFixed(2)}B`;
+  if (num >= 1e6) return `€${(num / 1e6).toFixed(2)}M`;
+  if (num >= 1e3) return `€${(num / 1e3).toFixed(2)}K`;
+  return `€${num?.toFixed(2) || 0}`;
 };
 
 const CoinRow = ({ coin, onSelect, isSelected }) => {
@@ -68,7 +68,7 @@ const CoinRow = ({ coin, onSelect, isSelected }) => {
       
       <div className="text-right">
         <p className="font-mono font-semibold">
-          ${coin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+          €{coin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
         </p>
       </div>
       
@@ -168,7 +168,7 @@ const CoinChart = ({ coinId }) => {
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#666', fontSize: 10 }}
-              tickFormatter={(v) => `$${v.toLocaleString()}`}
+              tickFormatter={(v) => `€${v.toLocaleString()}`}
               domain={['auto', 'auto']}
             />
             <Tooltip
@@ -178,7 +178,7 @@ const CoinChart = ({ coinId }) => {
                 borderRadius: '4px',
                 fontSize: '12px'
               }}
-              formatter={(value) => [`$${value.toLocaleString()}`, 'Price']}
+              formatter={(value) => [`€${value.toLocaleString()}`, 'Precio']}
             />
             <Area
               type="monotone"
@@ -234,16 +234,38 @@ export default function CryptoPage() {
     coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Handle trending coin click - find full coin data from coins list or use trending data
+  const handleTrendingClick = async (trendingCoin) => {
+    // First try to find the coin in our loaded coins list
+    const fullCoin = coins.find(c => c.id === trendingCoin.id);
+    
+    if (fullCoin) {
+      setSelectedCoin(fullCoin);
+    } else {
+      // If not in list, create a minimal coin object from trending data
+      // The chart will still work since it uses coin.id
+      setSelectedCoin({
+        id: trendingCoin.id,
+        name: trendingCoin.name,
+        symbol: trendingCoin.symbol,
+        image: trendingCoin.thumb || trendingCoin.large,
+        current_price: trendingCoin.price_btc, // Will be in BTC, but chart uses API
+        market_cap_rank: trendingCoin.market_cap_rank,
+        price_change_24h: 0
+      });
+    }
+  };
+
   return (
     <div className="space-y-6" data-testid="crypto-page">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Crypto Market
+            Mercado Crypto
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Real-time cryptocurrency data from CoinGecko
+            Datos de criptomonedas en tiempo real de CoinGecko
           </p>
         </div>
         
@@ -251,7 +273,7 @@ export default function CryptoPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search coins..."
+              placeholder="Buscar monedas..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-black/50 border-white/10 w-48"
@@ -266,7 +288,7 @@ export default function CryptoPage() {
             className="border-white/20"
           >
             <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-            Refresh
+            Actualizar
           </Button>
         </div>
       </div>
@@ -276,20 +298,27 @@ export default function CryptoPage() {
         <CardHeader className="pb-2">
           <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground flex items-center gap-2">
             <Activity className="w-4 h-4 text-primary" />
-            Trending Now
+            Tendencias Ahora
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {trending.map((coin) => (
-              <div
+              <button
                 key={coin.id}
-                className="flex items-center gap-2 px-4 py-2 rounded-sm bg-white/5 border border-white/10 hover:border-primary/30 cursor-pointer transition-colors shrink-0"
+                onClick={() => handleTrendingClick(coin)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-sm bg-white/5 border border-white/10",
+                  "hover:border-primary/50 hover:bg-primary/10 cursor-pointer transition-all shrink-0",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                  selectedCoin?.id === coin.id && "border-primary bg-primary/20"
+                )}
+                data-testid={`trending-coin-${coin.id}`}
               >
                 <img src={coin.thumb} alt={coin.name} className="w-6 h-6 rounded-full" />
                 <span className="font-mono text-sm">{coin.symbol}</span>
                 <span className="text-xs text-muted-foreground">#{coin.market_cap_rank}</span>
-              </div>
+              </button>
             ))}
           </div>
         </CardContent>
@@ -302,7 +331,7 @@ export default function CryptoPage() {
           <CardHeader className="pb-2">
             <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground flex items-center gap-2">
               <BarChart2 className="w-4 h-4 text-primary" />
-              {selectedCoin ? `${selectedCoin.name} (${selectedCoin.symbol.toUpperCase()})` : 'Price Chart'}
+              {selectedCoin ? `${selectedCoin.name} (${selectedCoin.symbol.toUpperCase()})` : 'Gráfico de Precio'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -312,7 +341,7 @@ export default function CryptoPage() {
                   <img src={selectedCoin.image} alt={selectedCoin.name} className="w-10 h-10 rounded-full" />
                   <div>
                     <p className="font-mono text-2xl font-bold">
-                      ${selectedCoin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                      €{selectedCoin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
                     </p>
                     <p className={cn(
                       "text-sm font-mono",
@@ -327,7 +356,7 @@ export default function CryptoPage() {
               </>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Select a coin to view chart
+                Selecciona una moneda para ver el gráfico
               </div>
             )}
           </CardContent>
@@ -338,24 +367,24 @@ export default function CryptoPage() {
           <Card className="glass border-white/10">
             <CardHeader className="pb-2">
               <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground">
-                Market Stats
+                Estadísticas de Mercado
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">Market Cap</span>
+                <span className="text-sm text-muted-foreground">Cap. de Mercado</span>
                 <span className="font-mono">{formatNumber(selectedCoin.market_cap)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">24h Volume</span>
+                <span className="text-sm text-muted-foreground">Volumen 24h</span>
                 <span className="font-mono">{formatNumber(selectedCoin.volume_24h)}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">Rank</span>
+                <span className="text-sm text-muted-foreground">Ranking</span>
                 <span className="font-mono">#{selectedCoin.market_cap_rank}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">24h Change</span>
+                <span className="text-sm text-muted-foreground">Cambio 24h</span>
                 <span className={cn(
                   "font-mono",
                   selectedCoin.price_change_24h >= 0 ? "text-cyber-green" : "text-destructive"
@@ -366,7 +395,7 @@ export default function CryptoPage() {
               </div>
               {selectedCoin.price_change_7d && (
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-muted-foreground">7d Change</span>
+                  <span className="text-sm text-muted-foreground">Cambio 7d</span>
                   <span className={cn(
                     "font-mono",
                     selectedCoin.price_change_7d >= 0 ? "text-cyber-green" : "text-destructive"
@@ -386,10 +415,10 @@ export default function CryptoPage() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground">
-              Top Cryptocurrencies
+              Top Criptomonedas
             </CardTitle>
             <span className="text-xs text-muted-foreground">
-              {filteredCoins.length} coins
+              {filteredCoins.length} monedas
             </span>
           </div>
         </CardHeader>
@@ -398,11 +427,11 @@ export default function CryptoPage() {
           <div className="hidden md:flex items-center gap-4 px-4 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-white/10 mb-2">
             <span className="w-6">#</span>
             <span className="w-8"></span>
-            <span className="flex-1">Name</span>
-            <span className="w-24 text-right">Price</span>
+            <span className="flex-1">Nombre</span>
+            <span className="w-24 text-right">Precio</span>
             <span className="w-24 text-right">24h</span>
-            <span className="hidden md:block w-28 text-right">Market Cap</span>
-            <span className="hidden lg:block w-28 text-right">Volume</span>
+            <span className="hidden md:block w-28 text-right">Cap. Mercado</span>
+            <span className="hidden lg:block w-28 text-right">Volumen</span>
           </div>
           
           {/* Coins */}
@@ -422,7 +451,7 @@ export default function CryptoPage() {
               ))
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                No coins found
+                No se encontraron monedas
               </div>
             )}
           </div>

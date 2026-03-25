@@ -133,14 +133,14 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
                 className="gap-2"
               >
                 <TrendingUp className="w-4 h-4 text-cyber-green" />
-                Simular +$10
+                Simular +€10
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onSimulate(agent.id, -10)}
                 className="gap-2"
               >
                 <TrendingDown className="w-4 h-4 text-destructive" />
-                Simular -$10
+                Simular -€10
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onReplicate(agent.id)}
@@ -181,7 +181,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <p className="text-[10px] font-heading uppercase text-muted-foreground mb-1">Saldo</p>
-            <p className="font-mono font-bold text-lg">${balance.toFixed(2)}</p>
+            <p className="font-mono font-bold text-lg">€{balance.toFixed(2)}</p>
           </div>
           <div>
             <p className="text-[10px] font-heading uppercase text-muted-foreground mb-1">ROI</p>
@@ -296,7 +296,7 @@ export default function AgentsPage() {
   const handleSimulate = async (agentId, profit) => {
     try {
       await axios.post(`${API}/agents/${agentId}/simulate-trade?profit=${profit}`);
-      toast.success(`Trade simulado: ${profit >= 0 ? '+' : ''}$${profit}`);
+      toast.success(`Trade simulado: ${profit >= 0 ? '+' : ''}€${profit}`);
       fetchAgents();
     } catch (error) {
       toast.error("Error al simular trade");

@@ -232,7 +232,7 @@ class NotificationService:
         await self.create_notification(
             type=NotificationType.AGENT_CREATED,
             title="Agente Desplegado",
-            message=f"{agent_name} creado con ${capital:.2f}",
+            message=f"{agent_name} creado con €{capital:.2f}",
             icon="bot",
             color="primary",
             link=f"/agents",
@@ -241,7 +241,7 @@ class NotificationService:
         await self.log_activity(
             type=NotificationType.AGENT_CREATED,
             title="Nuevo Agente Desplegado",
-            description=f"{agent_name} inicializado con ${capital:.2f} de capital",
+            description=f"{agent_name} inicializado con €{capital:.2f} de capital",
             icon="bot",
             color="primary",
             agent_id=agent_id,
@@ -255,7 +255,7 @@ class NotificationService:
         await self.create_notification(
             type=NotificationType.AGENT_REPLICATED,
             title="¡Agente Replicado!",
-            message=f"{parent_name} creó clon {child_name} con ${capital:.2f}",
+            message=f"{parent_name} creó clon {child_name} con €{capital:.2f}",
             icon="copy",
             color="green",
             priority=NotificationPriority.HIGH,
@@ -265,7 +265,7 @@ class NotificationService:
         await self.log_activity(
             type=NotificationType.AGENT_REPLICATED,
             title="Evento de Replicación",
-            description=f"{parent_name} → {child_name} (${capital:.2f})",
+            description=f"{parent_name} → {child_name} (€{capital:.2f})",
             icon="git-branch",
             color="green",
             agent_id=child_id,
@@ -278,7 +278,7 @@ class NotificationService:
         await self.create_notification(
             type=NotificationType.AGENT_DYING,
             title="¡Agente en Riesgo!",
-            message=f"{agent_name} saldo crítico: ${balance:.2f}",
+            message=f"{agent_name} saldo crítico: €{balance:.2f}",
             icon="alert-triangle",
             color="red",
             priority=NotificationPriority.CRITICAL,
@@ -334,7 +334,7 @@ class NotificationService:
         await self.log_activity(
             type=type_,
             title=f"Trade {'Ganado' if is_win else 'Perdido'}",
-            description=f"{agent_name} {symbol}: {'+' if pnl >= 0 else ''}${pnl:.2f}",
+            description=f"{agent_name} {symbol}: {'+' if pnl >= 0 else ''}€{pnl:.2f}",
             icon=icon,
             color=color,
             agent_id=agent_id,
@@ -346,7 +346,7 @@ class NotificationService:
         if abs(pnl) >= 10:
             await self.create_notification(
                 type=type_,
-                title=f"Trade {'Ganado' if is_win else 'Perdido'}: ${abs(pnl):.2f}",
+                title=f"Trade {'Ganado' if is_win else 'Perdido'}: €{abs(pnl):.2f}",
                 message=f"{agent_name} cerró posición de {symbol}",
                 icon=icon,
                 color=color,
