@@ -4,7 +4,7 @@ import "@/App.css";
 
 // Pages
 import LoginPage from "@/pages/LoginPage";
-import DashboardPage from "@/pages/DashboardPage";
+import NeuralFiberDashboard from "@/components/neural-fiber/NeuralFiberDashboard";
 import AgentsPage from "@/pages/AgentsPage";
 import CryptoPage from "@/pages/CryptoPage";
 import WalletPage from "@/pages/WalletPage";
@@ -23,7 +23,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<DashboardLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="dashboard" element={<NeuralFiberDashboard />} />
             <Route path="agents" element={<AgentsPage />} />
             <Route path="crypto" element={<CryptoPage />} />
             <Route path="wallet" element={<WalletPage />} />

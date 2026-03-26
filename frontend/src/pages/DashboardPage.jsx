@@ -577,10 +577,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ==================== BENTO GRID ==================== */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         
         {/* Row 1: Main Metrics */}
-        <div className="col-span-2 lg:col-span-2 xl:col-span-2">
+        <div className="col-span-1">
           <MetricCard
             title="Agentes Activos"
             value={stats?.agents?.active || 0}
@@ -593,7 +593,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="col-span-2 lg:col-span-2 xl:col-span-2">
+        <div className="col-span-1">
           <MetricCard
             title="Balance Total"
             value={`€${(stats?.finances?.total_balance || 0).toFixed(0)}`}
@@ -605,7 +605,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="col-span-1 lg:col-span-1 xl:col-span-2">
+        <div className="col-span-1">
           <MetricCard
             title="Tasa de Éxito"
             value={`${((stats?.trading?.win_rate || 0) * 100).toFixed(0)}%`}
@@ -616,7 +616,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="col-span-1 lg:col-span-1 xl:col-span-2">
+        <div className="col-span-1">
           <MetricCard
             title="Total Trades"
             value={stats?.trading?.total_trades || 0}
@@ -627,7 +627,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="col-span-1 lg:col-span-1 xl:col-span-2">
+        <div className="col-span-1">
           <MetricCard
             title="PnL 24h"
             value={`€${(stats?.trading?.pnl_24h || 0).toFixed(0)}`}
@@ -639,7 +639,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="col-span-1 lg:col-span-1 xl:col-span-2">
+        <div className="col-span-1">
           <MetricCard
             title="Tokens Usados"
             value={`${((stats?.llm?.total_tokens || 0) / 1000).toFixed(1)}K`}
@@ -653,7 +653,7 @@ export default function DashboardPage() {
 
         {/* Row 2: Charts and Agents */}
         {/* Portfolio Chart - Large */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-4 lg:col-span-4 xl:col-span-8 row-span-2">
+        <Card className="glass border-white/10 col-span-1 md:col-span-2 lg:col-span-2 row-span-2">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -686,7 +686,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="pb-4">
-            <div className="h-[280px]">
+            <div className="h-[200px] sm:h-[250px] md:h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={portfolioData}>
                   <defs>

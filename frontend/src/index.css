@@ -18,6 +18,17 @@
         --secondary-foreground: 0 0% 98%;
         --muted: 0 0% 10%;
         --muted-foreground: 240 5% 65%;
+        
+        /* Neural Fiber Color Variables */
+        --neural-bg-deep: #050505;
+        --neural-carbon-primary: #121212;
+        --neural-carbon-secondary: #1a1a1a;
+        --neural-filament-glow: #00f2ff;
+        --neural-filament-danger: #ff004c;
+        --neural-filament-success: #00ff88;
+        --neural-text-main: #e0e0e0;
+        --neural-text-dim: #666666;
+        
         --accent: 0 0% 16%;
         --accent-foreground: 0 0% 98%;
         --destructive: 348 100% 50%;
@@ -28,9 +39,9 @@
         --chart-1: 187 100% 50%;
         --chart-2: 270 100% 50%;
         --chart-3: 110 100% 54%;
-        --chart-4: 348 100% 50%;
-        --chart-5: 60 100% 50%;
-        --radius: 0.25rem;
+        --chart-4: 262 83% 58%;
+        --chart-5: 82 65% 57%;
+        --radius: 0.5rem;
         --success: 110 100% 54%;
         --warning: 60 100% 50%;
         --info: 187 100% 50%;
@@ -188,6 +199,31 @@ code, .font-mono {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #00F3FF;
+}
+
+/* Touch-friendly improvements */
+@media (max-width: 768px) {
+    button, .btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px 16px;
+    }
+    
+    .card-hover {
+        transition: transform 0.2s ease, border-color 0.3s ease;
+    }
+    
+    .card-hover:active {
+        transform: scale(0.98);
+    }
+    
+    /* Better touch targets for mobile */
+    .clickable {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 }
 
 /* Custom selection */

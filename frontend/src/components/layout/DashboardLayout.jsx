@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Breadcrumbs from "./Breadcrumbs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -332,14 +333,17 @@ const CommandPalette = ({ open, onClose }) => {
   const [search, setSearch] = useState("");
 
   const commands = [
-    { label: "Ir al Panel", action: () => navigate('/dashboard'), icon: LayoutDashboard },
-    { label: "Ir a Agentes", action: () => navigate('/agents'), icon: Bot },
-    { label: "Ir a Crypto", action: () => navigate('/crypto'), icon: TrendingUp },
-    { label: "Ir a Cartera", action: () => navigate('/wallet'), icon: Wallet },
-    { label: "Ir a Actividad", action: () => navigate('/activity'), icon: Activity },
-    { label: "Ir al Orquestador", action: () => navigate('/chat'), icon: MessageSquare },
-    { label: "Ir a Ajustes", action: () => navigate('/settings'), icon: Settings },
-    { label: "Desplegar Nuevo Agente", action: () => navigate('/agents'), icon: Zap },
+    { label: "Ir al Panel", action: () => navigate('/dashboard'), icon: LayoutDashboard, category: "Navegación" },
+    { label: "Ir a Agentes", action: () => navigate('/agents'), icon: Bot, category: "Navegación" },
+    { label: "Ir a Crypto", action: () => navigate('/crypto'), icon: TrendingUp, category: "Navegación" },
+    { label: "Ir a Cartera", action: () => navigate('/wallet'), icon: Wallet, category: "Navegación" },
+    { label: "Ir a Actividad", action: () => navigate('/activity'), icon: Activity, category: "Navegación" },
+    { label: "Ir al Orquestador", action: () => navigate('/chat'), icon: MessageSquare, category: "Navegación" },
+    { label: "Ir a Ajustes", action: () => navigate('/settings'), icon: Settings, category: "Navegación" },
+    { label: "Desplegar Nuevo Agente", action: () => navigate('/agents'), icon: Zap, category: "Acciones" },
+    { label: "Pausar Todos", action: () => {}, icon: Pause, category: "Acciones" },
+    { label: "Reanudar Todos", action: () => {}, icon: Play, category: "Acciones" },
+    { label: "Parada de Emergencia", action: () => {}, icon: OctagonX, category: "Acciones" },
   ];
 
   const filteredCommands = commands.filter(cmd => 
@@ -354,8 +358,18 @@ const CommandPalette = ({ open, onClose }) => {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ctrl+K or Cmd+K for command palette
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
+        onClose();
+      }
+      // Ctrl+/ or Cmd+/ for help
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault();
+        // Could show help dialog here
+      }
+      // Escape to close
+      if (e.key === 'Escape') {
         onClose();
       }
     };
@@ -440,6 +454,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
         "fixed left-0 top-0 h-full w-64 z-40",
         "glass border-r border-white/10",
         "transform transition-transform duration-300 ease-out",
+        "lg:w-72 xl:w-80",
         "lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
@@ -569,6 +584,20 @@ export const Topbar = ({ onMenuClick }) => {
     return titles[location.pathname] || 'Centro de Control';
   };
 
+  // Get breadcrumb items based on route
+  const getBreadcrumbs = () => {
+    const breadcrumbMap = {
+      '/dashboard': [{ label: 'Panel de Control' }],
+      '/agents': [{ label: 'Panel de Control', href: '/dashboard' }, { label: 'Gestión de Agentes' }],
+      '/crypto': [{ label: 'Panel de Control', href: '/dashboard' }, { label: 'Mercado Crypto' }],
+      '/wallet': [{ label: 'Panel de Control', href: '/dashboard' }, { label: 'Cartera' }],
+      '/activity': [{ label: 'Panel de Control', href: '/dashboard' }, { label: 'Actividad' }],
+      '/chat': [{ label: 'Panel de Control', href: '/dashboard' }, { label: 'Orquestador IA' }],
+      '/settings': [{ label: 'Panel de Control', href: '/dashboard' }, { label: 'Ajustes' }]
+    };
+    return breadcrumbMap[location.pathname] || [{ label: 'Centro de Control' }];
+  };
+
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
     try {
@@ -647,7 +676,7 @@ export const Topbar = ({ onMenuClick }) => {
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="lg:hidden h-12 w-12"
               onClick={onMenuClick}
               data-testid="mobile-menu-btn"
             >
@@ -655,6 +684,7 @@ export const Topbar = ({ onMenuClick }) => {
             </Button>
 
             <div>
+              <Breadcrumbs items={getBreadcrumbs()} className="mb-2" />
               <h1 className="font-heading font-bold text-lg tracking-wide uppercase">
                 {getPageTitle()}
               </h1>
@@ -716,7 +746,7 @@ export default function DashboardLayout() {
         onClose={() => setSidebarOpen(false)} 
       />
       
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 xl:ml-72 2xl:ml-80">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
         
         <main className="p-4 lg:p-6">

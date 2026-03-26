@@ -207,7 +207,7 @@ const AgentCard = ({ agent, onReplicate, onDestroy, onSimulate }) => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-white/10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4 pt-4 border-t border-white/10">
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">GEN</p>
             <p className="font-mono text-sm text-secondary">{generation}</p>

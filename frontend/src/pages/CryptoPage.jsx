@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -42,31 +42,31 @@ const CoinRow = ({ coin, onSelect, isSelected }) => {
   return (
     <div 
       className={cn(
-        "flex items-center gap-4 p-4 rounded-sm border border-white/10 cursor-pointer",
+        "flex items-center gap-3 p-3 sm:p-4 rounded-sm border border-white/10 cursor-pointer",
         "transition-colors hover:bg-white/5",
         isSelected && "bg-primary/10 border-primary/30"
       )}
       onClick={() => onSelect(coin)}
       data-testid={`coin-row-${coin.id}`}
     >
-      <span className="text-xs text-muted-foreground w-6 font-mono">
+      <span className="text-xs text-muted-foreground w-6 font-mono hidden sm:block">
         {coin.market_cap_rank}
       </span>
       
       <img 
         src={coin.image} 
         alt={coin.name} 
-        className="w-8 h-8 rounded-full"
+        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0"
       />
       
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{coin.name}</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+          <span className="font-semibold text-sm">{coin.name}</span>
           <span className="text-xs text-muted-foreground uppercase">{coin.symbol}</span>
         </div>
       </div>
       
-      <div className="text-right">
+      <div className="text-right flex-shrink-0">
         <p className="font-mono font-semibold">
           €{coin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
         </p>
@@ -202,11 +202,11 @@ export default function CryptoPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [coinsRes, trendingRes] = await Promise.all([
-        axios.get(`${API}/crypto/top-coins?limit=20`),
+        axios.get(`${API}/crypto/top-coins?limit=50`),
         axios.get(`${API}/crypto/trending`)
       ]);
       
@@ -221,13 +221,13 @@ export default function CryptoPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCoin]);
 
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchData]);
 
   const filteredCoins = coins.filter(coin => 
     coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
