@@ -1,76 +1,51 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
     :root {
-        --background: 0 0% 2%;
-        --foreground: 0 0% 98%;
-        --card: 0 0% 4%;
-        --card-foreground: 0 0% 100%;
-        --popover: 0 0% 4%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 187 100% 50%;
-        --primary-foreground: 0 0% 0%;
-        --secondary: 270 100% 50%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 0 0% 10%;
-        --muted-foreground: 240 5% 65%;
-        
-        /* Neural Fiber Color Variables */
-        --neural-bg-deep: #050505;
-        --neural-carbon-primary: #121212;
-        --neural-carbon-secondary: #1a1a1a;
-        --neural-filament-glow: #00f2ff;
-        --neural-filament-danger: #ff004c;
-        --neural-filament-success: #00ff88;
-        --neural-text-main: #e0e0e0;
-        --neural-text-dim: #666666;
-        
-        --accent: 0 0% 16%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 348 100% 50%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 0 0% 20%;
-        --input: 0 0% 10%;
-        --ring: 187 100% 50%;
-        --chart-1: 187 100% 50%;
-        --chart-2: 270 100% 50%;
-        --chart-3: 110 100% 54%;
-        --chart-4: 262 83% 58%;
-        --chart-5: 82 65% 57%;
-        --radius: 0.5rem;
-        --success: 110 100% 54%;
-        --warning: 60 100% 50%;
-        --info: 187 100% 50%;
+        --background: 40 10% 97%;
+        --foreground: 20 10% 15%;
+        --card: 0 0% 100%;
+        --card-foreground: 20 10% 15%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 20 10% 15%;
+        --primary: 16 65% 60%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 40 15% 94%;
+        --secondary-foreground: 20 10% 15%;
+        --muted: 40 10% 92%;
+        --muted-foreground: 25 5% 50%;
+        --accent: 40 15% 94%;
+        --accent-foreground: 20 10% 15%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 40 8% 90%;
+        --input: 40 8% 90%;
+        --ring: 16 65% 60%;
+        --chart-1: 16 65% 60%;
+        --chart-2: 210 80% 55%;
+        --chart-3: 145 60% 45%;
+        --chart-4: 270 50% 60%;
+        --chart-5: 35 80% 55%;
+        --radius: 1rem;
+        --success: 145 60% 45%;
+        --warning: 35 80% 55%;
+        --info: 210 80% 55%;
     }
 }
 
 html {
-    color-scheme: dark;
+    color-scheme: light;
 }
 
 body {
     margin: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #050505;
-    color: #FAFAFA;
-}
-
-code, .font-mono {
-    font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas, monospace;
-}
-
-.font-display {
-    font-family: 'Orbitron', sans-serif;
-}
-
-.font-heading {
-    font-family: 'Rajdhani', sans-serif;
+    background-color: hsl(40 10% 97%);
+    color: hsl(20 10% 15%);
 }
 
 @layer base {
@@ -79,294 +54,113 @@ code, .font-mono {
     }
 }
 
-/* Glassmorphism */
-.glass {
-    background: rgba(10, 10, 10, 0.6);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+@layer components {
+    .apple-card {
+        @apply bg-white rounded-2xl border border-black/5 shadow-sm;
+    }
+
+    .apple-card-hover {
+        @apply apple-card transition-all duration-200 hover:shadow-md hover:border-black/10;
+    }
+
+    .apple-button {
+        @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-150 active:scale-[0.98];
+    }
+
+    .apple-button-primary {
+        @apply apple-button bg-claude-coral text-white hover:bg-claude-coral-dark shadow-sm;
+    }
+
+    .apple-button-secondary {
+        @apply apple-button bg-claude-warm text-foreground hover:bg-claude-warm-dark;
+    }
+
+    .apple-button-ghost {
+        @apply apple-button text-muted-foreground hover:bg-black/5;
+    }
+
+    .apple-input {
+        @apply w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm 
+               transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-claude-coral/30 focus:border-claude-coral/50;
+    }
+
+    .apple-badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    }
+
+    .apple-badge-success {
+        @apply apple-badge bg-green-100 text-green-700;
+    }
+
+    .apple-badge-warning {
+        @apply apple-badge bg-amber-100 text-amber-700;
+    }
+
+    .apple-badge-danger {
+        @apply apple-badge bg-red-100 text-red-700;
+    }
+
+    .apple-badge-neutral {
+        @apply apple-badge bg-gray-100 text-gray-600;
+    }
+
+    .apple-badge-coral {
+        @apply apple-badge bg-claude-coral/10 text-claude-coral;
+    }
+
+    .apple-sidebar-item {
+        @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium 
+               text-muted-foreground transition-all duration-150 cursor-pointer
+               hover:bg-black/5 hover:text-foreground;
+    }
+
+    .apple-sidebar-item-active {
+        @apply bg-claude-coral/10 text-claude-coral;
+    }
+
+    .apple-section-title {
+        @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground/70;
+    }
+
+    .apple-metric-value {
+        @apply text-3xl font-semibold tracking-tight text-foreground;
+    }
+
+    .apple-metric-label {
+        @apply text-sm text-muted-foreground;
+    }
 }
 
-/* Neon glow effects */
-.glow-cyan {
-    box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
-}
-
-.glow-cyan-intense {
-    box-shadow: 0 0 30px rgba(0, 243, 255, 0.5), 0 0 60px rgba(0, 243, 255, 0.2);
-}
-
-.glow-purple {
-    box-shadow: 0 0 20px rgba(112, 0, 255, 0.3);
-}
-
-.glow-red {
-    box-shadow: 0 0 20px rgba(255, 0, 60, 0.3);
-}
-
-.glow-green {
-    box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
-}
-
-/* Text glow */
-.text-glow-cyan {
-    text-shadow: 0 0 10px rgba(0, 243, 255, 0.5), 0 0 20px rgba(0, 243, 255, 0.3);
-}
-
-.text-glow-green {
-    text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
-}
-
-.text-glow-red {
-    text-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
-}
-
-/* Scanlines overlay */
-.scanlines::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    pointer-events: none;
-    background: linear-gradient(
-        rgba(18, 16, 16, 0) 50%,
-        rgba(0, 0, 0, 0.1) 50%
-    );
-    background-size: 100% 2px;
-    opacity: 0.15;
-}
-
-/* Noise texture */
-.noise::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 99;
-    pointer-events: none;
-    opacity: 0.03;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-}
-
-/* Status indicators */
-.status-active {
-    background: linear-gradient(135deg, rgba(0, 243, 255, 0.1) 0%, transparent 100%);
-    border-color: rgba(0, 243, 255, 0.3);
-}
-
-.status-replicating {
-    background: linear-gradient(135deg, rgba(57, 255, 20, 0.1) 0%, transparent 100%);
-    border-color: rgba(57, 255, 20, 0.3);
-    animation: pulse-green 2s infinite;
-}
-
-.status-dying {
-    background: linear-gradient(135deg, rgba(255, 0, 60, 0.1) 0%, transparent 100%);
-    border-color: rgba(255, 0, 60, 0.3);
-    animation: pulse-red 1.5s infinite;
-}
-
-.status-dead {
-    background: rgba(20, 20, 20, 0.5);
-    border-color: rgba(255, 255, 255, 0.05);
-    opacity: 0.5;
-}
-
-@keyframes pulse-green {
-    0%, 100% { box-shadow: 0 0 20px rgba(57, 255, 20, 0.3); }
-    50% { box-shadow: 0 0 40px rgba(57, 255, 20, 0.5); }
-}
-
-@keyframes pulse-red {
-    0%, 100% { box-shadow: 0 0 15px rgba(255, 0, 60, 0.3); }
-    50% { box-shadow: 0 0 30px rgba(255, 0, 60, 0.5); }
-}
-
-/* Scrollbar styling */
 ::-webkit-scrollbar {
     width: 6px;
-    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #0a0a0a;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #333;
+    background: rgba(0, 0, 0, 0.15);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #00F3FF;
+    background: rgba(0, 0, 0, 0.25);
 }
 
-/* Touch-friendly improvements */
-@media (max-width: 768px) {
-    button, .btn {
-        min-height: 44px;
-        min-width: 44px;
-        padding: 8px 16px;
-    }
-    
-    .card-hover {
-        transition: transform 0.2s ease, border-color 0.3s ease;
-    }
-    
-    .card-hover:active {
-        transform: scale(0.98);
-    }
-    
-    /* Better touch targets for mobile */
-    .clickable {
-        min-height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-}
-
-/* Custom selection */
 ::selection {
-    background: rgba(0, 243, 255, 0.3);
-    color: #fff;
+    background: rgba(217, 119, 87, 0.25);
+    color: inherit;
 }
 
-/* Input focus styles */
 input:focus, textarea:focus, select:focus {
     outline: none;
-    border-color: #00F3FF !important;
-    box-shadow: 0 0 0 1px rgba(0, 243, 255, 0.3);
 }
 
-/* Button transitions */
 button {
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }
 
 button:active {
     transform: scale(0.98);
-}
-
-/* Card hover effects */
-.card-hover {
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.card-hover:hover {
-    border-color: rgba(0, 243, 255, 0.5);
-    box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
-}
-
-/* Grid lines background */
-.grid-bg {
-    background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 50px 50px;
-}
-
-/* Animations */
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes slide-up {
-    from { 
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to { 
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slide-in-right {
-    from {
-        opacity: 0;
-        transform: translateX(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.animate-fade-in {
-    animation: fade-in 0.5s ease forwards;
-}
-
-.animate-slide-up {
-    animation: slide-up 0.5s ease forwards;
-}
-
-.animate-slide-in-right {
-    animation: slide-in-right 0.5s ease forwards;
-}
-
-/* Stagger animation delays */
-.stagger-1 { animation-delay: 0.1s; }
-.stagger-2 { animation-delay: 0.2s; }
-.stagger-3 { animation-delay: 0.3s; }
-.stagger-4 { animation-delay: 0.4s; }
-.stagger-5 { animation-delay: 0.5s; }
-
-
-/* Shake animation for dying agents */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-    20%, 40%, 60%, 80% { transform: translateX(2px); }
-}
-
-.animate-shake {
-    animation: shake 0.6s ease-in-out infinite;
-}
-
-/* Confetti animation */
-@keyframes confetti {
-    0% {
-        transform: translateY(-100vh) rotate(0deg);
-        opacity: 1;
-    }
-    100% {
-        transform: translateY(100vh) rotate(720deg);
-        opacity: 0;
-    }
-}
-
-.animate-confetti {
-    animation: confetti 3s linear forwards;
-}
-
-/* Pulse slow animation */
-@keyframes pulse-slow {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
-}
-
-.animate-pulse-slow {
-    animation: pulse-slow 2s ease-in-out infinite;
-}
-
-/* Number counter glow effect */
-@keyframes counter-glow {
-    0%, 100% { text-shadow: 0 0 5px currentColor; }
-    50% { text-shadow: 0 0 20px currentColor, 0 0 30px currentColor; }
-}
-
-.animate-counter-glow {
-    animation: counter-glow 1s ease-in-out;
-}
-
-/* Bounce for replicating agents */
-@keyframes bounce-subtle {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
-}
-
-.animate-bounce-subtle {
-    animation: bounce-subtle 1s ease-in-out infinite;
 }

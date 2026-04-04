@@ -1,32 +1,29 @@
 import { useState, useEffect, useCallback } from "react";
-import { 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  TrendingUp,
+  TrendingDown,
   RefreshCw,
   Search,
-  Star,
-  ExternalLink,
-  BarChart2,
-  Activity
+  Activity,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import axios from "axios";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   AreaChart,
-  Area
+  Area,
 } from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const CORAL = "#D97757";
+const CORAL_LIGHT = "rgba(217, 119, 87, 0.1)";
+const CORAL_BORDER = "rgba(217, 119, 87, 0.25)";
+const BG_WARM = "#F5F3EF";
+const GREEN = "#2E9E5C";
+const RED = "#E04F4F";
 
 const formatNumber = (num) => {
   if (num >= 1e12) return `€${(num / 1e12).toFixed(2)}T`;
@@ -36,62 +33,22 @@ const formatNumber = (num) => {
   return `€${num?.toFixed(2) || 0}`;
 };
 
-const CoinRow = ({ coin, onSelect, isSelected }) => {
-  const isPositive = coin.price_change_24h >= 0;
-  
-  return (
-    <div 
-      className={cn(
-        "flex items-center gap-3 p-3 sm:p-4 rounded-sm border border-white/10 cursor-pointer",
-        "transition-colors hover:bg-white/5",
-        isSelected && "bg-primary/10 border-primary/30"
-      )}
-      onClick={() => onSelect(coin)}
-      data-testid={`coin-row-${coin.id}`}
-    >
-      <span className="text-xs text-muted-foreground w-6 font-mono hidden sm:block">
-        {coin.market_cap_rank}
-      </span>
-      
-      <img 
-        src={coin.image} 
-        alt={coin.name} 
-        className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex-shrink-0"
-      />
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-          <span className="font-semibold text-sm">{coin.name}</span>
-          <span className="text-xs text-muted-foreground uppercase">{coin.symbol}</span>
-        </div>
-      </div>
-      
-      <div className="text-right flex-shrink-0">
-        <p className="font-mono font-semibold">
-          €{coin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-        </p>
-      </div>
-      
-      <div className={cn(
-        "w-24 text-right font-mono text-sm",
-        isPositive ? "text-cyber-green" : "text-destructive"
-      )}>
-        <div className="flex items-center justify-end gap-1">
-          {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-          {isPositive ? "+" : ""}{coin.price_change_24h?.toFixed(2)}%
-        </div>
-      </div>
-      
-      <div className="hidden md:block text-right w-28">
-        <p className="text-sm text-muted-foreground">{formatNumber(coin.market_cap)}</p>
-      </div>
-      
-      <div className="hidden lg:block text-right w-28">
-        <p className="text-sm text-muted-foreground">{formatNumber(coin.volume_24h)}</p>
-      </div>
-    </div>
-  );
+const formatPrice = (price) => {
+  if (price == null) return "€0";
+  if (price < 0.0001) return `€${price.toFixed(8)}`;
+  if (price < 0.01) return `€${price.toFixed(6)}`;
+  if (price < 1) return `€${price.toFixed(4)}`;
+  return `€${price.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 };
+
+const PERIODS = [
+  { label: "1D", days: 1 },
+  { label: "7D", days: 7 },
+  { label: "30D", days: 30 },
+  { label: "90D", days: 90 },
+];
+
+/* ─── Coin Chart ─── */
 
 const CoinChart = ({ coinId }) => {
   const [chartData, setChartData] = useState([]);
@@ -106,7 +63,7 @@ const CoinChart = ({ coinId }) => {
         const prices = response.data.prices || [];
         const formattedData = prices.map(([timestamp, price]) => ({
           time: new Date(timestamp).toLocaleDateString(),
-          price: price
+          price,
         }));
         setChartData(formattedData);
       } catch (error) {
@@ -116,77 +73,76 @@ const CoinChart = ({ coinId }) => {
       }
     };
 
-    if (coinId) {
-      fetchChart();
-    }
+    if (coinId) fetchChart();
   }, [coinId, days]);
 
   if (loading) {
     return (
-      <div className="h-[300px] flex items-center justify-center">
-        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+      <div className="flex h-72 items-center justify-center">
+        <RefreshCw className="h-6 w-6 animate-spin" style={{ color: CORAL }} />
       </div>
     );
   }
 
   return (
     <div>
-      <div className="flex gap-2 mb-4">
-        {[1, 7, 30, 90].map((d) => (
-          <Button
+      <div className="mb-4 flex gap-2">
+        {PERIODS.map(({ label, days: d }) => (
+          <button
             key={d}
-            variant={days === d ? "default" : "outline"}
-            size="sm"
             onClick={() => setDays(d)}
-            className={cn(
-              "text-xs",
-              days === d ? "bg-primary text-black" : "border-white/20"
-            )}
+            className="rounded-full px-4 py-1.5 text-xs font-medium transition-all"
+            style={{
+              background: days === d ? CORAL : "transparent",
+              color: days === d ? "#fff" : "#888",
+              border: days === d ? `1px solid ${CORAL}` : "1px solid #e0dcd7",
+            }}
           >
-            {d}D
-          </Button>
+            {label}
+          </button>
         ))}
       </div>
-      
-      <div className="h-[300px]">
+
+      <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <defs>
-              <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#00F3FF" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#00F3FF" stopOpacity={0}/>
+              <linearGradient id="coralGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={CORAL} stopOpacity={0.2} />
+                <stop offset="95%" stopColor={CORAL} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis 
-              dataKey="time" 
+            <XAxis
+              dataKey="time"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#666', fontSize: 10 }}
+              tick={{ fill: "#aaa", fontSize: 11 }}
               interval="preserveStartEnd"
             />
-            <YAxis 
+            <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#666', fontSize: 10 }}
+              tick={{ fill: "#aaa", fontSize: 11 }}
               tickFormatter={(v) => `€${v.toLocaleString()}`}
-              domain={['auto', 'auto']}
+              domain={["auto", "auto"]}
             />
             <Tooltip
               contentStyle={{
-                background: 'rgba(0,0,0,0.9)',
-                border: '1px solid rgba(0,243,255,0.3)',
-                borderRadius: '4px',
-                fontSize: '12px'
+                background: "#fff",
+                border: `1px solid ${CORAL_BORDER}`,
+                borderRadius: "12px",
+                fontSize: "12px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
               }}
-              formatter={(value) => [`€${value.toLocaleString()}`, 'Precio']}
+              formatter={(value) => [formatPrice(value), "Price"]}
             />
             <Area
               type="monotone"
               dataKey="price"
-              stroke="#00F3FF"
+              stroke={CORAL}
               strokeWidth={2}
               fillOpacity={1}
-              fill="url(#colorPrice)"
+              fill="url(#coralGradient)"
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -195,24 +151,28 @@ const CoinChart = ({ coinId }) => {
   );
 };
 
+/* ─── Main Page ─── */
+
 export default function CryptoPage() {
   const [coins, setCoins] = useState([]);
   const [trending, setTrending] = useState([]);
   const [selectedCoin, setSelectedCoin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const [coinsRes, trendingRes] = await Promise.all([
         axios.get(`${API}/crypto/top-coins?limit=50`),
-        axios.get(`${API}/crypto/trending`)
+        axios.get(`${API}/crypto/trending`),
       ]);
-      
+
       setCoins(coinsRes.data.coins || []);
       setTrending(trendingRes.data.trending || []);
-      
+
       if (!selectedCoin && coinsRes.data.coins?.length > 0) {
         setSelectedCoin(coinsRes.data.coins[0]);
       }
@@ -220,243 +180,317 @@ export default function CryptoPage() {
       console.error("Error fetching crypto data:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [selectedCoin]);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60000);
+    const interval = setInterval(() => fetchData(true), 60000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const filteredCoins = coins.filter(coin => 
-    coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCoins = coins.filter(
+    (coin) =>
+      coin.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      coin.symbol.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Handle trending coin click - find full coin data from coins list or use trending data
-  const handleTrendingClick = async (trendingCoin) => {
-    // First try to find the coin in our loaded coins list
-    const fullCoin = coins.find(c => c.id === trendingCoin.id);
-    
+  const handleTrendingClick = (trendingCoin) => {
+    const fullCoin = coins.find((c) => c.id === trendingCoin.id);
     if (fullCoin) {
       setSelectedCoin(fullCoin);
     } else {
-      // If not in list, create a minimal coin object from trending data
-      // The chart will still work since it uses coin.id
       setSelectedCoin({
         id: trendingCoin.id,
         name: trendingCoin.name,
         symbol: trendingCoin.symbol,
         image: trendingCoin.thumb || trendingCoin.large,
-        current_price: trendingCoin.price_btc, // Will be in BTC, but chart uses API
+        current_price: trendingCoin.price_btc,
         market_cap_rank: trendingCoin.market_cap_rank,
-        price_change_24h: 0
+        price_change_24h: 0,
       });
     }
   };
 
+  const changeColor = (val) => (val >= 0 ? GREEN : RED);
+  const ChangeIcon = ({ positive }) =>
+    positive ? (
+      <TrendingUp className="h-3.5 w-3.5" style={{ color: GREEN }} />
+    ) : (
+      <TrendingDown className="h-3.5 w-3.5" style={{ color: RED }} />
+    );
+
   return (
-    <div className="space-y-6" data-testid="crypto-page">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div
+      className="min-h-screen space-y-6 p-4 sm:p-6 lg:p-8"
+      style={{ backgroundColor: BG_WARM }}
+      data-testid="crypto-page"
+    >
+      {/* ─── Header ─── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
             Mercado Crypto
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Datos de criptomonedas en tiempo real de CoinGecko
+          <p className="mt-1 text-sm text-gray-500">
+            Real-time cryptocurrency data from CoinGecko
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar monedas..."
+            <Search
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Search coins..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-black/50 border-white/10 w-48"
               data-testid="crypto-search-input"
+              className="h-10 w-48 rounded-full border border-gray-200 bg-white pl-9 pr-4 text-sm text-gray-900 placeholder-gray-400 outline-none transition-shadow focus:shadow-md focus:ring-0"
             />
           </div>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={fetchData}
-            className="border-white/20"
+
+          <button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="flex h-10 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 shadow-sm transition-all hover:shadow-md active:scale-95 disabled:opacity-50"
           >
-            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-            Actualizar
-          </Button>
+            <RefreshCw
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Trending */}
-      <Card className="glass border-white/10">
-        <CardHeader className="pb-2">
-          <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground flex items-center gap-2">
-            <Activity className="w-4 h-4 text-primary" />
-            Tendencias Ahora
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {trending.map((coin) => (
-              <button
-                key={coin.id}
-                onClick={() => handleTrendingClick(coin)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-sm bg-white/5 border border-white/10",
-                  "hover:border-primary/50 hover:bg-primary/10 cursor-pointer transition-all shrink-0",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  selectedCoin?.id === coin.id && "border-primary bg-primary/20"
-                )}
-                data-testid={`trending-coin-${coin.id}`}
-              >
-                <img src={coin.thumb} alt={coin.name} className="w-6 h-6 rounded-full" />
-                <span className="font-mono text-sm">{coin.symbol}</span>
-                <span className="text-xs text-muted-foreground">#{coin.market_cap_rank}</span>
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* ─── Trending ─── */}
+      <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Activity className="h-4 w-4" style={{ color: CORAL }} />
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Trending Now
+          </span>
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-1">
+          {trending.map((coin) => (
+            <button
+              key={coin.id}
+              onClick={() => handleTrendingClick(coin)}
+              data-testid={`trending-coin-${coin.id}`}
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5 text-sm transition-all hover:shadow-md active:scale-95"
+              style={{
+                borderColor:
+                  selectedCoin?.id === coin.id ? CORAL_BORDER : undefined,
+                background:
+                  selectedCoin?.id === coin.id ? CORAL_LIGHT : undefined,
+              }}
+            >
+              <img
+                src={coin.thumb}
+                alt={coin.name}
+                className="h-6 w-6 rounded-full"
+              />
+              <span className="font-medium text-gray-900">{coin.symbol}</span>
+              <span className="text-xs text-gray-400">
+                #{coin.market_cap_rank}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart */}
-        <Card className="glass border-white/10 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground flex items-center gap-2">
-              <BarChart2 className="w-4 h-4 text-primary" />
-              {selectedCoin ? `${selectedCoin.name} (${selectedCoin.symbol.toUpperCase()})` : 'Gráfico de Precio'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedCoin ? (
-              <>
-                <div className="flex items-center gap-4 mb-6">
-                  <img src={selectedCoin.image} alt={selectedCoin.name} className="w-10 h-10 rounded-full" />
-                  <div>
-                    <p className="font-mono text-2xl font-bold">
-                      €{selectedCoin.current_price?.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                    </p>
-                    <p className={cn(
-                      "text-sm font-mono",
-                      selectedCoin.price_change_24h >= 0 ? "text-cyber-green" : "text-destructive"
-                    )}>
+      {/* ─── Main Grid ─── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Chart Panel */}
+        <div
+          className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm lg:col-span-2"
+        >
+          {selectedCoin ? (
+            <>
+              <div className="mb-5 flex items-center gap-4">
+                <img
+                  src={selectedCoin.image}
+                  alt={selectedCoin.name}
+                  className="h-12 w-12 rounded-full"
+                />
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-lg font-semibold text-gray-900">
+                      {selectedCoin.name}
+                    </span>
+                    <span className="text-sm uppercase text-gray-400">
+                      {selectedCoin.symbol}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-2xl font-semibold text-gray-900">
+                      {formatPrice(selectedCoin.current_price)}
+                    </span>
+                    <span
+                      className="flex items-center gap-1 text-sm font-medium"
+                      style={{ color: changeColor(selectedCoin.price_change_24h) }}
+                    >
+                      <ChangeIcon positive={selectedCoin.price_change_24h >= 0} />
                       {selectedCoin.price_change_24h >= 0 ? "+" : ""}
-                      {selectedCoin.price_change_24h?.toFixed(2)}% (24h)
-                    </p>
+                      {selectedCoin.price_change_24h?.toFixed(2)}%
+                    </span>
                   </div>
                 </div>
-                <CoinChart coinId={selectedCoin.id} />
-              </>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                Selecciona una moneda para ver el gráfico
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <CoinChart coinId={selectedCoin.id} />
+            </>
+          ) : (
+            <div className="flex h-72 items-center justify-center text-sm text-gray-400">
+              Select a coin to view the chart
+            </div>
+          )}
+        </div>
 
-        {/* Coin Stats */}
+        {/* Stats Panel */}
         {selectedCoin && (
-          <Card className="glass border-white/10">
-            <CardHeader className="pb-2">
-              <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground">
-                Estadísticas de Mercado
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">Cap. de Mercado</span>
-                <span className="font-mono">{formatNumber(selectedCoin.market_cap)}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">Volumen 24h</span>
-                <span className="font-mono">{formatNumber(selectedCoin.volume_24h)}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">Ranking</span>
-                <span className="font-mono">#{selectedCoin.market_cap_rank}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-white/10">
-                <span className="text-sm text-muted-foreground">Cambio 24h</span>
-                <span className={cn(
-                  "font-mono",
-                  selectedCoin.price_change_24h >= 0 ? "text-cyber-green" : "text-destructive"
-                )}>
-                  {selectedCoin.price_change_24h >= 0 ? "+" : ""}
-                  {selectedCoin.price_change_24h?.toFixed(2)}%
-                </span>
-              </div>
-              {selectedCoin.price_change_7d && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-muted-foreground">Cambio 7d</span>
-                  <span className={cn(
-                    "font-mono",
-                    selectedCoin.price_change_7d >= 0 ? "text-cyber-green" : "text-destructive"
-                  )}>
-                    {selectedCoin.price_change_7d >= 0 ? "+" : ""}
-                    {selectedCoin.price_change_7d?.toFixed(2)}%
+          <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
+            <span className="mb-4 block text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Market Stats
+            </span>
+            <div className="space-y-0">
+              {[
+                { label: "Market Cap", value: formatNumber(selectedCoin.market_cap) },
+                { label: "24h Volume", value: formatNumber(selectedCoin.volume_24h) },
+                { label: "Rank", value: `#${selectedCoin.market_cap_rank}` },
+                {
+                  label: "24h Change",
+                  value: `${selectedCoin.price_change_24h >= 0 ? "+" : ""}${selectedCoin.price_change_24h?.toFixed(2)}%`,
+                  color: changeColor(selectedCoin.price_change_24h),
+                },
+                ...(selectedCoin.price_change_7d
+                  ? [
+                      {
+                        label: "7d Change",
+                        value: `${selectedCoin.price_change_7d >= 0 ? "+" : ""}${selectedCoin.price_change_7d?.toFixed(2)}%`,
+                        color: changeColor(selectedCoin.price_change_7d),
+                      },
+                    ]
+                  : []),
+              ].map((stat, i) => (
+                <div
+                  key={stat.label}
+                  className={`flex items-center justify-between py-3 ${
+                    i < 4 ? "border-b border-gray-100" : ""
+                  }`}
+                >
+                  <span className="text-sm text-gray-500">{stat.label}</span>
+                  <span
+                    className="text-sm font-medium tabular-nums"
+                    style={{ color: stat.color || "#111" }}
+                  >
+                    {stat.value}
                   </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Coin List */}
-      <Card className="glass border-white/10">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground">
-              Top Criptomonedas
-            </CardTitle>
-            <span className="text-xs text-muted-foreground">
-              {filteredCoins.length} monedas
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Table Header */}
-          <div className="hidden md:flex items-center gap-4 px-4 py-2 text-xs text-muted-foreground uppercase tracking-wider border-b border-white/10 mb-2">
-            <span className="w-6">#</span>
-            <span className="w-8"></span>
-            <span className="flex-1">Nombre</span>
-            <span className="w-24 text-right">Precio</span>
-            <span className="w-24 text-right">24h</span>
-            <span className="hidden md:block w-28 text-right">Cap. Mercado</span>
-            <span className="hidden lg:block w-28 text-right">Volumen</span>
-          </div>
-          
-          {/* Coins */}
-          <div className="space-y-2 max-h-[500px] overflow-y-auto">
-            {loading ? (
-              [...Array(5)].map((_, i) => (
-                <div key={i} className="h-16 bg-white/5 rounded-sm animate-pulse" />
-              ))
-            ) : filteredCoins.length > 0 ? (
-              filteredCoins.map((coin) => (
-                <CoinRow 
-                  key={coin.id} 
-                  coin={coin} 
-                  onSelect={setSelectedCoin}
-                  isSelected={selectedCoin?.id === coin.id}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No se encontraron monedas
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      {/* ─── Coin List ─── */}
+      <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+            Top Cryptocurrencies
+          </span>
+          <span className="text-xs text-gray-400">
+            {filteredCoins.length} coins
+          </span>
+        </div>
+
+        {/* Table Header */}
+        <div className="mb-2 hidden items-center gap-4 border-b border-gray-100 px-4 py-2 text-xs font-medium uppercase tracking-wider text-gray-400 md:flex">
+          <span className="w-6">#</span>
+          <span className="w-8" />
+          <span className="flex-1">Name</span>
+          <span className="w-28 text-right">Price</span>
+          <span className="w-24 text-right">24h</span>
+          <span className="hidden w-28 text-right md:block">Market Cap</span>
+          <span className="hidden w-28 text-right lg:block">Volume</span>
+        </div>
+
+        {/* Rows */}
+        <div className="max-h-[500px] space-y-1 overflow-y-auto">
+          {loading ? (
+            [...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="h-16 animate-pulse rounded-xl bg-gray-100"
+              />
+            ))
+          ) : filteredCoins.length > 0 ? (
+            filteredCoins.map((coin) => {
+              const positive = coin.price_change_24h >= 0;
+              const isSelected = selectedCoin?.id === coin.id;
+              return (
+                <div
+                  key={coin.id}
+                  onClick={() => setSelectedCoin(coin)}
+                  data-testid={`coin-row-${coin.id}`}
+                  className={`flex cursor-pointer items-center gap-4 rounded-xl px-4 py-3 text-sm transition-all hover:bg-gray-50 active:scale-[0.995] md:gap-4`}
+                  style={{
+                    backgroundColor: isSelected ? CORAL_LIGHT : undefined,
+                  }}
+                >
+                  <span className="hidden w-6 text-xs font-medium text-gray-400 sm:block">
+                    {coin.market_cap_rank}
+                  </span>
+
+                  <img
+                    src={coin.image}
+                    alt={coin.name}
+                    className="h-8 w-8 flex-shrink-0 rounded-full"
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-medium text-gray-900">
+                        {coin.name}
+                      </span>
+                      <span className="shrink-0 text-xs uppercase text-gray-400">
+                        {coin.symbol}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="w-28 shrink-0 text-right font-medium tabular-nums text-gray-900">
+                    {formatPrice(coin.current_price)}
+                  </span>
+
+                  <span
+                    className="flex w-24 shrink-0 items-center justify-end gap-1 text-sm font-medium tabular-nums"
+                    style={{ color: changeColor(coin.price_change_24h) }}
+                  >
+                    <ChangeIcon positive={positive} />
+                    {positive ? "+" : ""}
+                    {coin.price_change_24h?.toFixed(2)}%
+                  </span>
+
+                  <span className="hidden w-28 shrink-0 text-right text-sm text-gray-500 md:block">
+                    {formatNumber(coin.market_cap)}
+                  </span>
+
+                  <span className="hidden w-28 shrink-0 text-right text-sm text-gray-500 lg:block">
+                    {formatNumber(coin.volume_24h)}
+                  </span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-12 text-center text-sm text-gray-400">
+              No coins found
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

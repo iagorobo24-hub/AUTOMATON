@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import CentralDisplay from './CentralDisplay';
 import ExecutionEngine from './ExecutionEngine';
@@ -6,20 +6,15 @@ import StructuralAnalysis from './StructuralAnalysis';
 import ActivityConsole from './ActivityConsole';
 import '../../styles/neural-fiber.css';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = "http://localhost:8000/api";
 
 export default function NeuralFiberDashboard() {
   const [stats, setStats] = useState(null);
   const [agents, setAgents] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [lineage, setLineage] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [statsRes, agentsRes, notifRes] = await Promise.all([
         axios.get(`${API}/dashboard/stats`),
@@ -27,13 +22,26 @@ export default function NeuralFiberDashboard() {
         axios.get(`${API}/notifications?limit=10`)
       ]);
       
+      const agentsData = agentsRes.data.agents || [];
       setStats(statsRes.data);
-      setAgents(agentsRes.data.agents || []);
+      setAgents(agentsData);
       setNotifications(notifRes.data.notifications || []);
+
+      // Fetch lineage for the first agent if available
+      if (agentsData.length > 0 && !lineage) {
+        const linRes = await axios.get(`${API}/agents/${agentsData[0].id}/lineage`);
+        setLineage(linRes.data);
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     }
-  };
+  }, [lineage]);
+
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 3000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   return (
     <div className="neural-fiber-dashboard">

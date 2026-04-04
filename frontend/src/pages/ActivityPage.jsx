@@ -1,38 +1,24 @@
 import { useState, useEffect, useCallback } from "react";
-import { 
-  Activity, 
-  Bot, 
-  TrendingUp, 
-  TrendingDown, 
-  Copy, 
-  Skull, 
+import {
+  Activity,
+  Bot,
+  TrendingUp,
+  TrendingDown,
+  Copy,
   AlertTriangle,
   Target,
   DollarSign,
   Zap,
   RefreshCw,
-  Filter,
   Calendar,
-  Search
+  Search,
+  Skull
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// ==================== ICON MAPPING ====================
 const eventIcons = {
   agent_created: Bot,
   agent_replicated: Copy,
@@ -52,101 +38,78 @@ const eventIcons = {
 };
 
 const eventColors = {
-  agent_created: "primary",
+  agent_created: "coral",
   agent_replicated: "green",
   agent_dying: "red",
   agent_dead: "red",
   trade_win: "green",
   trade_loss: "red",
-  trade_opened: "primary",
-  trade_closed: "purple",
+  trade_opened: "coral",
+  trade_closed: "coral",
   payment_received: "green",
-  alert_low_balance: "yellow",
-  alert_replication_ready: "purple",
-  opportunity_detected: "yellow",
-  default: "primary"
+  alert_low_balance: "orange",
+  alert_replication_ready: "coral",
+  opportunity_detected: "orange",
+  default: "coral"
 };
 
 const colorClasses = {
-  primary: "text-primary bg-primary/10 border-primary/30",
-  green: "text-cyber-green bg-cyber-green/10 border-cyber-green/30",
-  red: "text-destructive bg-destructive/10 border-destructive/30",
-  purple: "text-secondary bg-secondary/10 border-secondary/30",
-  yellow: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30"
+  coral: "text-[#D97757] bg-[#D97757]/10",
+  green: "text-[#34C759] bg-[#34C759]/10",
+  red: "text-[#FF3B30] bg-[#FF3B30]/10",
+  orange: "text-[#FF9500] bg-[#FF9500]/10"
 };
 
-// ==================== ACTIVITY EVENT CARD ====================
 const ActivityEventCard = ({ event, onClick }) => {
   const Icon = eventIcons[event.type] || eventIcons.default;
   const color = eventColors[event.type] || eventColors.default;
   const colorClass = colorClasses[color];
-  
+
   const timeAgo = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now - date) / 1000);
-    
-    if (seconds < 60) return 'Ahora mismo';
-    if (seconds < 3600) return `Hace ${Math.floor(seconds / 60)} min`;
-    if (seconds < 86400) return `Hace ${Math.floor(seconds / 3600)} horas`;
-    if (seconds < 604800) return `Hace ${Math.floor(seconds / 86400)} días`;
-    return date.toLocaleDateString('es-ES');
-  };
 
-  const formatTime = (dateString) => {
-    return new Date(dateString).toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    if (seconds < 60) return 'Ahora mismo';
+    if (seconds < 3600) return `Hace ${Math.floor(seconds / 60)}m`;
+    if (seconds < 86400) return `Hace ${Math.floor(seconds / 3600)}h`;
+    if (seconds < 604800) return `Hace ${Math.floor(seconds / 86400)}d`;
+    return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
   };
 
   return (
-    <div 
-      className={cn(
-        "flex gap-4 p-4 rounded-sm border border-white/10 hover:border-white/20 transition-colors cursor-pointer group",
-        event.link && "hover:bg-white/5"
-      )}
+    <div
+      className={`flex items-start gap-4 p-4 rounded-xl hover:bg-[#F5F3EF] transition-colors cursor-pointer ${event.link ? "" : ""}`}
       onClick={() => event.link && onClick(event.link)}
     >
-      {/* Icon */}
-      <div className={cn(
-        "w-10 h-10 rounded-sm flex items-center justify-center shrink-0 border",
-        colorClass
-      )}>
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${colorClass}`}>
         <Icon className="w-5 h-5" />
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <h3 className="font-semibold text-sm">{event.title}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
+          <div className="min-w-0">
+            <h3 className="text-[15px] font-medium text-[#1a1a1a] leading-snug">{event.title}</h3>
+            <p className="text-[13px] text-[#86868b] mt-0.5 line-clamp-2">
               {event.description}
             </p>
           </div>
           {event.amount !== null && event.amount !== undefined && (
-            <span className={cn(
-              "font-mono text-sm font-semibold shrink-0",
-              event.amount >= 0 ? "text-cyber-green" : "text-destructive"
-            )}>
+            <span className={`text-[15px] font-semibold shrink-0 ${event.amount >= 0 ? "text-[#34C759]" : "text-[#FF3B30]"}`}>
               {event.amount >= 0 ? "+" : ""}${Math.abs(event.amount).toFixed(2)}
             </span>
           )}
         </div>
-        
-        {/* Footer */}
-        <div className="flex items-center gap-4 mt-2">
+
+        <div className="flex items-center gap-3 mt-2">
           {event.agent_name && (
             <div className="flex items-center gap-1.5">
-              <Bot className="w-3 h-3 text-muted-foreground" />
-              <span className="text-[10px] font-mono text-muted-foreground">
-                {event.agent_name}
-              </span>
+              <Bot className="w-3.5 h-3.5 text-[#86868b]" />
+              <span className="text-[12px] text-[#86868b]">{event.agent_name}</span>
             </div>
           )}
-          <span className="text-[10px] text-muted-foreground/60">
-            {timeAgo(event.created_at)} • {formatTime(event.created_at)}
+          <span className="text-[12px] text-[#86868b]">
+            {timeAgo(event.created_at)}
           </span>
         </div>
       </div>
@@ -154,51 +117,41 @@ const ActivityEventCard = ({ event, onClick }) => {
   );
 };
 
-// ==================== ACTIVITY STATS ====================
 const ActivityStats = ({ events }) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const todayEvents = events.filter(e => new Date(e.created_at) >= today);
   const trades = events.filter(e => e.type.includes('trade'));
   const wins = events.filter(e => e.type === 'trade_win');
   const replications = events.filter(e => e.type === 'agent_replicated');
-  
+
   const stats = [
-    { label: "Eventos Hoy", value: todayEvents.length, color: "primary" },
-    { label: "Total Trades", value: trades.length, color: "purple" },
-    { label: "Trades Ganados", value: wins.length, color: "green" },
-    { label: "Replicaciones", value: replications.length, color: "green" }
+    { label: "Hoy", value: todayEvents.length, color: "text-[#D97757]" },
+    { label: "Total Operaciones", value: trades.length, color: "text-[#1a1a1a]" },
+    { label: "Ganancias", value: wins.length, color: "text-[#34C759]" },
+    { label: "Replicaciones", value: replications.length, color: "text-[#34C759]" }
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {stats.map((stat) => (
-        <Card key={stat.label} className="glass border-white/10">
-          <CardContent className="p-4">
-            <p className="text-[10px] font-heading uppercase tracking-wider text-muted-foreground">
-              {stat.label}
-            </p>
-            <p className={cn(
-              "text-2xl font-mono font-bold mt-1",
-              stat.color === "primary" && "text-primary",
-              stat.color === "green" && "text-cyber-green",
-              stat.color === "purple" && "text-secondary"
-            )}>
-              {stat.value}
-            </p>
-          </CardContent>
-        </Card>
+        <div key={stat.label} className="bg-white rounded-2xl p-5 shadow-sm border border-black/5">
+          <p className="text-[12px] font-medium text-[#86868b] uppercase tracking-wide">
+            {stat.label}
+          </p>
+          <p className={`text-[28px] font-semibold mt-1 tracking-tight ${stat.color}`}>
+            {stat.value}
+          </p>
+        </div>
       ))}
     </div>
   );
 };
 
-// ==================== TIMELINE VIEW ====================
 const TimelineView = ({ events, onNavigate }) => {
-  // Group events by date
   const groupedEvents = events.reduce((groups, event) => {
-    const date = new Date(event.created_at).toLocaleDateString();
+    const date = new Date(event.created_at).toLocaleDateString('es-ES', { weekday: 'long', month: 'long', day: 'numeric' });
     if (!groups[date]) groups[date] = [];
     groups[date].push(event);
     return groups;
@@ -208,21 +161,21 @@ const TimelineView = ({ events, onNavigate }) => {
     <div className="space-y-6">
       {Object.entries(groupedEvents).map(([date, dateEvents]) => (
         <div key={date}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-sm bg-white/5 border border-white/10">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-xs font-mono text-muted-foreground">{date}</span>
+          <div className="flex items-center gap-3 mb-3 px-1">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-black/5">
+              <Calendar className="w-3.5 h-3.5 text-[#86868b]" />
+              <span className="text-[13px] font-medium text-[#1a1a1a]">{date}</span>
             </div>
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-[10px] text-muted-foreground">
+            <div className="flex-1 h-px bg-black/5" />
+            <span className="text-[12px] text-[#86868b]">
               {dateEvents.length} eventos
             </span>
           </div>
-          <div className="space-y-2 pl-4 border-l border-white/10">
+          <div className="bg-white rounded-2xl shadow-sm border border-black/5 divide-y divide-black/5">
             {dateEvents.map((event) => (
-              <ActivityEventCard 
-                key={event.id} 
-                event={event} 
+              <ActivityEventCard
+                key={event.id}
+                event={event}
                 onClick={onNavigate}
               />
             ))}
@@ -233,14 +186,13 @@ const TimelineView = ({ events, onNavigate }) => {
   );
 };
 
-// ==================== MAIN ACTIVITY PAGE ====================
 export default function ActivityPage() {
   const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState("list"); // list, timeline
+  const [viewMode, setViewMode] = useState("list");
 
   const fetchActivity = useCallback(async () => {
     setLoading(true);
@@ -252,7 +204,7 @@ export default function ActivityPage() {
       const res = await axios.get(`${API}/activity`, { params });
       setEvents(res.data.events || []);
     } catch (error) {
-      console.error("Error fetching activity:", error);
+      console.error("Error al obtener actividad:", error);
     } finally {
       setLoading(false);
     }
@@ -262,7 +214,6 @@ export default function ActivityPage() {
     fetchActivity();
   }, [fetchActivity]);
 
-  // Filter by search
   const filteredEvents = events.filter(event => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -273,11 +224,10 @@ export default function ActivityPage() {
     );
   });
 
-  // Filter tabs
   const filterTabs = [
-    { value: "all", label: "Toda la Actividad" },
+    { value: "all", label: "Todo" },
     { value: "agent", label: "Agentes" },
-    { value: "trade", label: "Trades" },
+    { value: "trade", label: "Operaciones" },
     { value: "alert", label: "Alertas" }
   ];
 
@@ -290,117 +240,121 @@ export default function ActivityPage() {
   };
 
   return (
-    <div className="space-y-6" data-testid="activity-page">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Feed de Actividad
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Historial de eventos y notificaciones del sistema
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar eventos..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-black/50 border-white/10 w-48"
-            />
+    <div className="min-h-screen bg-[#F5F3EF]" data-testid="activity-page">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-semibold text-[#1a1a1a] tracking-tight">
+              Actividad
+            </h1>
+            <p className="text-[15px] text-[#86868b] mt-1">
+              Eventos del sistema y feed de notificaciones
+            </p>
           </div>
-          
-          <Select value={viewMode} onValueChange={setViewMode}>
-            <SelectTrigger className="w-32 bg-black/50 border-white/10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="glass border-white/10">
-              <SelectItem value="list">Vista Lista</SelectItem>
-              <SelectItem value="timeline">Línea Temporal</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={fetchActivity}
-            className="border-white/20"
-          >
-            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-            Actualizar
-          </Button>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <ActivityStats events={events} />
-
-      {/* Tabs and Content */}
-      <Card className="glass border-white/10">
-        <CardContent className="p-0">
-          <Tabs defaultValue="all" className="w-full">
-            <div className="border-b border-white/10 px-4">
-              <TabsList className="bg-transparent h-12">
-                {filterTabs.map((tab) => (
-                  <TabsTrigger 
-                    key={tab.value} 
-                    value={tab.value}
-                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white"
-                  >
-                    {tab.label}
-                    <span className="ml-2 text-[10px] font-mono text-muted-foreground">
-                      ({getFilteredByTab(filteredEvents, tab.value).length})
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868b]" />
+              <input
+                type="text"
+                placeholder="Buscar eventos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2.5 rounded-full border border-black/10 text-[14px] text-[#1a1a1a] bg-white focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all w-52"
+              />
             </div>
 
-            {filterTabs.map((tab) => (
-              <TabsContent key={tab.value} value={tab.value} className="p-4 mt-0">
-                {loading ? (
-                  <div className="space-y-3">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-20 bg-white/5 rounded-sm animate-pulse" />
-                    ))}
-                  </div>
-                ) : getFilteredByTab(filteredEvents, tab.value).length > 0 ? (
-                  viewMode === "timeline" ? (
-                    <TimelineView 
-                      events={getFilteredByTab(filteredEvents, tab.value)} 
-                      onNavigate={navigate}
-                    />
-                  ) : (
-                    <div className="space-y-2">
-                      {getFilteredByTab(filteredEvents, tab.value).map((event) => (
-                        <ActivityEventCard 
-                          key={event.id} 
-                          event={event} 
-                          onClick={navigate}
-                        />
-                      ))}
-                    </div>
-                  )
-                ) : (
-                  <div className="text-center py-16">
-                    <Activity className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-30" />
-                    <h3 className="font-heading text-lg mb-2">Sin Actividad Aún</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {tab.value === "all" 
-                        ? "Los eventos aparecerán aquí mientras tus agentes operan"
-                        : `No se encontraron eventos de ${tab.label.toLowerCase()}`
-                      }
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
+            <div className="flex bg-white rounded-full border border-black/5 p-1">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${viewMode === "list" ? "bg-[#D97757] text-white shadow-sm" : "text-[#86868b] hover:text-[#1a1a1a]"}`}
+              >
+                Lista
+              </button>
+              <button
+                onClick={() => setViewMode("timeline")}
+                className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all ${viewMode === "timeline" ? "bg-[#D97757] text-white shadow-sm" : "text-[#86868b] hover:text-[#1a1a1a]"}`}
+              >
+                Cronología
+              </button>
+            </div>
+
+            <button
+              onClick={fetchActivity}
+              className="p-2.5 rounded-full bg-white border border-black/5 hover:bg-[#F5F3EF] transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 text-[#86868b] ${loading && "animate-spin"}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <ActivityStats events={events} />
+
+        {/* Filter Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {filterTabs.map((tab) => {
+            const count = getFilteredByTab(filteredEvents, tab.value).length;
+            const isActive = filter === tab.value;
+            return (
+              <button
+                key={tab.value}
+                onClick={() => setFilter(tab.value)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-medium whitespace-nowrap transition-all ${
+                  isActive
+                    ? "bg-[#D97757] text-white shadow-sm shadow-[#D97757]/20"
+                    : "bg-white text-[#86868b] border border-black/5 hover:text-[#1a1a1a] hover:border-black/10"
+                }`}
+              >
+                {tab.label}
+                <span className={`text-[12px] ${isActive ? "text-white/70" : "text-[#86868b]"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-black/5 p-6 space-y-3">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="h-20 bg-[#F5F3EF] rounded-xl animate-pulse" />
             ))}
-          </Tabs>
-        </CardContent>
-      </Card>
+          </div>
+        ) : getFilteredByTab(filteredEvents, filter).length > 0 ? (
+          viewMode === "timeline" ? (
+            <TimelineView
+              events={getFilteredByTab(filteredEvents, filter)}
+              onNavigate={navigate}
+            />
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-black/5 divide-y divide-black/5">
+              {getFilteredByTab(filteredEvents, filter).map((event) => (
+                <ActivityEventCard
+                  key={event.id}
+                  event={event}
+                  onClick={navigate}
+                />
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-black/5 text-center py-16 px-6">
+            <div className="w-16 h-16 rounded-full bg-[#F5F3EF] flex items-center justify-center mx-auto mb-4">
+              <Activity className="w-8 h-8 text-[#86868b]" />
+            </div>
+            <h3 className="text-[17px] font-semibold text-[#1a1a1a] mb-1">Sin Actividad</h3>
+            <p className="text-[15px] text-[#86868b]">
+              {filter === "all"
+                ? "Los eventos aparecerán aquí cuando tus agentes estén operando"
+                : `No se encontraron eventos de ${filter.toLowerCase()}`
+              }
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -42,7 +42,7 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - Estadísticas de linaje (survival rate, combined ROI)
 
 ## What's Been Implemented
-**Date: 2025-12-24**
+**Date: 2026-04-04**
 
 ### Backend v2.0 (FastAPI + MongoDB)
 - ✅ Schema completo de agentes con 12 colecciones
@@ -59,6 +59,16 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - ✅ **Quick Actions API**: Pause All, Resume All, Emergency Stop
 - ✅ **Portfolio History API**: Datos reales de gráfico basados en trades
 - ✅ **Notifications API**: Sistema completo de notificaciones
+- ✅ **Trading Engine**: Motor de trading con datos reales de Binance (paper trading)
+- ✅ **Regime Detector**: Detección automática de régimen de mercado (tendencia, rango, compresión)
+- ✅ **Strategy Alpha**: Momentum Rider v2.0 implementada como código ejecutable
+- ✅ **Strategy Beta**: Range Scalper v2.0 implementada como código ejecutable
+- ✅ **Strategy Gamma**: Breakout Hunter v2.0 implementada como código ejecutable
+- ✅ **Risk Manager**: Gestión de riesgo centralizada con circuit breaker
+- ✅ **Portfolio Snapshots**: Background worker para snapshots periódicos cada 15 min
+- ✅ **BinanceService**: Integración con python-binance (soporte testnet y mainnet)
+- ✅ **Technical Indicators**: EMA, RSI, ATR, MACD, Bollinger Bands (implementación pura)
+- ✅ **Trading Router**: Endpoints para estado del engine, régimen, riesgo y posiciones
 
 ### Frontend (React + Tailwind)
 - ✅ Login page (estilo Electric Void)
@@ -90,11 +100,12 @@ Ver `/app/docs/DATABASE_ARCHITECTURE.md` para documentación completa.
 - Ninguno pendiente
 
 ### P1 (High Priority)
-- Background worker para snapshots periódicos del portfolio
-- Intervalos granulares en gráfico de portfolio (15min, 1hr)
-- Implementar ejecución real de trades (Binance API)
-- Auto-replicación automática cuando ROI > 50%
-- Sistema de señales activas compartidas entre agentes
+- ~~Background worker para snapshots periódicos del portfolio~~ ✅ DONE
+- ~~Implementar ejecución real de trades (Binance API)~~ ✅ DONE (paper trading activo)
+- ~~Auto-replicación automática cuando ROI > 50%~~ ✅ DONE (ReplicationService corriendo)
+- ~~Sistema de señales activas compartidas entre agentes~~ ✅ DONE (signals router + DB)
+- Configurar API keys de Binance testnet para paper trading real
+- Activar modo paper trading con datos reales de mercado
 
 ### P2 (Medium Priority)
 - Dashboard widgets arrastrables/reorganizables

@@ -1,21 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { 
-  Send, 
-  Bot, 
+import {
+  Send,
+  Bot,
   User,
   Zap,
   Loader2,
   Sparkles,
-  Terminal,
   Copy,
   Check
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -30,46 +24,40 @@ const MessageBubble = ({ message, isUser }) => {
   };
 
   return (
-    <div className={cn(
-      "flex gap-3 animate-slide-up",
-      isUser ? "flex-row-reverse" : ""
-    )}>
-      <div className={cn(
-        "w-8 h-8 rounded-sm flex items-center justify-center shrink-0",
-        isUser ? "bg-secondary/20" : "bg-primary/20"
-      )}>
+    <div className={`flex gap-3 ${isUser ? "flex-row-reverse" : ""}`}>
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isUser ? "bg-[#D97757]/10" : "bg-[#F5F3EF]"}`}>
         {isUser ? (
-          <User className="w-4 h-4 text-secondary" />
+          <User className="w-4 h-4 text-[#D97757]" />
         ) : (
-          <Bot className="w-4 h-4 text-primary" />
+          <Bot className="w-4 h-4 text-[#86868b]" />
         )}
       </div>
-      
-      <div className={cn(
-        "max-w-[80%] p-4 rounded-sm border relative group",
-        isUser 
-          ? "bg-secondary/10 border-secondary/30" 
-          : "bg-white/5 border-white/10"
-      )}>
-        <div className="text-sm whitespace-pre-wrap">
-          {message.content}
+
+      <div className={`group relative max-w-[75%] ${isUser ? "" : ""}`}>
+        <div className={`px-4 py-3 text-[15px] leading-relaxed ${
+          isUser
+            ? "bg-[#D97757] text-white rounded-2xl rounded-br-md"
+            : "bg-white text-[#1a1a1a] rounded-2xl rounded-bl-md border border-black/5 shadow-sm"
+        }`}>
+          <div className="whitespace-pre-wrap">{message.content}</div>
         </div>
-        
-        <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10">
-          <span className="text-[10px] text-muted-foreground">
-            {new Date(message.timestamp).toLocaleTimeString()}
+
+        <div className={`flex items-center gap-2 mt-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
+          <span className="text-[11px] text-[#86868b]">
+            {new Date(message.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          
-          <button
-            onClick={handleCopy}
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded"
-          >
-            {copied ? (
-              <Check className="w-3 h-3 text-cyber-green" />
-            ) : (
-              <Copy className="w-3 h-3 text-muted-foreground" />
-            )}
-          </button>
+          {!isUser && (
+            <button
+              onClick={handleCopy}
+              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-[#F5F3EF]"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-[#34C759]" />
+              ) : (
+                <Copy className="w-3.5 h-3.5 text-[#86868b]" />
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -79,7 +67,7 @@ const MessageBubble = ({ message, isUser }) => {
 const SuggestedPrompt = ({ prompt, onClick }) => (
   <button
     onClick={() => onClick(prompt)}
-    className="px-3 py-2 text-xs text-left rounded-sm border border-white/10 hover:border-primary/50 hover:bg-primary/5 transition-colors"
+    className="px-4 py-2.5 text-[14px] text-left rounded-full border border-black/10 text-[#1a1a1a] bg-white hover:border-[#D97757]/30 hover:bg-[#D97757]/5 transition-colors"
   >
     {prompt}
   </button>
@@ -91,13 +79,14 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const scrollRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const suggestedPrompts = [
-    "Analiza el mercado crypto actual",
+    "Analiza el mercado cripto actual",
     "¿Qué agentes debería replicar?",
-    "Detecta oportunidades de negocio",
-    "Optimiza el uso de tokens LLM",
-    "Estado del sistema de agentes",
+    "Detectar oportunidades de negocio",
+    "Optimizar uso de tokens LLM",
+    "Resumen del estado del sistema",
   ];
 
   useEffect(() => {
@@ -132,14 +121,14 @@ export default function ChatPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
+
       if (!sessionId) {
         setSessionId(response.data.session_id);
       }
     } catch (error) {
       console.error("Chat error:", error);
       toast.error("Error al comunicarse con el orquestador");
-      
+
       const errorMessage = {
         role: "assistant",
         content: "Error de conexión. El orquestador no está disponible temporalmente.",
@@ -163,106 +152,120 @@ export default function ChatPage() {
     }
   };
 
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+  };
+
   return (
-    <div className="h-[calc(100vh-8rem)]" data-testid="chat-page">
-      <Card className="glass border-white/10 h-full flex flex-col">
+    <div className="min-h-screen bg-[#F5F3EF]" data-testid="chat-page">
+      <div className="max-w-3xl mx-auto h-[calc(100vh-2rem)] flex flex-col">
         {/* Header */}
-        <CardHeader className="pb-2 border-b border-white/10 shrink-0">
+        <div className="bg-white/80 backdrop-blur-xl border-b border-black/5 px-6 py-4 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-sm bg-primary/20 flex items-center justify-center glow-cyan">
-                <Zap className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-full bg-[#D97757]/10 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-[#D97757]" />
               </div>
               <div>
-                <CardTitle className="font-heading text-lg tracking-wider uppercase">
-                  Orchestrator AI
-                </CardTitle>
-                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse" />
-                  Online • GPT-4o
+                <h2 className="text-[17px] font-semibold text-[#1a1a1a]">
+                  Orquestador IA
+                </h2>
+                <p className="text-[13px] text-[#86868b] flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#34C759]" />
+                  En línea
                 </p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-mono text-muted-foreground">
-                SESSION: {sessionId?.slice(0, 8) || 'NEW'}
-              </span>
-            </div>
-          </div>
-        </CardHeader>
 
-        {/* Messages */}
-        <CardContent className="flex-1 overflow-hidden p-0">
-          <ScrollArea className="h-full p-6" ref={scrollRef}>
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-sm bg-primary/10 flex items-center justify-center mb-6 glow-cyan">
-                  <Sparkles className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="font-heading text-xl mb-2">
-                  Bienvenido al Orquestador
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-md mb-8">
-                  Soy tu asistente AI para gestionar agentes autoreplicantes, 
-                  analizar mercados crypto y detectar oportunidades de negocio.
-                </p>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-                  {suggestedPrompts.map((prompt, i) => (
-                    <SuggestedPrompt 
-                      key={i} 
-                      prompt={prompt} 
-                      onClick={sendMessage}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {messages.map((msg, i) => (
-                  <MessageBubble 
-                    key={i} 
-                    message={msg} 
-                    isUser={msg.role === 'user'} 
-                  />
-                ))}
-                
-                {loading && (
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-sm bg-primary/20 flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="p-4 rounded-sm bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Procesando...
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {sessionId && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5F3EF]">
+                <span className="text-[12px] text-[#86868b] font-mono">
+                  {sessionId.slice(0, 8)}
+                </span>
               </div>
             )}
-          </ScrollArea>
-        </CardContent>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-6" ref={scrollRef}>
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center py-20">
+              <div className="w-16 h-16 rounded-full bg-[#D97757]/10 flex items-center justify-center mb-6">
+                <Sparkles className="w-8 h-8 text-[#D97757]" />
+              </div>
+              <h3 className="text-[22px] font-semibold text-[#1a1a1a] mb-2">
+                Orquestador IA
+              </h3>
+              <p className="text-[15px] text-[#86868b] max-w-md mb-8 leading-relaxed">
+                Tu asistente de IA para gestionar agentes auto-replicables,
+                analizar mercados cripto y detectar oportunidades de negocio.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-lg">
+                {suggestedPrompts.map((prompt, i) => (
+                  <SuggestedPrompt
+                    key={i}
+                    prompt={prompt}
+                    onClick={sendMessage}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 py-6">
+              {messages.map((msg, i) => (
+                <MessageBubble
+                  key={i}
+                  message={msg}
+                  isUser={msg.role === 'user'}
+                />
+              ))}
+
+              {loading && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#F5F3EF] flex items-center justify-center shrink-0">
+                    <Bot className="w-4 h-4 text-[#86868b]" />
+                  </div>
+                  <div className="px-4 py-3 bg-white rounded-2xl rounded-bl-md border border-black/5 shadow-sm">
+                    <div className="flex items-center gap-2 text-[14px] text-[#86868b]">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Pensando...
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-white/10 shrink-0">
-          <form onSubmit={handleSubmit} className="flex gap-3">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Escribe tu mensaje..."
-              className="min-h-[44px] max-h-32 bg-black/50 border-white/10 resize-none"
-              disabled={loading}
-              data-testid="chat-input"
-            />
-            <Button 
+        <div className="bg-white/80 backdrop-blur-xl border-t border-black/5 px-6 py-4 shrink-0">
+          <form onSubmit={handleSubmit} className="flex gap-3 items-end">
+            <div className="flex-1 relative">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  adjustTextareaHeight();
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Escribe un mensaje..."
+                rows={1}
+                className="w-full px-4 py-3 rounded-2xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all resize-none placeholder:text-[#86868b]"
+                disabled={loading}
+                data-testid="chat-input"
+              />
+            </div>
+            <button
               type="submit"
               disabled={!input.trim() || loading}
-              className="bg-primary text-black hover:bg-primary/90 px-4 shrink-0"
+              className="w-11 h-11 rounded-full bg-[#D97757] text-white flex items-center justify-center hover:bg-[#D97757]/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-sm shadow-[#D97757]/20"
               data-testid="send-message-btn"
             >
               {loading ? (
@@ -270,13 +273,13 @@ export default function ChatPage() {
               ) : (
                 <Send className="w-5 h-5" />
               )}
-            </Button>
+            </button>
           </form>
-          <p className="text-[10px] text-muted-foreground mt-2 text-center">
+          <p className="text-[11px] text-[#86868b] mt-2 text-center">
             Shift + Enter para nueva línea • Enter para enviar
           </p>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

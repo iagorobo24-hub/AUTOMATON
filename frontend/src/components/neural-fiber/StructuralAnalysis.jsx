@@ -74,6 +74,15 @@ export default function StructuralAnalysis({ stats, agents }) {
         </div>
       </div>
 
+      {/* Lineage Mapping */}
+      <div className="analysis-section">
+        <div className="section-header">
+          <span className="label">Lineage Mapping</span>
+          <GitBranch size={14} className="opacity-50" />
+        </div>
+        <FamilyTree lineage={lineage} />
+      </div>
+
       {/* Thread Integrity */}
       <div className="analysis-section">
         <span className="label">Thread Integrity</span>

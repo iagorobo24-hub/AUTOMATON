@@ -5,10 +5,10 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Inter', 'system-ui', 'sans-serif'],
-                mono: ['JetBrains Mono', 'monospace'],
-                display: ['Orbitron', 'sans-serif'],
-                heading: ['Rajdhani', 'sans-serif'],
+                sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI', 'sans-serif'],
+                mono: ['SF Mono', 'ui-monospace', 'monospace'],
+                display: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
+                heading: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
             },
             colors: {
                 background: 'hsl(var(--background))',
@@ -54,12 +54,24 @@ module.exports = {
                     '4': 'hsl(var(--chart-4))',
                     '5': 'hsl(var(--chart-5))'
                 },
-                cyber: {
-                    cyan: '#00F3FF',
-                    purple: '#7000FF',
-                    red: '#FF003C',
-                    green: '#39FF14',
-                    yellow: '#FAFF00',
+                claude: {
+                    coral: '#D97757',
+                    'coral-light': '#E8956F',
+                    'coral-dark': '#C4624A',
+                    cream: '#FAFAF8',
+                    warm: '#F5F3EF',
+                    'warm-dark': '#EDEAE4',
+                    sand: '#E8E4DE',
+                },
+                apple: {
+                    green: '#34C759',
+                    orange: '#FF9500',
+                    red: '#FF3B30',
+                    blue: '#007AFF',
+                    purple: '#AF52DE',
+                    pink: '#FF2D55',
+                    teal: '#5AC8FA',
+                    indigo: '#5856D6',
                 }
             },
             borderRadius: {
@@ -76,25 +88,26 @@ module.exports = {
                     from: { height: 'var(--radix-accordion-content-height)' },
                     to: { height: '0' }
                 },
-                'pulse-slow': {
-                    '0%, 100%': { opacity: '1' },
-                    '50%': { opacity: '0.5' }
+                'fade-in': {
+                    '0%': { opacity: '0', transform: 'translateY(8px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' }
                 },
-                'glow': {
-                    '0%, 100%': { boxShadow: '0 0 20px rgba(0, 243, 255, 0.3)' },
-                    '50%': { boxShadow: '0 0 40px rgba(0, 243, 255, 0.6)' }
-                }
+                'slide-up': {
+                    '0%': { opacity: '0', transform: 'translateY(16px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' }
+                },
+                'scale-in': {
+                    '0%': { opacity: '0', transform: 'scale(0.96)' },
+                    '100%': { opacity: '1', transform: 'scale(1)' }
+                },
             },
             animation: {
                 'accordion-down': 'accordion-down 0.2s ease-out',
                 'accordion-up': 'accordion-up 0.2s ease-out',
-                'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
-                'glow': 'glow 2s ease-in-out infinite'
+                'fade-in': 'fade-in 0.4s ease-out',
+                'slide-up': 'slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                'scale-in': 'scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             },
-            backgroundImage: {
-                'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-                'hero-glow': 'radial-gradient(circle at center, rgba(0, 243, 255, 0.15) 0%, transparent 70%)',
-            }
         }
     },
     plugins: [require("tailwindcss-animate")],

@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { 
-  Wallet as WalletIcon, 
-  CreditCard, 
-  Bitcoin, 
+import {
+  Wallet as WalletIcon,
+  CreditCard,
   Plus,
   ArrowUpRight,
   ArrowDownRight,
@@ -11,57 +10,34 @@ import {
   Clock,
   XCircle,
   RefreshCw,
-  DollarSign
+  DollarSign,
+  TrendingUp
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import axios from "axios";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const FUNDING_PACKAGES = [
-  { id: "starter", name: "Starter", amount: 50, description: "Deploy 1 agent" },
-  { id: "growth", name: "Growth", amount: 100, description: "Deploy 2 agents" },
-  { id: "pro", name: "Pro", amount: 250, description: "Deploy 5 agents" },
-  { id: "enterprise", name: "Enterprise", amount: 500, description: "Unlimited agents" },
+  { id: "starter", name: "Inicial", amount: 50, description: "Desplegar 1 agente" },
+  { id: "growth", name: "Crecimiento", amount: 100, description: "Desplegar 2 agentes" },
+  { id: "pro", name: "Pro", amount: 250, description: "Desplegar 5 agentes" },
+  { id: "enterprise", name: "Empresa", amount: 500, description: "Agentes ilimitados" },
 ];
 
 const StatusBadge = ({ status }) => {
   const config = {
-    completed: { icon: CheckCircle, color: "text-cyber-green", bg: "bg-cyber-green/10", label: "COMPLETED" },
-    paid: { icon: CheckCircle, color: "text-cyber-green", bg: "bg-cyber-green/10", label: "PAID" },
-    pending: { icon: Clock, color: "text-warning", bg: "bg-warning/10", label: "PENDING" },
-    failed: { icon: XCircle, color: "text-destructive", bg: "bg-destructive/10", label: "FAILED" },
+    completed: { icon: CheckCircle, color: "text-[#34C759]", bg: "bg-[#34C759]/10", label: "Completado" },
+    paid: { icon: CheckCircle, color: "text-[#34C759]", bg: "bg-[#34C759]/10", label: "Pagado" },
+    pending: { icon: Clock, color: "text-[#FF9500]", bg: "bg-[#FF9500]/10", label: "Pendiente" },
+    failed: { icon: XCircle, color: "text-[#FF3B30]", bg: "bg-[#FF3B30]/10", label: "Fallido" },
   };
-  
+
   const cfg = config[status] || config.pending;
   const Icon = cfg.icon;
-  
+
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1 px-2 py-1 text-[10px] font-mono rounded-sm",
-      cfg.color, cfg.bg
-    )}>
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-full ${cfg.color} ${cfg.bg}`}>
       <Icon className="w-3 h-3" />
       {cfg.label}
     </span>
@@ -70,37 +46,33 @@ const StatusBadge = ({ status }) => {
 
 const TransactionRow = ({ tx }) => {
   const isDeposit = tx.type === 'stripe' || tx.type === 'deposit';
-  
+
   return (
-    <div className="flex items-center gap-4 p-4 rounded-sm bg-white/5 border border-white/10">
-      <div className={cn(
-        "p-2 rounded-sm",
-        isDeposit ? "bg-cyber-green/10" : "bg-destructive/10"
-      )}>
+    <div className="flex items-center gap-4 p-4 hover:bg-[#F5F3EF] transition-colors rounded-xl">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isDeposit ? "bg-[#34C759]/10" : "bg-[#FF3B30]/10"}`}>
         {isDeposit ? (
-          <ArrowDownRight className="w-4 h-4 text-cyber-green" />
+          <ArrowDownRight className="w-5 h-5 text-[#34C759]" />
         ) : (
-          <ArrowUpRight className="w-4 h-4 text-destructive" />
+          <ArrowUpRight className="w-5 h-5 text-[#FF3B30]" />
         )}
       </div>
-      
-      <div className="flex-1">
-        <p className="font-mono text-sm">
-          {tx.type === 'stripe' ? 'Card Payment' : tx.type.replace('_', ' ').toUpperCase()}
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-medium text-[#1a1a1a]">
+          {tx.type === 'stripe' ? 'Pago con Tarjeta' : tx.type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
         </p>
-        <p className="text-xs text-muted-foreground">
-          {new Date(tx.created_at).toLocaleString()}
+        <p className="text-[13px] text-[#86868b] mt-0.5">
+          {new Date(tx.created_at).toLocaleDateString('es-ES', { month: 'short', day: 'numeric', year: 'numeric' })} a las {new Date(tx.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
-      
-      <div className="text-right">
-        <p className={cn(
-          "font-mono font-semibold",
-          isDeposit ? "text-cyber-green" : "text-destructive"
-        )}>
+
+      <div className="text-right shrink-0">
+        <p className={`text-[15px] font-semibold ${isDeposit ? "text-[#34C759]" : "text-[#FF3B30]"}`}>
           {isDeposit ? "+" : "-"}${tx.amount.toFixed(2)}
         </p>
-        <StatusBadge status={tx.status} />
+        <div className="mt-1">
+          <StatusBadge status={tx.status} />
+        </div>
       </div>
     </div>
   );
@@ -116,7 +88,6 @@ export default function WalletPage() {
   const [customAmount, setCustomAmount] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  // Check for returning from Stripe
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
     if (sessionId) {
@@ -128,12 +99,12 @@ export default function WalletPage() {
     try {
       const response = await axios.get(`${API}/payments/status/${sessionId}`);
       if (response.data.payment_status === 'paid') {
-        toast.success(`Payment of $${response.data.amount} successful!`);
+        toast.success(`¡Pago de $${response.data.amount} exitoso!`);
       } else {
-        toast.info(`Payment status: ${response.data.payment_status}`);
+        toast.info(`Estado del pago: ${response.data.payment_status}`);
       }
     } catch (error) {
-      console.error("Error checking payment:", error);
+      console.error("Error al verificar pago:", error);
     }
   };
 
@@ -146,7 +117,7 @@ export default function WalletPage() {
       setTransactions(txRes.data.transactions || []);
       setStats(statsRes.data);
     } catch (error) {
-      console.error("Error fetching wallet data:", error);
+      console.error("Error al obtener datos de billetera:", error);
     } finally {
       setLoading(false);
     }
@@ -154,14 +125,13 @@ export default function WalletPage() {
 
   useEffect(() => {
     fetchData();
-    // Poll for payment status
     const sessionId = searchParams.get('session_id');
     if (sessionId) {
       const pollInterval = setInterval(() => {
         checkPaymentStatus(sessionId);
         fetchData();
       }, 2000);
-      
+
       setTimeout(() => clearInterval(pollInterval), 10000);
       return () => clearInterval(pollInterval);
     }
@@ -169,9 +139,9 @@ export default function WalletPage() {
 
   const handleFund = async () => {
     const amount = customAmount ? parseFloat(customAmount) : selectedPackage.amount;
-    
+
     if (!amount || amount < 1) {
-      toast.error("Please enter a valid amount");
+      toast.error("Por favor ingresa un monto válido");
       return;
     }
 
@@ -181,12 +151,12 @@ export default function WalletPage() {
         params: { amount, package_type: selectedPackage?.id || 'custom' },
         headers: { origin: window.location.origin }
       });
-      
+
       if (response.data.checkout_url) {
         window.location.href = response.data.checkout_url;
       }
     } catch (error) {
-      toast.error("Failed to create payment session");
+      toast.error("Error al crear la sesión de pago");
       setProcessing(false);
     }
   };
@@ -196,68 +166,195 @@ export default function WalletPage() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   return (
-    <div className="space-y-6" data-testid="wallet-page">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Wallet
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Fund your agents with card or crypto
-          </p>
+    <div className="min-h-screen bg-[#F5F3EF]" data-testid="wallet-page">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-semibold text-[#1a1a1a] tracking-tight">
+              Billetera
+            </h1>
+            <p className="text-[15px] text-[#86868b] mt-1">
+              Gestiona tu saldo y financia tus agentes
+            </p>
+          </div>
+
+          <button
+            onClick={() => setFundDialogOpen(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D97757] text-white rounded-full text-[14px] font-medium hover:bg-[#D97757]/90 transition-colors shadow-sm shadow-[#D97757]/20"
+            data-testid="fund-wallet-btn"
+          >
+            <Plus className="w-4 h-4" />
+            Add Funds
+          </button>
         </div>
-        
-        <Dialog open={fundDialogOpen} onOpenChange={setFundDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              className="bg-primary text-black hover:bg-primary/90 font-bold uppercase tracking-widest text-xs"
-              data-testid="fund-wallet-btn"
+
+        {/* Balance Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-[#D97757]/10 flex items-center justify-center">
+                <WalletIcon className="w-5 h-5 text-[#D97757]" />
+              </div>
+              <span className="text-[13px] font-medium text-[#86868b]">
+                Saldo Total
+              </span>
+            </div>
+            <p className="text-[32px] font-semibold text-[#1a1a1a] tracking-tight">
+              ${(stats?.finances?.total_balance || 0).toFixed(2)}
+            </p>
+            <p className="text-[13px] text-[#86868b] mt-1">
+              En todos los agentes
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-[#34C759]/10 flex items-center justify-center">
+                <ArrowDownRight className="w-5 h-5 text-[#34C759]" />
+              </div>
+              <span className="text-[13px] font-medium text-[#86868b]">
+                Total Financiado
+              </span>
+            </div>
+            <p className="text-[32px] font-semibold text-[#34C759] tracking-tight">
+              ${totalFunded.toFixed(2)}
+            </p>
+            <p className="text-[13px] text-[#86868b] mt-1">
+              Depósitos totales
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-black/5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-[#D97757]/10 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-[#D97757]" />
+              </div>
+              <span className="text-[13px] font-medium text-[#86868b]">
+                ROI
+              </span>
+            </div>
+            <p className={`text-[32px] font-semibold tracking-tight ${(stats?.finances?.avg_roi || 0) >= 0 ? "text-[#34C759]" : "text-[#FF3B30]"}`}>
+              {(stats?.finances?.avg_roi || 0) >= 0 ? "+" : ""}
+              {(stats?.finances?.avg_roi || 0).toFixed(1)}%
+            </p>
+            <p className="text-[13px] text-[#86868b] mt-1">
+              Retorno promedio
+            </p>
+          </div>
+        </div>
+
+        {/* Funding Packages */}
+        <div>
+          <h2 className="text-[20px] font-semibold text-[#1a1a1a] mb-4">Paquetes de Financiamiento</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {FUNDING_PACKAGES.map((pkg) => (
+              <button
+                key={pkg.id}
+                onClick={() => {
+                  setSelectedPackage(pkg);
+                  setCustomAmount("");
+                  setFundDialogOpen(true);
+                }}
+                className="bg-white rounded-2xl p-5 shadow-sm border border-black/5 hover:border-[#D97757]/30 hover:shadow-md transition-all text-left group"
+              >
+                <p className="text-[13px] font-medium text-[#86868b] uppercase tracking-wide">{pkg.name}</p>
+                <p className="text-[28px] font-semibold text-[#1a1a1a] mt-1 tracking-tight">${pkg.amount}</p>
+                <p className="text-[13px] text-[#86868b] mt-1">{pkg.description}</p>
+                <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-[13px] font-medium text-[#D97757]">Seleccionar →</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Transactions */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/5">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-black/5">
+            <h2 className="text-[17px] font-semibold text-[#1a1a1a]">
+              Historial de Transacciones
+            </h2>
+            <button
+              onClick={fetchData}
+              className="p-2 rounded-full hover:bg-[#F5F3EF] transition-colors"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Funds
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="glass border-white/10 max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="font-heading uppercase tracking-wider">
-                Fund Your Wallet
-              </DialogTitle>
-              <DialogDescription>
-                Choose a package or enter a custom amount
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="py-4 space-y-4">
+              <RefreshCw className={`w-4 h-4 text-[#86868b] ${loading && "animate-spin"}`} />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-16 bg-[#F5F3EF] rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : transactions.length > 0 ? (
+            <div className="divide-y divide-black/5 max-h-[480px] overflow-y-auto">
+              {transactions.map((tx) => (
+                <TransactionRow key={tx.id} tx={tx} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 px-6">
+              <div className="w-16 h-16 rounded-full bg-[#F5F3EF] flex items-center justify-center mx-auto mb-4">
+                <WalletIcon className="w-8 h-8 text-[#86868b]" />
+              </div>
+              <h3 className="text-[17px] font-semibold text-[#1a1a1a] mb-1">Sin Transacciones</h3>
+              <p className="text-[15px] text-[#86868b] mb-6">
+                Agrega fondos para comenzar a desplegar agentes
+              </p>
+              <button
+                onClick={() => setFundDialogOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D97757] text-white rounded-full text-[14px] font-medium hover:bg-[#D97757]/90 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+            Agregar Fondos
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Fund Wallet Modal */}
+      {fundDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setFundDialogOpen(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-black/5">
+              <h2 className="text-[20px] font-semibold text-[#1a1a1a]">Financiar Billetera</h2>
+              <p className="text-[13px] text-[#86868b] mt-0.5">Elige un paquete o ingresa un monto personalizado</p>
+            </div>
+
+            <div className="p-6 space-y-5">
               {/* Packages */}
               <div className="grid grid-cols-2 gap-3">
                 {FUNDING_PACKAGES.map((pkg) => (
-                  <div
+                  <button
                     key={pkg.id}
-                    className={cn(
-                      "p-4 rounded-sm border cursor-pointer transition-colors",
-                      selectedPackage?.id === pkg.id
-                        ? "border-primary bg-primary/10"
-                        : "border-white/10 hover:border-white/30"
-                    )}
                     onClick={() => {
                       setSelectedPackage(pkg);
                       setCustomAmount("");
                     }}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      selectedPackage?.id === pkg.id
+                        ? "border-[#D97757] bg-[#D97757]/5"
+                        : "border-black/5 hover:border-black/10"
+                    }`}
                   >
-                    <p className="font-heading font-bold">{pkg.name}</p>
-                    <p className="font-mono text-xl text-primary">${pkg.amount}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{pkg.description}</p>
-                  </div>
+                    <p className="text-[13px] font-medium text-[#86868b]">{pkg.name}</p>
+                    <p className="text-[22px] font-semibold text-[#1a1a1a] mt-0.5">${pkg.amount}</p>
+                    <p className="text-[12px] text-[#86868b] mt-0.5">{pkg.description}</p>
+                  </button>
                 ))}
               </div>
-              
+
               {/* Custom Amount */}
               <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider">Or enter custom amount</Label>
+                <label className="text-[13px] font-medium text-[#86868b]">O ingresa un monto personalizado</label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
+                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#86868b]" />
+                  <input
                     type="number"
                     min="1"
                     step="1"
@@ -267,168 +364,50 @@ export default function WalletPage() {
                       setCustomAmount(e.target.value);
                       setSelectedPackage(null);
                     }}
-                    className="pl-9 bg-black/50 border-white/10"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all"
                     data-testid="custom-amount-input"
                   />
                 </div>
               </div>
 
               {/* Payment Methods */}
-              <div className="pt-4 border-t border-white/10">
-                <p className="text-xs text-muted-foreground mb-3">PAYMENT METHODS</p>
+              <div className="pt-4 border-t border-black/5">
+                <p className="text-[12px] font-medium text-[#86868b] uppercase tracking-wide mb-3">Métodos de Pago</p>
                 <div className="flex gap-3">
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-sm bg-white/5 border border-white/10">
-                    <CreditCard className="w-4 h-4 text-primary" />
-                    <span className="text-sm">Card</span>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-sm bg-white/5 border border-white/10">
-                    <Bitcoin className="w-4 h-4 text-warning" />
-                    <span className="text-sm">Crypto</span>
+                  <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#F5F3EF] border border-black/5">
+                    <CreditCard className="w-4 h-4 text-[#D97757]" />
+                    <span className="text-[14px] text-[#1a1a1a]">Tarjeta vía Stripe</span>
                   </div>
                 </div>
               </div>
             </div>
-            
-            <DialogFooter>
-              <Button 
-                variant="outline" 
+
+            <div className="px-6 py-4 bg-[#F5F3EF] flex gap-3">
+              <button
                 onClick={() => setFundDialogOpen(false)}
-                className="border-white/20"
+                className="flex-1 py-3 rounded-full border border-black/10 text-[15px] font-medium text-[#1a1a1a] hover:bg-black/5 transition-colors"
               >
-                Cancel
-              </Button>
-              <Button 
+                Cancelar
+              </button>
+              <button
                 onClick={handleFund}
                 disabled={processing || (!selectedPackage && !customAmount)}
-                className="bg-primary text-black hover:bg-primary/90"
+                className="flex-1 py-3 rounded-full bg-[#D97757] text-white text-[15px] font-medium hover:bg-[#D97757]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="confirm-fund-btn"
               >
                 {processing ? (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center justify-center gap-2">
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Processing...
+                    Procesando...
                   </span>
                 ) : (
                   `Pay $${customAmount || selectedPackage?.amount || 0}`
                 )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Balance Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="glass border-white/10 glow-cyan">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-sm bg-primary/10">
-                <WalletIcon className="w-5 h-5 text-primary" />
-              </div>
-              <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">
-                Total Balance
-              </span>
+              </button>
             </div>
-            <p className="font-mono text-3xl font-bold text-primary">
-              ${(stats?.finances?.total_balance || 0).toFixed(2)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Across all agents
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="glass border-white/10">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-sm bg-cyber-green/10">
-                <ArrowDownRight className="w-5 h-5 text-cyber-green" />
-              </div>
-              <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">
-                Total Funded
-              </span>
-            </div>
-            <p className="font-mono text-3xl font-bold text-cyber-green">
-              ${totalFunded.toFixed(2)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              All time deposits
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card className="glass border-white/10">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-sm bg-secondary/10">
-                <ArrowUpRight className="w-5 h-5 text-secondary" />
-              </div>
-              <span className="text-xs font-heading uppercase tracking-wider text-muted-foreground">
-                ROI
-              </span>
-            </div>
-            <p className={cn(
-              "font-mono text-3xl font-bold",
-              (stats?.finances?.avg_roi || 0) >= 0 ? "text-cyber-green" : "text-destructive"
-            )}>
-              {(stats?.finances?.avg_roi || 0) >= 0 ? "+" : ""}
-              {(stats?.finances?.avg_roi || 0).toFixed(1)}%
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Average return
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Transactions */}
-      <Card className="glass border-white/10">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="font-heading text-sm tracking-wider uppercase text-muted-foreground">
-              Transaction History
-            </CardTitle>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={fetchData}
-              className="text-muted-foreground"
-            >
-              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-            </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 bg-white/5 rounded-sm animate-pulse" />
-              ))}
-            </div>
-          ) : transactions.length > 0 ? (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {transactions.map((tx) => (
-                <TransactionRow key={tx.id} tx={tx} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <WalletIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="font-heading text-lg mb-2">No Transactions Yet</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Add funds to start deploying agents
-              </p>
-              <Button 
-                onClick={() => setFundDialogOpen(true)}
-                className="bg-primary text-black hover:bg-primary/90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Funds
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

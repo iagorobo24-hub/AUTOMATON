@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Trading System Flow</title>
+  
+  <style>
+    /* Base Theme Variables */
+    :root {
+      --bg-dark: #0f111a;
+      --bg-card: #1a1d2d;
+      --text-main: #f8f9fa;
+      --text-muted: #a0aabf;
+      --accent-alpha: #00d2ff;
+      --accent-beta: #ff007b;
+      --accent-gamma: #b500ff;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+
+    .dashboard {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, var(--accent-alpha), var(--accent-beta), var(--accent-gamma));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    /* Grid System */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    /* Column classes */
+    .col-3 { grid-column: span 3; }
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-12 { grid-column: span 12; }
+
+    @media (max-width: 768px) {
+      .col-3, .col-4, .col-6 { grid-column: span 12; }
+    }
+
+    /* Cards */
+    .kpi-card, .chart-card, .text-card {
+      background: var(--bg-card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .kpi-card:hover, .chart-card:hover, .text-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    /* Accent lines */
+    .kpi-card::before, .chart-card::before, .text-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+    }
+
+    .accent-alpha::before { background: var(--accent-alpha); }
+    .accent-beta::before { background: var(--accent-beta); }
+    .accent-gamma::before { background: var(--accent-gamma); }
+    .accent-neutral::before { background: #4a5568; }
+
+    /* Card Typography */
+    .card-title, .kpi-label {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .chart-container {
+      width: 100%;
+      height: 350px;
+    }
+    
+    .logic-container {
+      width: 100%;
+      height: 450px;
+    }
+
+    p { margin: 0 0 1rem 0; color: #d1d5db; }
+    ul { margin: 0 0 1rem 1.5rem; padding: 0; color: #d1d5db; }
+    li { margin-bottom: 0.5rem; }
+
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+
+  <div class="dashboard">
+    <header>
+      <h1>Agent AI: Strategy Regime Engine</h1>
+      <div class="subtitle">Automated Regime Switching Logic (Alpha, Beta, Gamma)</div>
+    </header>
+
+    <div class="grid">
+      
+      <!-- KPIs -->
+      <div class="col-4">
+        <div class="kpi-card accent-alpha">
+          <div class="kpi-label">Strategy Alpha</div>
+          <div class="kpi-value">Momentum</div>
+          <p style="font-size: 0.85rem;">Trend continuation in high volatility. Win Rate: 45-50%. R/R: >1:2.</p>
+        </div>
+      </div>
+      
+      <div class="col-4">
+        <div class="kpi-card accent-beta">
+          <div class="kpi-label">Strategy Beta</div>
+          <div class="kpi-value">Range Scalper</div>
+          <p style="font-size: 0.85rem;">Consolidation survival. Win Rate: 60-65%. R/R: ~1:1.5.</p>
+        </div>
+      </div>
+      
+      <div class="col-4">
+        <div class="kpi-card accent-gamma">
+          <div class="kpi-label">Strategy Gamma</div>
+          <div class="kpi-value">Breakout Hunter</div>
+          <p style="font-size: 0.85rem;">Volatility expansion capture. Win Rate: 35-42%. R/R: >1:3.</p>
+        </div>
+      </div>
+
+      <!-- Logic Decision Tree Visualization -->
+      <div class="col-12">
+        <div class="chart-card accent-neutral">
+          <div class="card-title">Regime Switcher: BTC Context Matrix</div>
+          <div class="chart-container" id="regimeMatrix"></div>
+        </div>
+      </div>
+
+      <!-- Strategy Distribution -->
+      <div class="col-12">
+        <div class="chart-card accent-neutral">
+          <div class="card-title">Ideal Time Allocation by Market State</div>
+          <div class="chart-container" id="timeAllocation"></div>
+        </div>
+      </div>
+
+      <!-- Descriptive Text -->
+      <div class="col-12">
+        <div class="text-card accent-neutral">
+          <div class="card-title">How the Agent Switches Contexts</div>
+          <p>The AI Agent dynamically switches between strategies based on statistical filters rather than price predictions. The core switching logic relies on the interaction between <strong>Bitcoin (BTC) Trend</strong> and <strong>Asset-Specific Volatility (ATR Ratio)</strong>:</p>
+          <ul>
+            <li><strong>When BTC is Trending Up (EMA20 > EMA50)</strong>: The agent permits <strong>Alpha</strong> for assets in trend and <strong>Gamma</strong> for assets breaking out of compressions.</li>
+            <li><strong>When BTC is Sideways (Range)</strong>: The agent heavily penalizes directional strategies and activates <strong>Beta</strong> for range trading. Alpha and Gamma size is halved or disabled.</li>
+            <li><strong>When BTC is Trending Down (EMA20 < EMA50)</strong>: Alpha and Gamma Longs are strictly forbidden. Beta is allowed only if correlation to BTC is < 0.3.</li>
+            <li><strong>Volatility Filter (ATR)</strong>: A high ATR(10) relative to history disables Beta (ranges die in high volatility) and enables Alpha/Gamma. A compressed ATR enables Gamma setups.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Common Plotly Layout Options for Dark Theme
+    const darkLayout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      font: { color: '#a0aabf', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+      margin: { t: 40, b: 40, l: 60, r: 20 },
+      xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+      yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' }
+    };
+
+    // 1. Regime Matrix (Heatmap)
+    const regimes = ['BTC Downtrend', 'BTC Sideways', 'BTC Uptrend'];
+    const volatility = ['High Volatility (ATR Exp)', 'Normal Volatility', 'Low Volatility (ATR Comp)'];
+    
+    // Z matrix: representing Which Strategy is Active
+    // 1 = Beta mostly, 2 = None/Mixed, 3 = Alpha/Gamma
+    // Array format: z[volatility_index][regime_index]
+    const zData = [
+      [0, 10, 30], // Low Volatility
+      [10, 20, 25], // Normal Volatility
+      [0, 5, 30]  // High Volatility
+    ];
+
+    const hoverText = [
+      ['NO TRADE (Wait)', 'Beta (Range Scalp)', 'Gamma (Breakout Hunter)'],
+      ['Beta (Shorts Only)', 'Beta (Range Scalp)', 'Alpha (Momentum Rider)'],
+      ['NO TRADE (Wait)', 'Avoid Beta', 'Alpha (Momentum Rider)']
+    ];
+
+    Plotly.newPlot('regimeMatrix', [{
+      type: 'heatmap',
+      z: zData,
+      x: regimes,
+      y: volatility,
+      text: hoverText,
+      hoverinfo: 'text',
+      colorscale: [
+        [0, 'rgba(255,0,0,0.2)'],     // Red/No Trade
+        [0.3, 'var(--accent-beta)'],  // Beta
+        [0.6, 'var(--accent-gamma)'], // Gamma
+        [1, 'var(--accent-alpha)']    // Alpha
+      ],
+      showscale: false
+    }], Object.assign({}, darkLayout, {
+      margin: { t: 20, b: 50, l: 150, r: 20 }
+    }), {responsive: true});
+
+    // 2. Time Allocation (Pie Chart)
+    Plotly.newPlot('timeAllocation', [{
+      type: 'pie',
+      labels: ['Beta (Range Consolidation)', 'Alpha (Momentum Trend)', 'Gamma (Breakout Expansions)', 'Cash (Waiting/Invalid)'],
+      values: [55, 20, 10, 15],
+      hole: 0.6,
+      marker: {
+        colors: ['#ff007b', '#00d2ff', '#b500ff', '#4a5568']
+      },
+      textinfo: 'label+percent',
+      textposition: 'outside',
+      hoverinfo: 'label+percent'
+    }], Object.assign({}, darkLayout, {
+      showlegend: false,
+      margin: { t: 20, b: 20, l: 20, r: 20 }
+    }), {responsive: true});
+
+  </script>
+</body>
+</html>

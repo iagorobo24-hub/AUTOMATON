@@ -1,91 +1,93 @@
-import { useState, useEffect } from "react";
-import { 
-  Settings as SettingsIcon, 
-  Bell, 
-  Bot, 
-  Palette, 
-  Shield, 
-  Database,
+import { useState } from "react";
+import {
+  Settings as SettingsIcon,
+  Bell,
+  Bot,
   Zap,
+  Database,
   Save,
   RefreshCw,
-  ToggleLeft,
-  ToggleRight,
-  ChevronRight
+  ChevronRight,
+  Shield,
+  AlertTriangle
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
-// ==================== SETTINGS SECTION ====================
-const SettingsSection = ({ icon: Icon, title, description, children }) => (
-  <Card className="glass border-white/10">
-    <CardHeader className="pb-3">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-sm bg-primary/10">
-          <Icon className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <CardTitle className="font-heading text-base">{title}</CardTitle>
-          <CardDescription className="text-xs">{description}</CardDescription>
-        </div>
-      </div>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      {children}
-    </CardContent>
-  </Card>
+const ToggleSwitch = ({ checked, onChange, disabled }) => (
+  <button
+    onClick={() => !disabled && onChange(!checked)}
+    disabled={disabled}
+    className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+      checked ? "bg-[#34C759]" : "bg-[#E5E5EA]"
+    } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+  >
+    <div className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+      checked ? "translate-x-5" : "translate-x-0"
+    }`} />
+  </button>
 );
 
-// ==================== SETTING ROW ====================
-const SettingRow = ({ label, description, children }) => (
-  <div className="flex items-center justify-between py-3 border-b border-white/5 last:border-0">
-    <div>
-      <p className="text-sm font-medium">{label}</p>
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
-    </div>
-    {children}
+const SliderControl = ({ value, onChange, min, max, step, label }) => (
+  <div className="flex items-center gap-4">
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="flex-1 h-1.5 bg-[#E5E5EA] rounded-full appearance-none cursor-pointer accent-[#D97757]"
+    />
+    <span className="text-[14px] font-medium text-[#1a1a1a] w-12 text-right tabular-nums">
+      {value}{label}
+    </span>
   </div>
 );
 
-// ==================== MAIN SETTINGS PAGE ====================
+const SettingRow = ({ label, description, children, border }) => (
+  <div className={`flex items-center justify-between py-3.5 ${border !== false ? "border-b border-black/5" : ""} last:border-0`}>
+    <div className="flex-1 mr-4">
+      <p className="text-[15px] font-medium text-[#1a1a1a]">{label}</p>
+      {description && <p className="text-[13px] text-[#86868b] mt-0.5">{description}</p>}
+    </div>
+    <div className="shrink-0">{children}</div>
+  </div>
+);
+
+const SettingsGroup = ({ title, children }) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-black/5 overflow-hidden">
+    {title && (
+      <div className="px-5 py-3 border-b border-black/5">
+        <h3 className="text-[13px] font-medium text-[#86868b] uppercase tracking-wide">{title}</h3>
+      </div>
+    )}
+    <div className="divide-y divide-black/5 px-5">
+      {children}
+    </div>
+  </div>
+);
+
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState("notifications");
   const [settings, setSettings] = useState({
-    // Notifications
     notifyOnTrade: true,
     notifyOnReplication: true,
     notifyOnRisk: true,
     notifyOnOpportunity: true,
     emailNotifications: false,
-    
-    // Agent defaults
+
     defaultCapital: 100,
     defaultRiskLevel: "medium",
     autoReplicate: true,
     replicationThreshold: 50,
     autoTerminate: true,
     terminationThreshold: 1,
-    
-    // Trading
+
     maxConcurrentTrades: 5,
     defaultPositionSize: 5,
     stopLossDefault: 2,
     takeProfitDefault: 5,
-    
-    // System
+
     refreshInterval: 30,
     dataRetentionDays: 90,
     debugMode: false
@@ -95,9 +97,8 @@ export default function SettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    // Simulate save
     await new Promise(resolve => setTimeout(resolve, 1000));
-    toast.success("Ajustes guardados correctamente");
+    toast.success("Configuración guardada correctamente");
     setSaving(false);
   };
 
@@ -105,357 +106,285 @@ export default function SettingsPage() {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  return (
-    <div className="space-y-6" data-testid="settings-page">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Ajustes
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Configura preferencias del sistema y valores por defecto
-          </p>
-        </div>
-        
-        <Button 
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-primary text-black hover:bg-primary/90"
-        >
-          {saving ? (
-            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4 mr-2" />
-          )}
-          Guardar Cambios
-        </Button>
-      </div>
+  const tabs = [
+    { id: "notifications", label: "Notificaciones", icon: Bell },
+    { id: "agents", label: "Agentes", icon: Bot },
+    { id: "trading", label: "Trading", icon: Zap },
+    { id: "system", label: "Sistema", icon: Database }
+  ];
 
-      <Tabs defaultValue="notifications" className="space-y-6">
-        <TabsList className="bg-white/5 border border-white/10">
-          <TabsTrigger value="notifications" className="data-[state=active]:bg-primary/20">
-            <Bell className="w-4 h-4 mr-2" />
-            Notificaciones
-          </TabsTrigger>
-          <TabsTrigger value="agents" className="data-[state=active]:bg-primary/20">
-            <Bot className="w-4 h-4 mr-2" />
-            Agentes
-          </TabsTrigger>
-          <TabsTrigger value="trading" className="data-[state=active]:bg-primary/20">
-            <Zap className="w-4 h-4 mr-2" />
-            Trading
-          </TabsTrigger>
-          <TabsTrigger value="system" className="data-[state=active]:bg-primary/20">
-            <Database className="w-4 h-4 mr-2" />
-            Sistema
-          </TabsTrigger>
-        </TabsList>
+  return (
+    <div className="min-h-screen bg-[#F5F3EF]" data-testid="settings-page">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[28px] font-semibold text-[#1a1a1a] tracking-tight">
+              Configuración
+            </h1>
+            <p className="text-[15px] text-[#86868b] mt-1">
+              Preferencias del sistema y valores predeterminados
+            </p>
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D97757] text-white rounded-full text-[14px] font-medium hover:bg-[#D97757]/90 transition-colors disabled:opacity-50 shadow-sm shadow-[#D97757]/20"
+          >
+            {saving ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            Guardar
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex bg-white rounded-full border border-black/5 p-1 shadow-sm">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-[14px] font-medium transition-all ${
+                  isActive
+                    ? "bg-[#D97757] text-white shadow-sm"
+                    : "text-[#86868b] hover:text-[#1a1a1a]"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
         {/* Notifications Tab */}
-        <TabsContent value="notifications" className="space-y-6">
-          <SettingsSection
-            icon={Bell}
-            title="Preferencias de Notificación"
-            description="Controla qué eventos generan notificaciones"
-          >
-            <SettingRow 
-              label="Notificaciones de Trade" 
-              description="Notificar al abrir/cerrar trades"
-            >
-              <Switch 
-                checked={settings.notifyOnTrade}
-                onCheckedChange={(checked) => updateSetting('notifyOnTrade', checked)}
-              />
-            </SettingRow>
-            
-            <SettingRow 
-              label="Eventos de Replicación" 
-              description="Notificar cuando los agentes se replican"
-            >
-              <Switch 
-                checked={settings.notifyOnReplication}
-                onCheckedChange={(checked) => updateSetting('notifyOnReplication', checked)}
-              />
-            </SettingRow>
-            
-            <SettingRow 
-              label="Alertas de Riesgo" 
-              description="Notificar cuando los agentes están en riesgo"
-            >
-              <Switch 
-                checked={settings.notifyOnRisk}
-                onCheckedChange={(checked) => updateSetting('notifyOnRisk', checked)}
-              />
-            </SettingRow>
-            
-            <SettingRow 
-              label="Alertas de Oportunidad" 
-              description="Notificar oportunidades de trading detectadas"
-            >
-              <Switch 
-                checked={settings.notifyOnOpportunity}
-                onCheckedChange={(checked) => updateSetting('notifyOnOpportunity', checked)}
-              />
-            </SettingRow>
-            
-            <SettingRow 
-              label="Notificaciones por Email" 
-              description="Enviar notificaciones por email (requiere configuración)"
-            >
-              <Switch 
-                checked={settings.emailNotifications}
-                onCheckedChange={(checked) => updateSetting('emailNotifications', checked)}
-                disabled
-              />
-            </SettingRow>
-          </SettingsSection>
-        </TabsContent>
+        {activeTab === "notifications" && (
+          <div className="space-y-4">
+            <SettingsGroup title="Notificaciones">
+              <SettingRow label="Notificaciones de Operaciones" description="Notificar cuando se abren o cierran operaciones">
+                <ToggleSwitch
+                  checked={settings.notifyOnTrade}
+                  onChange={(v) => updateSetting('notifyOnTrade', v)}
+                />
+              </SettingRow>
+              <SettingRow label="Eventos de Replicación" description="Notificar cuando los agentes se replican">
+                <ToggleSwitch
+                  checked={settings.notifyOnReplication}
+                  onChange={(v) => updateSetting('notifyOnReplication', v)}
+                />
+              </SettingRow>
+              <SettingRow label="Alertas de Riesgo" description="Notificar cuando los agentes están en riesgo">
+                <ToggleSwitch
+                  checked={settings.notifyOnRisk}
+                  onChange={(v) => updateSetting('notifyOnRisk', v)}
+                />
+              </SettingRow>
+              <SettingRow label="Alertas de Oportunidad" description="Notificar sobre oportunidades de trading detectadas">
+                <ToggleSwitch
+                  checked={settings.notifyOnOpportunity}
+                  onChange={(v) => updateSetting('notifyOnOpportunity', v)}
+                />
+              </SettingRow>
+              <SettingRow label="Notificaciones por Email" description="Enviar notificaciones por email (requiere configuración)">
+                <ToggleSwitch
+                  checked={settings.emailNotifications}
+                  onChange={(v) => updateSetting('emailNotifications', v)}
+                  disabled
+                />
+              </SettingRow>
+            </SettingsGroup>
+          </div>
+        )}
 
         {/* Agents Tab */}
-        <TabsContent value="agents" className="space-y-6">
-          <SettingsSection
-            icon={Bot}
-            title="Configuración de Agentes"
-            description="Ajustes por defecto para nuevos agentes"
-          >
-            <SettingRow label="Capital Inicial por Defecto">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  value={settings.defaultCapital}
-                  onChange={(e) => updateSetting('defaultCapital', parseFloat(e.target.value))}
-                  className="w-24 bg-black/50 border-white/10"
-                />
-              </div>
-            </SettingRow>
-            
-            <SettingRow label="Nivel de Riesgo por Defecto">
-              <Select 
-                value={settings.defaultRiskLevel}
-                onValueChange={(value) => updateSetting('defaultRiskLevel', value)}
-              >
-                <SelectTrigger className="w-32 bg-black/50 border-white/10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="glass border-white/10">
-                  <SelectItem value="low">Bajo</SelectItem>
-                  <SelectItem value="medium">Medio</SelectItem>
-                  <SelectItem value="high">Alto</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingRow>
-          </SettingsSection>
+        {activeTab === "agents" && (
+          <div className="space-y-4">
+            <SettingsGroup title="Predeterminados del Agente">
+              <SettingRow label="Capital Inicial Predeterminado">
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] text-[#86868b]">$</span>
+                  <input
+                    type="number"
+                    value={settings.defaultCapital}
+                    onChange={(e) => updateSetting('defaultCapital', parseFloat(e.target.value) || 0)}
+                    className="w-24 px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all text-center"
+                  />
+                </div>
+              </SettingRow>
+              <SettingRow label="Nivel de Riesgo Predeterminado">
+                <select
+                  value={settings.defaultRiskLevel}
+                  onChange={(e) => updateSetting('defaultRiskLevel', e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all"
+                >
+                  <option value="low">Bajo</option>
+                  <option value="medium">Medio</option>
+                  <option value="high">Alto</option>
+                </select>
+              </SettingRow>
+            </SettingsGroup>
 
-          <SettingsSection
-            icon={Zap}
-            title="Auto-Replicación"
-            description="Configurar replicación automática de agentes"
-          >
-            <SettingRow 
-              label="Habilitar Auto-Replicación" 
-              description="Replicar automáticamente agentes exitosos"
-            >
-              <Switch 
-                checked={settings.autoReplicate}
-                onCheckedChange={(checked) => updateSetting('autoReplicate', checked)}
-              />
-            </SettingRow>
-            
-            <SettingRow 
-              label="Umbral de Replicación" 
-              description={`Replicar cuando ROI alcance ${settings.replicationThreshold}%`}
-            >
-              <div className="flex items-center gap-4 w-48">
-                <Slider
-                  value={[settings.replicationThreshold]}
-                  onValueChange={([value]) => updateSetting('replicationThreshold', value)}
-                  min={10}
-                  max={100}
-                  step={5}
-                  className="flex-1"
+            <SettingsGroup title="Auto-Replicación">
+              <SettingRow label="Activar Auto-Replicación" description="Replicar automáticamente agentes exitosos">
+                <ToggleSwitch
+                  checked={settings.autoReplicate}
+                  onChange={(v) => updateSetting('autoReplicate', v)}
                 />
-                <span className="text-sm font-mono w-12 text-right">
-                  {settings.replicationThreshold}%
-                </span>
-              </div>
-            </SettingRow>
-          </SettingsSection>
+              </SettingRow>
+              <SettingRow label="Umbral de Replicación" description={`Replicar cuando el ROI alcanza ${settings.replicationThreshold}%`}>
+                <div className="w-48">
+                  <SliderControl
+                    value={settings.replicationThreshold}
+                    onChange={(v) => updateSetting('replicationThreshold', v)}
+                    min={10}
+                    max={100}
+                    step={5}
+                    label="%"
+                  />
+                </div>
+              </SettingRow>
+            </SettingsGroup>
 
-          <SettingsSection
-            icon={Shield}
-            title="Auto-Terminación"
-            description="Configurar terminación automática de agentes"
-          >
-            <SettingRow 
-              label="Habilitar Auto-Terminación" 
-              description="Terminar automáticamente agentes que fallen"
-            >
-              <Switch 
-                checked={settings.autoTerminate}
-                onCheckedChange={(checked) => updateSetting('autoTerminate', checked)}
-              />
-            </SettingRow>
-            
-            <SettingRow label="Balance de Terminación">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  value={settings.terminationThreshold}
-                  onChange={(e) => updateSetting('terminationThreshold', parseFloat(e.target.value))}
-                  className="w-24 bg-black/50 border-white/10"
+            <SettingsGroup title="Auto-Terminación">
+              <SettingRow label="Activar Auto-Terminación" description="Terminar automáticamente agentes con pérdidas">
+                <ToggleSwitch
+                  checked={settings.autoTerminate}
+                  onChange={(v) => updateSetting('autoTerminate', v)}
                 />
-              </div>
-            </SettingRow>
-          </SettingsSection>
-        </TabsContent>
+              </SettingRow>
+              <SettingRow label="Balance de Terminación">
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] text-[#86868b]">$</span>
+                  <input
+                    type="number"
+                    value={settings.terminationThreshold}
+                    onChange={(e) => updateSetting('terminationThreshold', parseFloat(e.target.value) || 0)}
+                    className="w-24 px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all text-center"
+                  />
+                </div>
+              </SettingRow>
+            </SettingsGroup>
+          </div>
+        )}
 
         {/* Trading Tab */}
-        <TabsContent value="trading" className="space-y-6">
-          <SettingsSection
-            icon={Zap}
-            title="Configuración de Trading"
-            description="Parámetros por defecto para trades"
-          >
-            <SettingRow label="Trades Concurrentes Máx.">
-              <Input
-                type="number"
-                value={settings.maxConcurrentTrades}
-                onChange={(e) => updateSetting('maxConcurrentTrades', parseInt(e.target.value))}
-                className="w-24 bg-black/50 border-white/10"
-              />
-            </SettingRow>
-            
-            <SettingRow 
-              label="Tamaño de Posición" 
-              description={`${settings.defaultPositionSize}% del balance disponible`}
-            >
-              <div className="flex items-center gap-4 w-48">
-                <Slider
-                  value={[settings.defaultPositionSize]}
-                  onValueChange={([value]) => updateSetting('defaultPositionSize', value)}
-                  min={1}
-                  max={20}
-                  step={1}
-                  className="flex-1"
-                />
-                <span className="text-sm font-mono w-12 text-right">
-                  {settings.defaultPositionSize}%
-                </span>
-              </div>
-            </SettingRow>
-            
-            <SettingRow label="Stop Loss por Defecto">
-              <div className="flex items-center gap-2">
-                <Input
+        {activeTab === "trading" && (
+          <div className="space-y-4">
+            <SettingsGroup title="Parámetros de Trading">
+              <SettingRow label="Máx. Operaciones Simultáneas">
+                <input
                   type="number"
-                  value={settings.stopLossDefault}
-                  onChange={(e) => updateSetting('stopLossDefault', parseFloat(e.target.value))}
-                  className="w-20 bg-black/50 border-white/10"
+                  value={settings.maxConcurrentTrades}
+                  onChange={(e) => updateSetting('maxConcurrentTrades', parseInt(e.target.value) || 0)}
+                  className="w-24 px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all text-center"
                 />
-                <span className="text-muted-foreground">%</span>
-              </div>
-            </SettingRow>
-            
-            <SettingRow label="Take Profit por Defecto">
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={settings.takeProfitDefault}
-                  onChange={(e) => updateSetting('takeProfitDefault', parseFloat(e.target.value))}
-                  className="w-20 bg-black/50 border-white/10"
-                />
-                <span className="text-muted-foreground">%</span>
-              </div>
-            </SettingRow>
-          </SettingsSection>
-        </TabsContent>
+              </SettingRow>
+              <SettingRow label="Tamaño de Posición" description={`${settings.defaultPositionSize}% del saldo disponible`}>
+                <div className="w-48">
+                  <SliderControl
+                    value={settings.defaultPositionSize}
+                    onChange={(v) => updateSetting('defaultPositionSize', v)}
+                    min={1}
+                    max={20}
+                    step={1}
+                    label="%"
+                  />
+                </div>
+              </SettingRow>
+              <SettingRow label="Stop Loss Predeterminado">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={settings.stopLossDefault}
+                    onChange={(e) => updateSetting('stopLossDefault', parseFloat(e.target.value) || 0)}
+                    className="w-20 px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all text-center"
+                  />
+                  <span className="text-[15px] text-[#86868b]">%</span>
+                </div>
+              </SettingRow>
+              <SettingRow label="Take Profit Predeterminado">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={settings.takeProfitDefault}
+                    onChange={(e) => updateSetting('takeProfitDefault', parseFloat(e.target.value) || 0)}
+                    className="w-20 px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all text-center"
+                  />
+                  <span className="text-[15px] text-[#86868b]">%</span>
+                </div>
+              </SettingRow>
+            </SettingsGroup>
+          </div>
+        )}
 
         {/* System Tab */}
-        <TabsContent value="system" className="space-y-6">
-          <SettingsSection
-            icon={Database}
-            title="Configuración del Sistema"
-            description="Ajustes generales del sistema"
-          >
-            <SettingRow label="Intervalo de Actualización">
-              <Select 
-                value={String(settings.refreshInterval)}
-                onValueChange={(value) => updateSetting('refreshInterval', parseInt(value))}
-              >
-                <SelectTrigger className="w-32 bg-black/50 border-white/10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="glass border-white/10">
-                  <SelectItem value="10">10 segundos</SelectItem>
-                  <SelectItem value="30">30 segundos</SelectItem>
-                  <SelectItem value="60">1 minuto</SelectItem>
-                  <SelectItem value="300">5 minutos</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingRow>
-            
-            <SettingRow label="Retención de Datos">
-              <Select 
-                value={String(settings.dataRetentionDays)}
-                onValueChange={(value) => updateSetting('dataRetentionDays', parseInt(value))}
-              >
-                <SelectTrigger className="w-32 bg-black/50 border-white/10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="glass border-white/10">
-                  <SelectItem value="30">30 días</SelectItem>
-                  <SelectItem value="90">90 días</SelectItem>
-                  <SelectItem value="180">180 días</SelectItem>
-                  <SelectItem value="365">1 año</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingRow>
-            
-            <SettingRow 
-              label="Modo Debug" 
-              description="Habilitar logging detallado"
-            >
-              <Switch 
-                checked={settings.debugMode}
-                onCheckedChange={(checked) => updateSetting('debugMode', checked)}
-              />
-            </SettingRow>
-          </SettingsSection>
+        {activeTab === "system" && (
+          <div className="space-y-4">
+            <SettingsGroup title="Sistema">
+              <SettingRow label="Intervalo de Actualización">
+                <select
+                  value={String(settings.refreshInterval)}
+                  onChange={(e) => updateSetting('refreshInterval', parseInt(e.target.value))}
+                  className="px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all"
+                >
+                  <option value="10">10 segundos</option>
+                  <option value="30">30 segundos</option>
+                  <option value="60">1 minuto</option>
+                  <option value="300">5 minutos</option>
+                </select>
+              </SettingRow>
+              <SettingRow label="Retención de Datos">
+                <select
+                  value={String(settings.dataRetentionDays)}
+                  onChange={(e) => updateSetting('dataRetentionDays', parseInt(e.target.value))}
+                  className="px-3 py-2 rounded-xl border border-black/10 text-[15px] text-[#1a1a1a] bg-[#F5F3EF] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] transition-all"
+                >
+                  <option value="30">30 días</option>
+                  <option value="90">90 días</option>
+                  <option value="180">180 días</option>
+                  <option value="365">1 año</option>
+                </select>
+              </SettingRow>
+              <SettingRow label="Modo Depuración" description="Activar registro detallado" border={false}>
+                <ToggleSwitch
+                  checked={settings.debugMode}
+                  onChange={(v) => updateSetting('debugMode', v)}
+                />
+              </SettingRow>
+            </SettingsGroup>
 
-          <SettingsSection
-            icon={Shield}
-            title="Zona de Peligro"
-            description="Acciones irreversibles"
-          >
-            <div className="space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full justify-between border-destructive/30 text-destructive hover:bg-destructive/10"
-              >
-                Restablecer Ajustes
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-between border-destructive/30 text-destructive hover:bg-destructive/10"
-              >
-                Borrar Todos los Datos
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-between border-destructive/30 text-destructive hover:bg-destructive/10"
-              >
-                Terminar Todos los Agentes
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </SettingsSection>
-        </TabsContent>
-      </Tabs>
+            {/* Danger Zone */}
+            <SettingsGroup>
+              <div className="px-5 py-3 border-b border-black/5">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-[#FF3B30]" />
+                  <h3 className="text-[13px] font-medium text-[#FF3B30] uppercase tracking-wide">Zona de Peligro</h3>
+                </div>
+              </div>
+              <div className="p-5 space-y-3">
+                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-[#FF3B30]/20 text-[#FF3B30] hover:bg-[#FF3B30]/5 transition-colors group">
+                  <span className="text-[15px] font-medium">Restablecer Configuración</span>
+                  <ChevronRight className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </button>
+                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-[#FF3B30]/20 text-[#FF3B30] hover:bg-[#FF3B30]/5 transition-colors group">
+                  <span className="text-[15px] font-medium">Borrar Todos los Datos</span>
+                  <ChevronRight className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </button>
+                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-[#FF3B30]/20 text-[#FF3B30] hover:bg-[#FF3B30]/5 transition-colors group">
+                  <span className="text-[15px] font-medium">Terminar Todos los Agentes</span>
+                  <ChevronRight className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                </button>
+              </div>
+            </SettingsGroup>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

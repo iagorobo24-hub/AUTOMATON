@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Zap, ArrowRight, Bot, TrendingUp, Shield } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -12,90 +11,62 @@ export default function LoginPage() {
   const handleEnter = () => {
     setIsLoading(true);
     setTimeout(() => {
-      toast.success("System initialized");
+      toast.success("Welcome to Automaton");
       navigate("/dashboard");
     }, 800);
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1746470427657-eb0b0115455f?q=80&w=2000&auto=format&fit=crop')"
-        }}
-      />
-      
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
-      
-      {/* Hero glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-hero-glow opacity-50" />
-      
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F5F3EF] px-4">
+      <div className="w-full max-w-md text-center">
         {/* Logo */}
-        <div className="mb-12 text-center animate-fade-in">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-sm bg-primary/10 border border-primary/30 mb-6 glow-cyan-intense">
-            <Zap className="w-10 h-10 text-primary" />
+        <div className="mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#D97757]/10 mb-6">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 32 32"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="16" cy="16" r="12" stroke="#D97757" strokeWidth="2" />
+              <circle cx="16" cy="16" r="4" fill="#D97757" />
+            </svg>
           </div>
-          <h1 className="font-display font-black text-5xl md:text-7xl tracking-tighter text-white mb-4">
-            AUTOMATON
+          <h1 className="text-4xl font-semibold tracking-tight text-gray-900 mb-2">
+            Automaton
           </h1>
-          <p className="font-heading text-xl text-muted-foreground tracking-wide">
-            SELF-REPLICATING AI AGENT ORCHESTRATOR
+          <p className="text-lg text-gray-500 font-light">
+            AI Agent Orchestrator
           </p>
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mb-12 animate-slide-up stagger-2">
-          <div className="glass p-6 rounded-sm border border-white/10 card-hover">
-            <Bot className="w-8 h-8 text-primary mb-4" />
-            <h3 className="font-heading font-bold text-lg mb-2">AUTONOMOUS AGENTS</h3>
-            <p className="text-sm text-muted-foreground">
-              Self-replicating agents that evolve based on performance
-            </p>
-          </div>
-          <div className="glass p-6 rounded-sm border border-white/10 card-hover">
-            <TrendingUp className="w-8 h-8 text-cyber-green mb-4" />
-            <h3 className="font-heading font-bold text-lg mb-2">CRYPTO ANALYSIS</h3>
-            <p className="text-sm text-muted-foreground">
-              Real-time market data and opportunity detection
-            </p>
-          </div>
-          <div className="glass p-6 rounded-sm border border-white/10 card-hover">
-            <Shield className="w-8 h-8 text-secondary mb-4" />
-            <h3 className="font-heading font-bold text-lg mb-2">REAL MONETIZATION</h3>
-            <p className="text-sm text-muted-foreground">
-              Stripe + Crypto payments for agent funding
-            </p>
-          </div>
-        </div>
+        {/* Divider */}
+        <div className="w-12 h-px bg-gray-200 mx-auto mb-10" />
 
         {/* Enter Button */}
         <Button
           onClick={handleEnter}
           disabled={isLoading}
-          className="bg-primary text-black hover:bg-primary/90 font-bold uppercase tracking-widest text-sm py-6 px-12 rounded-sm shadow-[0_0_30px_rgba(0,243,255,0.4)] hover:shadow-[0_0_50px_rgba(0,243,255,0.6)] transition-shadow"
+          className="w-full bg-[#D97757] hover:bg-[#C46A4C] text-white font-medium text-base py-6 rounded-2xl shadow-sm transition-all duration-200 hover:shadow-md disabled:opacity-80"
           data-testid="enter-system-btn"
         >
           {isLoading ? (
             <span className="flex items-center gap-2">
-              <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              INITIALIZING...
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Loading...
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              ENTER SYSTEM
-              <ArrowRight className="w-5 h-5" />
+              Continue
+              <ArrowRight className="w-4 h-4" />
             </span>
           )}
         </Button>
 
-        {/* Version */}
-        <p className="mt-8 text-xs font-mono text-muted-foreground/50">
-          v1.0.0 // ORCHESTRATOR ONLINE
+        {/* Footer */}
+        <p className="mt-10 text-xs text-gray-400">
+          v1.0.0
         </p>
       </div>
     </div>

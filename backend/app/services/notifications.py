@@ -5,66 +5,10 @@ Handles system notifications, alerts and activity feed
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
-from pydantic import BaseModel, Field
 import uuid
 
-
-class NotificationType:
-    AGENT_CREATED = "agent_created"
-    AGENT_REPLICATED = "agent_replicated"
-    AGENT_DYING = "agent_dying"
-    AGENT_DEAD = "agent_dead"
-    TRADE_OPENED = "trade_opened"
-    TRADE_CLOSED = "trade_closed"
-    TRADE_WIN = "trade_win"
-    TRADE_LOSS = "trade_loss"
-    PAYMENT_RECEIVED = "payment_received"
-    ALERT_LOW_BALANCE = "alert_low_balance"
-    ALERT_HIGH_DRAWDOWN = "alert_high_drawdown"
-    ALERT_REPLICATION_READY = "alert_replication_ready"
-    SYSTEM_INFO = "system_info"
-    OPPORTUNITY_DETECTED = "opportunity_detected"
-
-
-class NotificationPriority:
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
-
-class Notification(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str
-    priority: str = NotificationPriority.MEDIUM
-    title: str
-    message: str
-    icon: str = "bell"
-    color: str = "primary"  # primary, green, red, purple, yellow
-    link: Optional[str] = None  # URL to navigate when clicked
-    agent_id: Optional[str] = None
-    trade_id: Optional[str] = None
-    read: bool = False
-    dismissed: bool = False
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = None
-    metadata: Dict[str, Any] = {}
-
-
-class ActivityEvent(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str
-    title: str
-    description: str
-    icon: str
-    color: str = "primary"
-    agent_id: Optional[str] = None
-    agent_name: Optional[str] = None
-    amount: Optional[float] = None
-    link: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    metadata: Dict[str, Any] = {}
-
+from ..models.enums import NotificationType, NotificationPriority
+from ..models.system import Notification, ActivityEvent
 
 class NotificationService:
     """Service for managing notifications and activity feed"""
@@ -87,10 +31,10 @@ class NotificationService:
     
     async def create_notification(
         self,
-        type: str,
+        type: NotificationType,
         title: str,
         message: str,
-        priority: str = NotificationPriority.MEDIUM,
+        priority: NotificationPriority = NotificationPriority.MEDIUM,
         icon: str = "bell",
         color: str = "primary",
         link: str = None,
@@ -329,7 +273,7 @@ class NotificationService:
         """Notificación de resultado de trade"""
         type_ = NotificationType.TRADE_WIN if is_win else NotificationType.TRADE_LOSS
         color = "green" if is_win else "red"
-        icon = "trending-up" if is_win else "trending-down"
+        icon = "trending-up" if is_win else "trending-up" if is_win else "trending-down"
         
         await self.log_activity(
             type=type_,
@@ -342,7 +286,6 @@ class NotificationService:
             amount=pnl
         )
         
-        # Solo crear notificación para ganancias/pérdidas significativas
         if abs(pnl) >= 10:
             await self.create_notification(
                 type=type_,

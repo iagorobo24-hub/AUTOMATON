@@ -1,7 +1,37 @@
-import React from 'react';
-import { TrendingUp, TrendingDown, Pause, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { TrendingUp, TrendingDown, Pause, AlertTriangle, Loader2 } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'sonner';
+
+const API = "http://localhost:8000/api";
 
 export default function ExecutionEngine({ agents }) {
+  const [isLiquidating, setIsLiquidating] = useState(false);
+  
+  const handleEmergencyStop = async () => {
+    if (!window.confirm("CRITICAL ACTION: Terminate all active agents and liquidate positions?")) {
+      return;
+    }
+    
+    setIsLiquidating(true);
+    try {
+      const response = await axios.post(`${API}/agents/emergency-stop?confirm=true`);
+      if (response.data.success) {
+        toast.error("EMERGENCY STOP EXECUTED", {
+          description: `${response.data.terminated_count} agents terminated immediately.`,
+          duration: 10000,
+        });
+      }
+    } catch (error) {
+      console.error("Emergency stop failed:", error);
+      toast.error("COMMAND FAILED", {
+        description: "Could not execute emergency protocol."
+      });
+    } finally {
+      setIsLiquidating(false);
+    }
+  };
+
   const activeAgents = agents?.filter(a => a.status === 'active') || [];
   const replicatingAgents = agents?.filter(a => a.status === 'replicating') || [];
   const dyingAgents = agents?.filter(a => a.status === 'dying') || [];
@@ -83,7 +113,17 @@ export default function ExecutionEngine({ agents }) {
         </div>
       </div>
       
-      <button className="button-filament">Emergency Liquidation</button>
+      <button 
+        className="button-filament" 
+        onClick={handleEmergencyStop}
+        disabled={isLiquidating}
+      >
+        {isLiquidating ? (
+          <><Loader2 className="animate-spin mr-2" size={16} /> PROCESSING...</>
+        ) : (
+          "Emergency Liquidation"
+        )}
+      </button>
     </div>
   );
 }

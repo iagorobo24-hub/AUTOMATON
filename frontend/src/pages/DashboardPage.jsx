@@ -1,15 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { 
-  Bot, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
+import {
+  Bot,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
   Activity,
   Zap,
-  BarChart3,
   ArrowUpRight,
   ArrowDownRight,
-  Skull,
   Copy,
   Target,
   Percent,
@@ -21,25 +19,14 @@ import {
   Pause,
   RotateCcw,
   ChevronRight,
-  Sparkles,
-  OctagonX,
-  PartyPopper
+  PartyPopper,
+  ShieldAlert,
+  Wallet,
+  BarChart3,
+  PieChart,
+  Layers,
+  Sparkle
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import axios from "axios";
@@ -50,238 +37,255 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
+  PieChart as RePieChart,
   Pie,
-  Cell,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  Legend
+  Cell
 } from "recharts";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// ==================== ANIMATED NUMBER COMPONENT ====================
+const CORAL = "#D97757";
+const CORAL_LIGHT = "#F0B8A0";
+const CORAL_BG = "#FDF3ED";
+const BG_WARM = "#F5F3EF";
+const GREEN = "#34C759";
+const RED = "#FF3B30";
+const YELLOW = "#FF9500";
+const GRAY = "#8E8E93";
+const TEXT_PRIMARY = "#1D1D1F";
+const TEXT_SECONDARY = "#6E6E73";
+const TEXT_TERTIARY = "#AEAEB2";
+const CARD_BG = "#FFFFFF";
+const CARD_SHADOW = "0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)";
+const CARD_SHADOW_HOVER = "0 2px 6px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06)";
+
+const PIE_COLORS = [CORAL, GREEN, YELLOW, GRAY];
+
+// ==================== ANIMATED NUMBER ====================
 const AnimatedNumber = ({ value, prefix = "", suffix = "", decimals = 0, duration = 800 }) => {
   const [displayValue, setDisplayValue] = useState(0);
   const prevValue = useRef(0);
-  
+
   useEffect(() => {
     const startValue = prevValue.current;
     const endValue = typeof value === 'number' ? value : parseFloat(value) || 0;
     const startTime = Date.now();
-    
+
     const animate = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function (ease-out-cubic)
       const eased = 1 - Math.pow(1 - progress, 3);
       const current = startValue + (endValue - startValue) * eased;
-      
       setDisplayValue(current);
-      
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
         prevValue.current = endValue;
       }
     };
-    
+
     requestAnimationFrame(animate);
   }, [value, duration]);
-  
+
   return (
-    <span className="tabular-nums">
+    <span style={{ fontVariantNumeric: "tabular-nums" }}>
       {prefix}{displayValue.toFixed(decimals)}{suffix}
     </span>
   );
 };
 
-// ==================== CONFETTI COMPONENT ====================
+// ==================== CONFETTI ====================
 const Confetti = ({ active }) => {
   if (!active) return null;
-  
+
   const particles = Array.from({ length: 50 }, (_, i) => ({
     id: i,
     x: Math.random() * 100,
     delay: Math.random() * 0.5,
-    color: ['#00F3FF', '#39FF14', '#FF003C', '#FAFF00', '#BC13FE'][Math.floor(Math.random() * 5)]
+    color: [CORAL, GREEN, "#FF6B6B", "#FFD93D", "#6BCB77"][Math.floor(Math.random() * 5)]
   }));
-  
+
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+    <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 50, overflow: "hidden" }}>
       {particles.map((p) => (
         <div
           key={p.id}
-          className="absolute w-2 h-2 rounded-full animate-confetti"
           style={{
+            position: "absolute",
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
             left: `${p.x}%`,
             backgroundColor: p.color,
             animationDelay: `${p.delay}s`,
-            boxShadow: `0 0 6px ${p.color}`
+            animation: "confetti-fall 2.5s ease-out forwards"
           }}
         />
       ))}
+      <style>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };
 
-// ==================== METRIC CARD COMPONENT ====================
-const MetricCard = ({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon, 
-  color = "primary",
-  subtitle,
-  sparkline,
-  size = "default", // default, small, large
-  animate = false,
-  isShaking = false
-}) => {
-  const colorClasses = {
-    primary: "text-primary",
-    green: "text-cyber-green",
-    red: "text-destructive",
-    purple: "text-secondary",
-    yellow: "text-yellow-400"
+// ==================== METRIC CARD ====================
+const MetricCard = ({ title, value, change, icon: Icon, color = "coral", subtitle, sparkline, size = "default", animate = false, isShaking = false }) => {
+  const colorMap = {
+    coral: { text: CORAL, bg: CORAL_BG, iconBg: CORAL_BG },
+    green: { text: GREEN, bg: "#E8F9ED", iconBg: "#E8F9ED" },
+    red: { text: RED, bg: "#FFECEC", iconBg: "#FFECEC" },
+    gray: { text: GRAY, bg: "#F5F5F7", iconBg: "#F5F5F7" },
+    yellow: { text: YELLOW, bg: "#FFF3E0", iconBg: "#FFF3E0" }
   };
 
-  const bgClasses = {
-    primary: "bg-primary/10",
-    green: "bg-cyber-green/10",
-    red: "bg-destructive/10",
-    purple: "bg-secondary/10",
-    yellow: "bg-yellow-400/10"
-  };
-
+  const c = colorMap[color] || colorMap.coral;
   const isPositive = change >= 0;
-
-  // Parse numeric value for animation
-  const numericValue = typeof value === 'string' 
-    ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0 
+  const numericValue = typeof value === 'string'
+    ? parseFloat(value.replace(/[^0-9.-]/g, '')) || 0
     : value;
-  const prefix = typeof value === 'string' && value.startsWith('$') ? '$' : '';
-  const suffix = typeof value === 'string' && value.endsWith('%') ? '%' : 
+  const prefix = typeof value === 'string' && value.startsWith('$') ? '$' :
+                 typeof value === 'string' && value.startsWith('€') ? '€' : '';
+  const suffix = typeof value === 'string' && value.endsWith('%') ? '%' :
                  typeof value === 'string' && value.endsWith('K') ? 'K' : '';
 
+  const sizeMap = { large: 36, default: 28, small: 22 };
+  const iconSizeMap = { large: 24, default: 20, small: 16 };
+
   return (
-    <Card className={cn(
-      "glass border-white/10 card-hover metric-card h-full transition-all",
-      isShaking && "animate-shake"
-    )}>
-      <CardContent className={cn("p-4", size === "small" && "p-3")}>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="text-[10px] font-heading font-semibold tracking-wider text-muted-foreground uppercase">
-              {title}
-            </p>
-            <p className={cn(
-              "font-mono font-bold mt-1",
-              size === "large" ? "text-4xl" : size === "small" ? "text-xl" : "text-2xl",
-              colorClasses[color]
-            )}>
-              {animate ? (
-                <AnimatedNumber 
-                  value={numericValue} 
-                  prefix={prefix} 
-                  suffix={suffix}
-                  decimals={suffix === 'K' ? 1 : 0}
-                />
-              ) : value}
-            </p>
-            {change !== undefined && (
-              <div className={cn(
-                "flex items-center gap-1 mt-1 text-xs font-mono",
-                isPositive ? "text-cyber-green" : "text-destructive"
-              )}>
-                {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                <span>{isPositive ? "+" : ""}{typeof change === 'number' ? change.toFixed(2) : change}%</span>
-              </div>
-            )}
-            {subtitle && (
-              <p className="text-[10px] text-muted-foreground mt-1">{subtitle}</p>
-            )}
-          </div>
-          <div className={cn("p-2 rounded-sm", bgClasses[color])}>
-            <Icon className={cn(
-              size === "small" ? "w-4 h-4" : "w-5 h-5",
-              colorClasses[color]
-            )} />
-          </div>
+    <div
+      style={{
+        background: CARD_BG,
+        borderRadius: 20,
+        boxShadow: isShaking ? "0 0 0 2px rgba(255,59,48,0.3)" : CARD_SHADOW,
+        padding: size === "small" ? 16 : 20,
+        transition: "all 0.2s ease",
+        animation: isShaking ? "shake 0.5s ease-in-out" : undefined
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = CARD_SHADOW_HOVER; e.currentTarget.style.transform = "translateY(-1px)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = CARD_SHADOW; e.currentTarget.style.transform = "translateY(0)"; }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: TEXT_TERTIARY, textTransform: "uppercase", marginBottom: 6 }}>
+            {title}
+          </p>
+          <p style={{ fontSize: sizeMap[size], fontWeight: 700, color: c.text, lineHeight: 1.1 }}>
+            {animate ? (
+              <AnimatedNumber value={numericValue} prefix={prefix} suffix={suffix} decimals={suffix === 'K' ? 1 : suffix === '%' ? 0 : 0} />
+            ) : value}
+          </p>
+          {change !== undefined && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, fontSize: 12, fontWeight: 500, color: isPositive ? GREEN : RED }}>
+              {isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+              <span>{isPositive ? "+" : ""}{typeof change === 'number' ? change.toFixed(2) : change}%</span>
+            </div>
+          )}
+          {subtitle && (
+            <p style={{ fontSize: 11, color: TEXT_TERTIARY, marginTop: 4 }}>{subtitle}</p>
+          )}
         </div>
-        {sparkline && (
-          <div className="h-8 mt-2 -mx-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparkline}>
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke={color === 'green' ? '#39FF14' : '#00F3FF'} 
-                  fill={color === 'green' ? 'rgba(57,255,20,0.2)' : 'rgba(0,243,255,0.2)'} 
-                  strokeWidth={1.5}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: c.iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon size={iconSizeMap[size]} color={c.text} />
+        </div>
+      </div>
+      {sparkline && (
+        <div style={{ height: 32, marginTop: 12, marginLeft: -4, marginRight: -4 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={sparkline}>
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={c.text}
+                fill={c.text}
+                fillOpacity={0.1}
+                strokeWidth={1.5}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-4px); }
+          75% { transform: translateX(4px); }
+        }
+      `}</style>
+    </div>
   );
 };
 
 // ==================== AGENT STATUS BADGE ====================
 const AgentStatusBadge = ({ status }) => {
-  const statusConfig = {
-    active: { color: "bg-primary/20 text-primary border-primary/30", label: "ACTIVO" },
-    paused: { color: "bg-yellow-400/20 text-yellow-400 border-yellow-400/30", label: "PAUSADO" },
-    replicating: { color: "bg-cyber-green/20 text-cyber-green border-cyber-green/30", label: "REPLICANDO" },
-    dying: { color: "bg-destructive/20 text-destructive border-destructive/30", label: "MURIENDO" },
-    dead: { color: "bg-white/10 text-muted-foreground border-white/10", label: "MUERTO" }
+  const config = {
+    active: { bg: "#E8F9ED", text: GREEN, label: "Activo" },
+    paused: { bg: "#FFF3E0", text: YELLOW, label: "Pausado" },
+    replicating: { bg: CORAL_BG, text: CORAL, label: "Replicando" },
+    dying: { bg: "#FFECEC", text: RED, label: "En riesgo" },
+    dead: { bg: "#F5F5F7", text: GRAY, label: "Muerto" }
   };
-  const config = statusConfig[status] || statusConfig.active;
-  
+  const c = config[status] || config.active;
+
   return (
-    <span className={cn("px-2 py-0.5 text-[9px] font-mono font-semibold rounded-sm border", config.color)}>
-      {config.label}
+    <span style={{
+      display: "inline-block",
+      padding: "2px 8px",
+      fontSize: 10,
+      fontWeight: 600,
+      borderRadius: 6,
+      background: c.bg,
+      color: c.text,
+      letterSpacing: 0.3
+    }}>
+      {c.label}
     </span>
   );
 };
 
 // ==================== MINI AGENT CARD ====================
-const MiniAgentCard = ({ agent, onAction, isShaking = false }) => {
+const MiniAgentCard = ({ agent, isShaking = false }) => {
   const finances = agent.finances || {};
   const performance = agent.performance || {};
   const balance = finances.current_balance ?? agent.balance ?? 0;
   const roi = performance.roi_percent ?? agent.roi ?? 0;
   const generation = agent.generation ?? 1;
 
+  const borderColor = agent.status === 'dying' ? "rgba(255,59,48,0.2)" :
+                      agent.status === 'replicating' ? "rgba(217,119,87,0.2)" :
+                      "rgba(0,0,0,0.06)";
+  const bgColor = agent.status === 'dying' ? "#FFF8F8" :
+                  agent.status === 'replicating' ? CORAL_BG :
+                  "transparent";
+
   return (
-    <div className={cn(
-      "p-3 rounded-sm border border-white/10 hover:border-primary/30 transition-all cursor-pointer group",
-      agent.status === 'dying' && "border-destructive/30 bg-destructive/5 animate-shake",
-      agent.status === 'replicating' && "border-cyber-green/30 bg-cyber-green/5 animate-pulse-slow",
-      isShaking && "animate-shake"
-    )}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Bot className={cn(
-            "w-3.5 h-3.5 text-primary",
-            agent.status === 'replicating' && "animate-bounce"
-          )} />
-          <span className="font-mono text-xs truncate max-w-[100px]">{agent.name}</span>
-          <span className="text-[9px] text-secondary font-mono">G{generation}</span>
+    <div style={{
+      padding: 14,
+      borderRadius: 14,
+      border: `1px solid ${borderColor}`,
+      background: bgColor,
+      transition: "all 0.2s ease",
+      cursor: "pointer",
+      animation: isShaking ? "shake 0.5s ease-in-out" : undefined
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Bot size={14} color={CORAL} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {agent.name}
+          </span>
+          <span style={{ fontSize: 10, fontWeight: 500, color: CORAL, background: CORAL_BG, padding: "1px 6px", borderRadius: 4 }}>
+            G{generation}
+          </span>
         </div>
         <AgentStatusBadge status={agent.status} />
       </div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-mono">€{balance.toFixed(0)}</span>
-        <span className={cn(
-          "font-mono",
-          roi >= 0 ? "text-cyber-green" : "text-destructive"
-        )}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13 }}>
+        <span style={{ fontWeight: 600, color: TEXT_PRIMARY }}>€{balance.toFixed(0)}</span>
+        <span style={{ fontWeight: 600, color: roi >= 0 ? GREEN : RED }}>
           {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
         </span>
       </div>
@@ -290,27 +294,42 @@ const MiniAgentCard = ({ agent, onAction, isShaking = false }) => {
 };
 
 // ==================== QUICK ACTION BUTTON ====================
-const QuickActionButton = ({ icon: Icon, label, onClick, color = "primary", disabled }) => {
-  const colorClasses = {
-    primary: "hover:bg-primary/20 hover:border-primary/50 hover:text-primary",
-    green: "hover:bg-cyber-green/20 hover:border-cyber-green/50 hover:text-cyber-green",
-    red: "hover:bg-destructive/20 hover:border-destructive/50 hover:text-destructive",
-    yellow: "hover:bg-yellow-400/20 hover:border-yellow-400/50 hover:text-yellow-400"
+const QuickActionButton = ({ icon: Icon, label, onClick, color = "coral", disabled }) => {
+  const colorMap = {
+    coral: { bg: CORAL, bgHover: "#C46A4B", text: "#FFFFFF" },
+    green: { bg: GREEN, bgHover: "#2DB84E", text: "#FFFFFF" },
+    red: { bg: RED, bgHover: "#E0342B", text: "#FFFFFF" },
+    gray: { bg: "#F5F5F7", bgHover: "#E5E5EA", text: TEXT_PRIMARY }
   };
+  const c = colorMap[color] || colorMap.coral;
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={cn(
-        "flex flex-col items-center gap-2 p-4 rounded-sm border border-white/10 bg-white/5",
-        "transition-all duration-200",
-        colorClasses[color],
-        disabled && "opacity-50 cursor-not-allowed"
-      )}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        padding: "16px 12px",
+        borderRadius: 14,
+        border: "none",
+        background: disabled ? "#F5F5F7" : c.bg,
+        color: disabled ? GRAY : c.text,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+        transition: "all 0.2s ease",
+        fontWeight: 600,
+        fontSize: 11,
+        letterSpacing: 0.3
+      }}
+      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = c.bgHover; }}
+      onMouseLeave={(e) => { if (!disabled) e.currentTarget.style.background = c.bg; }}
     >
-      <Icon className="w-5 h-5" />
-      <span className="text-[10px] font-heading uppercase tracking-wider">{label}</span>
+      <Icon size={20} />
+      <span>{label}</span>
     </button>
   );
 };
@@ -318,42 +337,36 @@ const QuickActionButton = ({ icon: Icon, label, onClick, color = "primary", disa
 // ==================== SYSTEM HEALTH GAUGE ====================
 const SystemHealthGauge = ({ health = 95 }) => {
   const getColor = (value) => {
-    if (value >= 80) return "#39FF14";
-    if (value >= 50) return "#FAFF00";
-    return "#FF003C";
+    if (value >= 80) return GREEN;
+    if (value >= 50) return YELLOW;
+    return RED;
   };
 
+  const color = getColor(health);
+  const circumference = 2 * Math.PI * 56;
+  const offset = circumference - (health / 100) * circumference;
+
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-32 h-32">
-        <svg className="w-full h-full transform -rotate-90">
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ position: "relative", width: 140, height: 140 }}>
+        <svg width="140" height="140" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx="70" cy="70" r="56" stroke="#F5F5F7" strokeWidth="8" fill="none" />
           <circle
-            cx="64"
-            cy="64"
+            cx="70"
+            cy="70"
             r="56"
-            stroke="rgba(255,255,255,0.1)"
+            stroke={color}
             strokeWidth="8"
             fill="none"
-          />
-          <circle
-            cx="64"
-            cy="64"
-            r="56"
-            stroke={getColor(health)}
-            strokeWidth="8"
-            fill="none"
-            strokeDasharray={`${(health / 100) * 352} 352`}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
             strokeLinecap="round"
-            style={{
-              filter: `drop-shadow(0 0 10px ${getColor(health)})`
-            }}
+            style={{ transition: "stroke-dashoffset 0.8s ease" }}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-mono font-bold" style={{ color: getColor(health) }}>
-            {health}%
-          </span>
-          <span className="text-[10px] text-muted-foreground uppercase">Salud</span>
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: 32, fontWeight: 700, color: color }}>{health}%</span>
+          <span style={{ fontSize: 10, color: TEXT_TERTIARY, textTransform: "uppercase", letterSpacing: 0.5 }}>Salud</span>
         </div>
       </div>
     </div>
@@ -364,28 +377,146 @@ const SystemHealthGauge = ({ health = 95 }) => {
 const TopPerformerCard = ({ agent, rank }) => {
   const roi = agent.roi ?? agent.performance?.roi_percent ?? 0;
   const balance = agent.balance ?? agent.finances?.current_balance ?? 0;
-  
+
+  const rankColors = {
+    1: { bg: "#FFF8E1", text: "#FFB800" },
+    2: { bg: "#F5F5F7", text: "#8E8E93" },
+    3: { bg: "#FDF3ED", text: "#CD7F32" }
+  };
+  const rc = rankColors[rank] || { bg: "#F5F5F7", text: GRAY };
+
   return (
-    <div className="flex items-center gap-3 p-3 rounded-sm bg-white/5 border border-white/10">
-      <div className={cn(
-        "w-8 h-8 rounded-sm flex items-center justify-center font-mono font-bold text-sm",
-        rank === 1 && "bg-yellow-400/20 text-yellow-400",
-        rank === 2 && "bg-gray-400/20 text-gray-400",
-        rank === 3 && "bg-amber-600/20 text-amber-600",
-        rank > 3 && "bg-white/10 text-muted-foreground"
-      )}>
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: 14,
+      borderRadius: 14,
+      background: "#FAFAFA",
+      border: "1px solid rgba(0,0,0,0.04)"
+    }}>
+      <div style={{
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        background: rc.bg,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 700,
+        fontSize: 13,
+        color: rc.text,
+        flexShrink: 0
+      }}>
         #{rank}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-mono text-sm truncate">{agent.name}</p>
-        <p className="text-[10px] text-muted-foreground">€{balance.toFixed(0)} saldo</p>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {agent.name}
+        </p>
+        <p style={{ fontSize: 11, color: TEXT_TERTIARY }}>€{balance.toFixed(0)} saldo</p>
       </div>
-      <div className={cn(
-        "font-mono font-bold",
-        roi >= 0 ? "text-cyber-green" : "text-destructive"
-      )}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: roi >= 0 ? GREEN : RED }}>
         {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
       </div>
+    </div>
+  );
+};
+
+// ==================== EMERGENCY DIALOG ====================
+const EmergencyDialog = ({ open, onClose, onConfirm, loading }) => {
+  if (!open) return null;
+
+  return (
+    <div style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 100,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "rgba(0,0,0,0.3)",
+      backdropFilter: "blur(8px)"
+    }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: CARD_BG,
+          borderRadius: 20,
+          padding: 28,
+          maxWidth: 400,
+          width: "90%",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.15)"
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: "#FFECEC", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <ShieldAlert size={22} color={RED} />
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: RED, margin: 0 }}>Parada de Emergencia</h3>
+        </div>
+        <div style={{ color: TEXT_SECONDARY, fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+          <p style={{ marginBottom: 12 }}>Esta acción <strong style={{ color: RED }}>TERMINARÁ TODOS LOS AGENTES</strong> inmediatamente.</p>
+          <ul style={{ margin: 0, paddingLeft: 20 }}>
+            <li style={{ marginBottom: 4 }}>Todos los agentes activos y pausados serán eliminados</li>
+            <li style={{ marginBottom: 4 }}>Los saldos de los agentes se establecerán en $0</li>
+            <li>Esta acción <strong>NO se puede deshacer</strong></li>
+          </ul>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.1)",
+              background: CARD_BG,
+              color: TEXT_PRIMARY,
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: "pointer",
+              transition: "all 0.15s ease"
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "none",
+              background: loading ? "#F5F5F7" : RED,
+              color: loading ? GRAY : "#FFFFFF",
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: loading ? "not-allowed" : "pointer",
+              transition: "all 0.15s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8
+            }}
+          >
+            {loading ? (
+              <>
+                <RotateCcw size={16} style={{ animation: "spin 1s linear infinite" }} />
+                Deteniendo...
+              </>
+            ) : (
+              "Confirmar Parada"
+            )}
+          </button>
+        </div>
+      </div>
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 };
@@ -413,15 +544,14 @@ export default function DashboardPage() {
         axios.get(`${API}/agents`),
         axios.get(`${API}/crypto/top-coins?limit=5`)
       ]);
-      
-      // Check for new replications to trigger confetti
+
       const newReplicating = statsRes.data.agents?.replicating || 0;
       if (newReplicating > prevReplicating.current && prevReplicating.current > 0) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3000);
       }
       prevReplicating.current = newReplicating;
-      
+
       setStats(statsRes.data);
       setAgents(agentsRes.data.agents || []);
       setCryptoData(cryptoRes.data.coins || []);
@@ -457,7 +587,6 @@ export default function DashboardPage() {
     fetchPortfolioHistory();
   }, [fetchPortfolioHistory]);
 
-  // ==================== BULK ACTIONS ====================
   const handlePauseAll = async () => {
     setActionLoading('pause');
     try {
@@ -499,26 +628,22 @@ export default function DashboardPage() {
     }
   };
 
-  // Check if there are paused agents
   const hasPausedAgents = agents.some(a => a.status === 'paused');
   const hasActiveAgents = agents.some(a => a.status === 'active' || a.status === 'replicating');
   const hasDyingAgents = agents.some(a => a.status === 'dying');
 
-  // Generate sparkline data
-  const generateSparkline = (base, variance, trend = 0) => 
+  const generateSparkline = (base, variance, trend = 0) =>
     Array.from({ length: 12 }, (_, i) => ({
       value: base + (Math.random() - 0.5) * variance + (i * trend)
     }));
 
-  // Agent distribution for pie chart
   const agentDistribution = [
-    { name: 'Activos', value: stats?.agents?.active || 0, color: '#00F3FF' },
-    { name: 'Replicando', value: stats?.agents?.replicating || 0, color: '#39FF14' },
-    { name: 'Muriendo', value: stats?.agents?.dying || 0, color: '#FF003C' },
-    { name: 'Muertos', value: stats?.agents?.dead || 0, color: '#666666' }
+    { name: 'Activos', value: stats?.agents?.active || 0, color: CORAL },
+    { name: 'Replicando', value: stats?.agents?.replicating || 0, color: GREEN },
+    { name: 'En riesgo', value: stats?.agents?.dying || 0, color: YELLOW },
+    { name: 'Muertos', value: stats?.agents?.dead || 0, color: GRAY }
   ].filter(d => d.value > 0);
 
-  // Filter agents by tab
   const filteredAgents = agents.filter(agent => {
     if (agentTab === 'all') return true;
     if (agentTab === 'active') return agent.status === 'active';
@@ -527,119 +652,125 @@ export default function DashboardPage() {
     return true;
   });
 
-  // Top performers
   const topPerformers = [...agents]
     .sort((a, b) => (b.performance?.roi_percent ?? b.roi ?? 0) - (a.performance?.roi_percent ?? a.roi ?? 0))
     .slice(0, 5);
 
-  // Calculate system health
   const systemHealth = stats ? Math.round(
     ((stats.agents?.active || 0) / Math.max(stats.agents?.total || 1, 1)) * 100
   ) : 95;
 
+  // Loading skeleton
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div style={{ background: BG_WARM, minHeight: "100vh", padding: "24px 24px 48px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-24 bg-white/5 rounded-sm animate-pulse" />
+            <div key={i} style={{ height: 110, background: "#E5E5EA", borderRadius: 20, animation: "pulse 1.5s ease-in-out infinite", animationDelay: `${i * 0.1}s` }} />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 h-80 bg-white/5 rounded-sm animate-pulse" />
-          <div className="h-80 bg-white/5 rounded-sm animate-pulse" />
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+          <div style={{ height: 320, background: "#E5E5EA", borderRadius: 20, animation: "pulse 1.5s ease-in-out infinite" }} />
+          <div style={{ height: 320, background: "#E5E5EA", borderRadius: 20, animation: "pulse 1.5s ease-in-out infinite" }} />
         </div>
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+        `}</style>
       </div>
     );
   }
 
+  const isPositive = portfolioStats?.totalPnl >= 0;
+  const chartColor = isPositive ? GREEN : RED;
+
+  const tabItems = [
+    { key: "all", label: "Todos" },
+    { key: "active", label: "Activos" },
+    { key: "best", label: "Mejores" },
+    { key: "risk", label: "En riesgo" }
+  ];
+
+  const periodItems = ['1d', '7d', '1m', 'all'];
+  const periodLabels = { '1d': '1D', '7d': '7D', '1m': '1M', 'all': 'Todo' };
+
   return (
-    <div className="space-y-4" data-testid="dashboard-page">
-      {/* Confetti for replication celebrations */}
+    <div style={{ background: BG_WARM, minHeight: "100vh" }}>
       <Confetti active={showConfetti} />
-      
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading font-bold text-2xl tracking-wide uppercase">
-            Vista General
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Métricas del orquestador en tiempo real
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-sm bg-cyber-green/10 border border-cyber-green/30">
-            <Activity className="w-3.5 h-3.5 text-cyber-green animate-pulse" />
-            <span className="text-[10px] font-mono text-cyber-green uppercase">EN VIVO</span>
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 24px 48px" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT_PRIMARY, margin: 0, letterSpacing: -0.5 }}>
+              Vista General
+            </h1>
+            <p style={{ fontSize: 14, color: TEXT_SECONDARY, marginTop: 4 }}>
+              Métricas del orquestador en tiempo real
+            </p>
+          </div>
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            borderRadius: 20,
+            background: "#E8F9ED"
+          }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: GREEN, animation: "pulse-dot 2s ease-in-out infinite" }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: GREEN }}>En vivo</span>
           </div>
         </div>
-      </div>
 
-      {/* ==================== BENTO GRID ==================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        
-        {/* Row 1: Main Metrics */}
-        <div className="col-span-1">
+        {/* Metric Cards Row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
           <MetricCard
             title="Agentes Activos"
             value={stats?.agents?.active || 0}
             change={12.5}
             icon={Bot}
-            color="primary"
+            color="coral"
             subtitle={`${stats?.agents?.total || 0} en total`}
             sparkline={generateSparkline(3, 2, 0.1)}
             animate
           />
-        </div>
-
-        <div className="col-span-1">
           <MetricCard
             title="Balance Total"
             value={`€${(stats?.finances?.total_balance || 0).toFixed(0)}`}
             change={stats?.finances?.avg_roi || 0}
-            icon={DollarSign}
+            icon={Wallet}
             color="green"
             sparkline={generateSparkline(200, 50, 5)}
             animate
           />
-        </div>
-
-        <div className="col-span-1">
           <MetricCard
             title="Tasa de Éxito"
             value={`${((stats?.trading?.win_rate || 0) * 100).toFixed(0)}%`}
             icon={Target}
-            color="primary"
+            color="coral"
             size="small"
             animate
           />
-        </div>
-
-        <div className="col-span-1">
           <MetricCard
             title="Total Trades"
             value={stats?.trading?.total_trades || 0}
             icon={Hash}
-            color="purple"
+            color="gray"
             size="small"
             animate
           />
-        </div>
-
-        <div className="col-span-1">
           <MetricCard
             title="PnL 24h"
             value={`€${(stats?.trading?.pnl_24h || 0).toFixed(0)}`}
             change={(stats?.trading?.pnl_24h || 0) > 0 ? 5.2 : -3.1}
-            icon={TrendingUp}
+            icon={(stats?.trading?.pnl_24h || 0) >= 0 ? TrendingUp : TrendingDown}
             color={(stats?.trading?.pnl_24h || 0) >= 0 ? "green" : "red"}
             size="small"
             animate
           />
-        </div>
-
-        <div className="col-span-1">
           <MetricCard
             title="Tokens Usados"
             value={`${((stats?.llm?.total_tokens || 0) / 1000).toFixed(1)}K`}
@@ -651,354 +782,418 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Row 2: Charts and Agents */}
-        {/* Portfolio Chart - Large */}
-        <Card className="glass border-white/10 col-span-1 md:col-span-2 lg:col-span-2 row-span-2">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
+        {/* Charts Row */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 24 }}>
+
+          {/* Portfolio Chart */}
+          <div style={{
+            background: CARD_BG,
+            borderRadius: 20,
+            boxShadow: CARD_SHADOW,
+            padding: 24
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, margin: 0 }}>
                   Rendimiento del Portfolio
-                </CardTitle>
+                </h2>
                 {portfolioStats && (
-                  <span className={cn(
-                    "text-xs font-mono",
-                    portfolioStats.totalPnl >= 0 ? "text-cyber-green" : "text-destructive"
-                  )}>
-                    {portfolioStats.totalPnl >= 0 ? "+" : ""}€{portfolioStats.totalPnl.toFixed(2)} ({portfolioStats.pnlPercent.toFixed(1)}%)
+                  <span style={{ fontSize: 14, fontWeight: 600, color: isPositive ? GREEN : RED }}>
+                    {isPositive ? "+" : ""}€{portfolioStats.totalPnl.toFixed(2)} ({portfolioStats.pnlPercent.toFixed(1)}%)
                   </span>
                 )}
               </div>
-              <div className="flex gap-1">
-                {['1d', '7d', '1m', 'all'].map((period) => (
+              <div style={{ display: "flex", gap: 4 }}>
+                {periodItems.map((period) => (
                   <button
                     key={period}
                     onClick={() => setPortfolioPeriod(period)}
-                    className={cn(
-                      "px-2 py-1 text-[10px] font-mono rounded-sm transition-colors uppercase",
-                      period === portfolioPeriod ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-white"
-                    )}
+                    style={{
+                      padding: "5px 10px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      borderRadius: 8,
+                      border: "none",
+                      background: period === portfolioPeriod ? CORAL_BG : "transparent",
+                      color: period === portfolioPeriod ? CORAL : TEXT_TERTIARY,
+                      cursor: "pointer",
+                      transition: "all 0.15s ease"
+                    }}
                   >
-                    {period === '1d' ? '1D' : period === '7d' ? '7D' : period === '1m' ? '1M' : 'TODO'}
+                    {periodLabels[period]}
                   </button>
                 ))}
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="pb-4">
-            <div className="h-[200px] sm:h-[250px] md:h-[280px]">
+            <div style={{ height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={portfolioData}>
                   <defs>
-                    <linearGradient id="colorPortfolio" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={portfolioStats?.totalPnl >= 0 ? "#39FF14" : "#FF003C"} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={portfolioStats?.totalPnl >= 0 ? "#39FF14" : "#FF003C"} stopOpacity={0}/>
+                    <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={chartColor} stopOpacity={0.15} />
+                      <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis 
-                    dataKey="time" 
+                  <XAxis
+                    dataKey="time"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#666', fontSize: 9 }}
+                    tick={{ fill: TEXT_TERTIARY, fontSize: 11 }}
                     interval="preserveStartEnd"
                   />
-                  <YAxis 
+                  <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#666', fontSize: 9 }}
-                    tickFormatter={(v) => `€${v.toFixed(0)}`}
-                    width={50}
+                    tick={{ fill: TEXT_TERTIARY, fontSize: 11 }}
+                    tickFormatter={(v) => `€${v}`}
+                    width={55}
                     domain={['dataMin - 10', 'dataMax + 10']}
                   />
                   <Tooltip
                     contentStyle={{
-                      background: 'rgba(0,0,0,0.95)',
-                      border: '1px solid rgba(0,243,255,0.3)',
-                      borderRadius: '4px',
-                      fontSize: '11px'
+                      background: "#FFFFFF",
+                      border: "none",
+                      borderRadius: 12,
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+                      fontSize: 12,
+                      padding: "8px 12px"
                     }}
-                    formatter={(value) => [`€${value.toFixed(2)}`, 'Valor del Portfolio']}
+                    formatter={(value) => [`€${value.toFixed(2)}`, 'Portfolio']}
                     labelFormatter={(label) => `Hora: ${label}`}
                   />
                   <Area
                     type="monotone"
                     dataKey="value"
-                    stroke={portfolioStats?.totalPnl >= 0 ? "#39FF14" : "#FF003C"}
-                    strokeWidth={2}
+                    stroke={chartColor}
+                    strokeWidth={2.5}
                     fillOpacity={1}
-                    fill="url(#colorPortfolio)"
+                    fill="url(#portfolioGrad)"
                     name="Portfolio"
                   />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* System Health Gauge */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-              Salud del Sistema
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center">
-            <SystemHealthGauge health={systemHealth} />
-            <div className="grid grid-cols-2 gap-4 mt-4 w-full">
-              <div className="text-center">
-                <p className={cn(
-                  "text-lg font-mono font-bold text-cyber-green",
-                  (stats?.agents?.replicating || 0) > 0 && "animate-pulse"
-                )}>{stats?.agents?.replicating || 0}</p>
-                <p className="text-[9px] text-muted-foreground uppercase">Replicando</p>
-              </div>
-              <div className="text-center">
-                <p className={cn(
-                  "text-lg font-mono font-bold text-destructive",
-                  (stats?.agents?.dying || 0) > 0 && "animate-pulse"
-                )}>{stats?.agents?.dying || 0}</p>
-                <p className="text-[9px] text-muted-foreground uppercase">En Riesgo</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Agent Distribution Pie */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-              Distribución de Agentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[160px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={agentDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={60}
-                    dataKey="value"
-                    strokeWidth={0}
-                  >
-                    {agentDistribution.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: 'rgba(0,0,0,0.95)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '4px',
-                      fontSize: '11px'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex justify-center gap-4 mt-2">
-              {agentDistribution.map((item) => (
-                <div key={item.name} className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-[9px] text-muted-foreground">{item.name}</span>
+          {/* Right Column: Health + Distribution */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {/* System Health */}
+            <div style={{
+              background: CARD_BG,
+              borderRadius: 20,
+              boxShadow: CARD_SHADOW,
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center"
+            }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT_TERTIARY, textTransform: "uppercase", letterSpacing: 0.5, margin: "0 0 12px 0" }}>
+                Salud del Sistema
+              </h3>
+              <SystemHealthGauge health={systemHealth} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, width: "100%", marginTop: 16 }}>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 20, fontWeight: 700, color: GREEN, margin: 0 }}>
+                    {stats?.agents?.replicating || 0}
+                  </p>
+                  <p style={{ fontSize: 10, color: TEXT_TERTIARY, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>
+                    Replicando
+                  </p>
                 </div>
+                <div style={{ textAlign: "center" }}>
+                  <p style={{ fontSize: 20, fontWeight: 700, color: (stats?.agents?.dying || 0) > 0 ? YELLOW : GREEN, margin: 0 }}>
+                    {stats?.agents?.dying || 0}
+                  </p>
+                  <p style={{ fontSize: 10, color: TEXT_TERTIARY, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 }}>
+                    En riesgo
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Agent Distribution */}
+            <div style={{
+              background: CARD_BG,
+              borderRadius: 20,
+              boxShadow: CARD_SHADOW,
+              padding: 24
+            }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: TEXT_TERTIARY, textTransform: "uppercase", letterSpacing: 0.5, margin: "0 0 8px 0" }}>
+                Distribución
+              </h3>
+              <div style={{ height: 140 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RePieChart>
+                    <Pie
+                      data={agentDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={36}
+                      outerRadius={56}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {agentDistribution.map((entry, index) => (
+                        <Cell key={index} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        background: "#FFFFFF",
+                        border: "none",
+                        borderRadius: 10,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                        fontSize: 12
+                      }}
+                    />
+                  </RePieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 4 }}>
+                {agentDistribution.map((item) => (
+                  <div key={item.name} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color }} />
+                    <span style={{ fontSize: 11, color: TEXT_SECONDARY }}>{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Agents + Top Performers Row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+
+          {/* Agents Panel */}
+          <div style={{
+            background: CARD_BG,
+            borderRadius: 20,
+            boxShadow: CARD_SHADOW,
+            padding: 24
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, margin: 0 }}>
+                Agentes
+              </h2>
+              <button
+                onClick={() => navigate('/agents')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "none",
+                  border: "none",
+                  color: CORAL,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer"
+                }}
+              >
+                Ver todos <ChevronRight size={14} />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "#F5F5F7", borderRadius: 10, padding: 3 }}>
+              {tabItems.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setAgentTab(tab.key)}
+                  style={{
+                    flex: 1,
+                    padding: "7px 8px",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    borderRadius: 8,
+                    border: "none",
+                    background: agentTab === tab.key ? "#FFFFFF" : "transparent",
+                    color: agentTab === tab.key ? TEXT_PRIMARY : TEXT_TERTIARY,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    boxShadow: agentTab === tab.key ? "0 1px 3px rgba(0,0,0,0.08)" : "none"
+                  }}
+                >
+                  {tab.label}
+                </button>
               ))}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Agent Status Panel */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-4 lg:col-span-3 xl:col-span-4">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
-                Agentes
-              </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 text-[10px]"
-                onClick={() => navigate('/agents')}
-              >
-                Ver Todos <ChevronRight className="w-3 h-3 ml-1" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <Tabs value={agentTab} onValueChange={setAgentTab} className="w-full">
-              <TabsList className="w-full bg-white/5 mb-3">
-                <TabsTrigger value="all" className="flex-1 text-[10px]">Todos</TabsTrigger>
-                <TabsTrigger value="active" className="flex-1 text-[10px]">Activos</TabsTrigger>
-                <TabsTrigger value="best" className="flex-1 text-[10px]">Mejores</TabsTrigger>
-                <TabsTrigger value="risk" className="flex-1 text-[10px]">En Riesgo</TabsTrigger>
-              </TabsList>
-              <TabsContent value={agentTab} className="mt-0">
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {filteredAgents.length > 0 ? (
-                    filteredAgents.slice(0, 5).map((agent) => (
-                      <MiniAgentCard key={agent.id} agent={agent} isShaking={agent.status === 'dying'} />
-                    ))
-                  ) : (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <Bot className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                      <p className="text-xs">No se encontraron agentes</p>
-                    </div>
-                  )}
+            <div style={{ maxHeight: 220, overflowY: "auto" }}>
+              {filteredAgents.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {filteredAgents.slice(0, 5).map((agent) => (
+                    <MiniAgentCard key={agent.id} agent={agent} isShaking={agent.status === 'dying'} />
+                  ))}
                 </div>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+              ) : (
+                <div style={{ textAlign: "center", padding: 32, color: TEXT_TERTIARY }}>
+                  <Bot size={28} style={{ margin: "0 auto 8px", opacity: 0.3 }} />
+                  <p style={{ fontSize: 13 }}>No se encontraron agentes</p>
+                </div>
+              )}
+            </div>
+          </div>
 
-        {/* Top Performers */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-4 lg:col-span-3 xl:col-span-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground flex items-center gap-2">
-              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-              Mejores Rendimientos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-2 max-h-[240px] overflow-y-auto">
+          {/* Top Performers */}
+          <div style={{
+            background: CARD_BG,
+            borderRadius: 20,
+            boxShadow: CARD_SHADOW,
+            padding: 24
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: "#FFF8E1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Trophy size={16} color="#FFB800" />
+              </div>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, margin: 0 }}>
+                Mejores Rendimientos
+              </h2>
+            </div>
+            <div style={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
               {topPerformers.length > 0 ? (
                 topPerformers.map((agent, index) => (
                   <TopPerformerCard key={agent.id} agent={agent} rank={index + 1} />
                 ))
               ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Trophy className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs">Sin datos aún</p>
+                <div style={{ textAlign: "center", padding: 32, color: TEXT_TERTIARY }}>
+                  <Trophy size={28} style={{ margin: "0 auto 8px", opacity: 0.3 }} />
+                  <p style={{ fontSize: 13 }}>Sin datos aún</p>
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Quick Actions */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-4">
-          <CardHeader className="pb-2">
-            <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
+        {/* Quick Actions + Crypto Row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16 }}>
+
+          {/* Quick Actions */}
+          <div style={{
+            background: CARD_BG,
+            borderRadius: 20,
+            boxShadow: CARD_SHADOW,
+            padding: 24
+          }}>
+            <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, margin: "0 0 16px 0" }}>
               Acciones Rápidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="grid grid-cols-3 gap-2">
-              <QuickActionButton 
-                icon={Bot} 
-                label="Desplegar" 
-                color="primary"
+            </h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <QuickActionButton
+                icon={Zap}
+                label="Desplegar Agente"
+                color="coral"
                 onClick={() => navigate('/agents')}
               />
               {hasPausedAgents ? (
-                <QuickActionButton 
-                  icon={Play} 
-                  label="Reanudar" 
+                <QuickActionButton
+                  icon={Play}
+                  label="Reanudar Todos"
                   color="green"
                   onClick={handleResumeAll}
                   disabled={actionLoading === 'resume'}
                 />
               ) : (
-                <QuickActionButton 
-                  icon={Pause} 
-                  label="Pausar" 
-                  color="yellow"
+                <QuickActionButton
+                  icon={Pause}
+                  label="Pausar Todos"
+                  color="gray"
                   onClick={handlePauseAll}
                   disabled={!hasActiveAgents || actionLoading === 'pause'}
                 />
               )}
-              <QuickActionButton 
-                icon={OctagonX} 
-                label="Emergencia" 
+              <QuickActionButton
+                icon={ShieldAlert}
+                label="Parada de Emergencia"
                 color="red"
                 onClick={() => setEmergencyDialogOpen(true)}
                 disabled={!hasActiveAgents && !hasPausedAgents}
               />
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Emergency Stop Dialog */}
-        <AlertDialog open={emergencyDialogOpen} onOpenChange={setEmergencyDialogOpen}>
-          <AlertDialogContent className="glass border-destructive/50">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="w-5 h-5" />
-                Parada de Emergencia
-              </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-2">
-                <p>Esta acción <strong className="text-destructive">TERMINARÁ TODOS LOS AGENTES</strong> inmediatamente.</p>
-                <p className="text-sm">• Todos los agentes activos y pausados serán eliminados</p>
-                <p className="text-sm">• Los saldos de los agentes se establecerán en $0</p>
-                <p className="text-sm">• Esta acción <strong>NO se puede deshacer</strong></p>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel className="border-white/20">Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleEmergencyStop}
-                className="bg-destructive hover:bg-destructive/90"
-                disabled={actionLoading === 'emergency'}
-              >
-                {actionLoading === 'emergency' ? (
-                  <span className="flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4 animate-spin" />
-                    Deteniendo...
-                  </span>
-                ) : (
-                  "Confirmar Parada"
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Crypto Market */}
-        <Card className="glass border-white/10 col-span-2 md:col-span-4 lg:col-span-6 xl:col-span-8">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="font-heading text-xs tracking-wider uppercase text-muted-foreground">
+          {/* Crypto Market */}
+          <div style={{
+            background: CARD_BG,
+            borderRadius: 20,
+            boxShadow: CARD_SHADOW,
+            padding: 24
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 600, color: TEXT_PRIMARY, margin: 0 }}>
                 Mercado Crypto
-              </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 text-[10px]"
+              </h2>
+              <button
                 onClick={() => navigate('/crypto')}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "none",
+                  border: "none",
+                  color: CORAL,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer"
+                }}
               >
-                Ver Todo <ChevronRight className="w-3 h-3 ml-1" />
-              </Button>
+                Ver todo <ChevronRight size={14} />
+              </button>
             </div>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
               {cryptoData.map((coin) => (
-                <div 
+                <div
                   key={coin.id}
-                  className="flex items-center gap-2 p-2.5 rounded-sm bg-white/5 border border-white/10 hover:border-primary/30 transition-colors cursor-pointer"
                   onClick={() => navigate('/crypto')}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: 12,
+                    borderRadius: 14,
+                    background: "#FAFAFA",
+                    border: "1px solid rgba(0,0,0,0.04)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease"
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(217,119,87,0.2)"; e.currentTarget.style.background = CORAL_BG; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.04)"; e.currentTarget.style.background = "#FAFAFA"; }}
                 >
-                  <img src={coin.image} alt={coin.name} className="w-6 h-6 rounded-full" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-mono text-xs font-semibold">{coin.symbol}</p>
-                    <p className="font-mono text-[10px] text-muted-foreground">
+                  <img src={coin.image} alt={coin.name} style={{ width: 28, height: 28, borderRadius: "50%" }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: TEXT_PRIMARY, margin: 0 }}>{coin.symbol}</p>
+                    <p style={{ fontSize: 11, color: TEXT_TERTIARY, margin: 0 }}>
                       €{coin.current_price?.toLocaleString()}
                     </p>
                   </div>
-                  <div className={cn(
-                    "text-[10px] font-mono",
-                    coin.price_change_24h >= 0 ? "text-cyber-green" : "text-destructive"
-                  )}>
-                    {coin.price_change_24h >= 0 ? "+" : ""}
-                    {coin.price_change_24h?.toFixed(1)}%
+                  <div style={{ fontSize: 12, fontWeight: 600, color: coin.price_change_24h >= 0 ? GREEN : RED }}>
+                    {coin.price_change_24h >= 0 ? "+" : ""}{coin.price_change_24h?.toFixed(1)}%
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
+
+      {/* Emergency Dialog */}
+      <EmergencyDialog
+        open={emergencyDialogOpen}
+        onClose={() => setEmergencyDialogOpen(false)}
+        onConfirm={handleEmergencyStop}
+        loading={actionLoading === 'emergency'}
+      />
+
+      <style>{`
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #D1D1D6; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #C7C7CC; }
+      `}</style>
     </div>
   );
 }
