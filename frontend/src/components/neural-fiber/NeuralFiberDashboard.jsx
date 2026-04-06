@@ -6,7 +6,7 @@ import StructuralAnalysis from './StructuralAnalysis';
 import ActivityConsole from './ActivityConsole';
 import '../../styles/neural-fiber.css';
 
-const API = "http://localhost:8000/api";
+const API = "http://localhost:8001/api";
 
 export default function NeuralFiberDashboard() {
   const [stats, setStats] = useState(null);

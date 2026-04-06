@@ -66,6 +66,10 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    if hasattr(app.state, "mock_engine"):
+        await app.state.mock_engine.stop()
+    if hasattr(app.state, "replication_service"):
+        await app.state.replication_service.stop()
     if hasattr(app.state, "trading_engine"):
         await app.state.trading_engine.stop()
     if hasattr(app.state, "snapshot_service"):

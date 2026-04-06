@@ -2,137 +2,209 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════
+   AUTOMATON — Electric Void Theme
+   Cyberpunk Trading Terminal × AI Hive Mind
+   ═══════════════════════════════════════════════════════ */
+
 @layer base {
     :root {
-        --background: 40 10% 97%;
-        --foreground: 20 10% 15%;
-        --card: 0 0% 100%;
-        --card-foreground: 20 10% 15%;
-        --popover: 0 0% 100%;
-        --popover-foreground: 20 10% 15%;
-        --primary: 16 65% 60%;
-        --primary-foreground: 0 0% 100%;
-        --secondary: 40 15% 94%;
-        --secondary-foreground: 20 10% 15%;
-        --muted: 40 10% 92%;
-        --muted-foreground: 25 5% 50%;
-        --accent: 40 15% 94%;
-        --accent-foreground: 20 10% 15%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 100%;
-        --border: 40 8% 90%;
-        --input: 40 8% 90%;
-        --ring: 16 65% 60%;
-        --chart-1: 16 65% 60%;
-        --chart-2: 210 80% 55%;
-        --chart-3: 145 60% 45%;
-        --chart-4: 270 50% 60%;
-        --chart-5: 35 80% 55%;
-        --radius: 1rem;
-        --success: 145 60% 45%;
-        --warning: 35 80% 55%;
-        --info: 210 80% 55%;
+        /* Core */
+        --background: 240 10% 3%;
+        --foreground: 0 0% 98%;
+
+        /* Cards & Surfaces */
+        --card: 240 10% 5%;
+        --card-foreground: 0 0% 98%;
+        --popover: 240 10% 5%;
+        --popover-foreground: 0 0% 98%;
+
+        /* Primary — Electric Cyan */
+        --primary: 187 100% 50%;
+        --primary-foreground: 0 0% 0%;
+
+        /* Secondary — Neon Purple */
+        --secondary: 271 100% 50%;
+        --secondary-foreground: 0 0% 98%;
+
+        /* Muted */
+        --muted: 240 5% 12%;
+        --muted-foreground: 240 5% 65%;
+
+        /* Accent */
+        --accent: 271 100% 50%;
+        --accent-foreground: 0 0% 98%;
+
+        /* Destructive — Neon Red */
+        --destructive: 345 100% 50%;
+        --destructive-foreground: 0 0% 98%;
+
+        /* Borders & Inputs */
+        --border: 240 5% 15%;
+        --input: 240 5% 15%;
+        --ring: 187 100% 50%;
+
+        /* Chart Palette */
+        --chart-1: 187 100% 50%;
+        --chart-2: 271 100% 50%;
+        --chart-3: 145 90% 50%;
+        --chart-4: 35 100% 55%;
+        --chart-5: 200 100% 60%;
+
+        /* Misc */
+        --radius: 0.75rem;
+        --success: 145 90% 50%;
+        --warning: 35 100% 55%;
+        --info: 200 100% 60%;
     }
-}
-
-html {
-    color-scheme: light;
-}
-
-body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background-color: hsl(40 10% 97%);
-    color: hsl(20 10% 15%);
 }
 
 @layer base {
     * {
         @apply border-border;
     }
+
+    html {
+        color-scheme: dark;
+    }
+
+    body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        /* Subtle noise texture for depth */
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    }
 }
 
 @layer components {
-    .apple-card {
-        @apply bg-white rounded-2xl border border-black/5 shadow-sm;
+    /* ── Glass Cards ── */
+    .glass-card {
+        @apply rounded-xl border border-white/10 bg-black/60 backdrop-blur-xl shadow-lg shadow-black/20;
     }
 
-    .apple-card-hover {
-        @apply apple-card transition-all duration-200 hover:shadow-md hover:border-black/10;
+    .glass-card-hover {
+        @apply glass-card transition-all duration-300 hover:border-cyan-500/30 hover:shadow-cyan-500/10 hover:shadow-xl;
     }
 
-    .apple-button {
-        @apply inline-flex items-center justify-center rounded-full font-medium transition-all duration-150 active:scale-[0.98];
+    /* ── Buttons ── */
+    .evo-button {
+        @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200
+               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2
+               focus-visible:ring-offset-black active:scale-[0.97];
     }
 
-    .apple-button-primary {
-        @apply apple-button bg-claude-coral text-white hover:bg-claude-coral-dark shadow-sm;
+    .evo-button-primary {
+        @apply evo-button bg-cyan-500 text-black hover:bg-cyan-400 shadow-md shadow-cyan-500/20;
     }
 
-    .apple-button-secondary {
-        @apply apple-button bg-claude-warm text-foreground hover:bg-claude-warm-dark;
+    .evo-button-secondary {
+        @apply evo-button bg-purple-600 text-white hover:bg-purple-500 shadow-md shadow-purple-500/20;
     }
 
-    .apple-button-ghost {
-        @apply apple-button text-muted-foreground hover:bg-black/5;
+    .evo-button-destructive {
+        @apply evo-button bg-red-600 text-white hover:bg-red-500 shadow-md shadow-red-500/20;
     }
 
-    .apple-input {
-        @apply w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm 
-               transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-claude-coral/30 focus:border-claude-coral/50;
+    .evo-button-ghost {
+        @apply evo-button text-muted-foreground hover:text-foreground hover:bg-white/5;
     }
 
-    .apple-badge {
+    .evo-button-outline {
+        @apply evo-button border border-white/20 text-foreground hover:border-cyan-500/50 hover:text-cyan-400;
+    }
+
+    /* ── Inputs ── */
+    .evo-input {
+        @apply w-full rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-sm text-foreground
+               placeholder:text-muted-foreground
+               transition-all duration-200
+               focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/70;
+    }
+
+    /* ── Badges ── */
+    .evo-badge {
         @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
     }
 
-    .apple-badge-success {
-        @apply apple-badge bg-green-100 text-green-700;
+    .evo-badge-success {
+        @apply evo-badge bg-green-500/15 text-green-400 ring-1 ring-green-500/30;
     }
 
-    .apple-badge-warning {
-        @apply apple-badge bg-amber-100 text-amber-700;
+    .evo-badge-warning {
+        @apply evo-badge bg-yellow-500/15 text-yellow-400 ring-1 ring-yellow-500/30;
     }
 
-    .apple-badge-danger {
-        @apply apple-badge bg-red-100 text-red-700;
+    .evo-badge-danger {
+        @apply evo-badge bg-red-500/15 text-red-400 ring-1 ring-red-500/30;
     }
 
-    .apple-badge-neutral {
-        @apply apple-badge bg-gray-100 text-gray-600;
+    .evo-badge-info {
+        @apply evo-badge bg-blue-500/15 text-blue-400 ring-1 ring-blue-500/30;
     }
 
-    .apple-badge-coral {
-        @apply apple-badge bg-claude-coral/10 text-claude-coral;
+    .evo-badge-cyan {
+        @apply evo-badge bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/30;
     }
 
-    .apple-sidebar-item {
-        @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium 
-               text-muted-foreground transition-all duration-150 cursor-pointer
-               hover:bg-black/5 hover:text-foreground;
+    .evo-badge-purple {
+        @apply evo-badge bg-purple-500/15 text-purple-400 ring-1 ring-purple-500/30;
     }
 
-    .apple-sidebar-item-active {
-        @apply bg-claude-coral/10 text-claude-coral;
+    /* ── Sidebar Nav ── */
+    .evo-nav-item {
+        @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium
+               text-muted-foreground transition-all duration-200 cursor-pointer
+               hover:bg-white/5 hover:text-foreground;
     }
 
-    .apple-section-title {
+    .evo-nav-item-active {
+        @apply bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20;
+    }
+
+    /* ── Section Titles ── */
+    .evo-section-title {
         @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground/70;
     }
 
-    .apple-metric-value {
+    /* ── Metric Values ── */
+    .evo-metric-value {
         @apply text-3xl font-semibold tracking-tight text-foreground;
     }
 
-    .apple-metric-label {
+    .evo-metric-label {
         @apply text-sm text-muted-foreground;
+    }
+
+    /* ── Glow Effects ── */
+    .glow-cyan {
+        box-shadow: 0 0 20px rgba(0, 243, 255, 0.15), 0 0 40px rgba(0, 243, 255, 0.05);
+    }
+
+    .glow-purple {
+        box-shadow: 0 0 20px rgba(112, 0, 255, 0.15), 0 0 40px rgba(112, 0, 255, 0.05);
+    }
+
+    .glow-red {
+        box-shadow: 0 0 20px rgba(255, 0, 60, 0.15), 0 0 40px rgba(255, 0, 60, 0.05);
+    }
+
+    .text-glow-cyan {
+        text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+    }
+
+    .text-glow-purple {
+        text-shadow: 0 0 10px rgba(112, 0, 255, 0.5);
     }
 }
 
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -140,27 +212,48 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(255, 255, 255, 0.2);
 }
 
+/* ── Selection ── */
 ::selection {
-    background: rgba(217, 119, 87, 0.25);
-    color: inherit;
+    background: rgba(0, 243, 255, 0.25);
+    color: #fff;
 }
 
+/* ── Focus ── */
 input:focus, textarea:focus, select:focus {
     outline: none;
 }
 
+/* ── Focus visible (accessibility) ── */
+:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+}
+
+/* ── Button transitions ── */
 button {
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
 button:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
+}
+
+/* ── Reduced motion (accessibility) ── */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

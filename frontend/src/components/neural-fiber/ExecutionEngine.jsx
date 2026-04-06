@@ -3,7 +3,7 @@ import { TrendingUp, TrendingDown, Pause, AlertTriangle, Loader2 } from 'lucide-
 import axios from 'axios';
 import { toast } from 'sonner';
 
-const API = "http://localhost:8000/api";
+const API = "http://localhost:8001/api";
 
 export default function ExecutionEngine({ agents }) {
   const [isLiquidating, setIsLiquidating] = useState(false);

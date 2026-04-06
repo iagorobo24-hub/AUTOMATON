@@ -5,10 +5,10 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Segoe UI', 'sans-serif'],
-                mono: ['SF Mono', 'ui-monospace', 'monospace'],
-                display: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
-                heading: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'sans-serif'],
+                sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+                mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+                heading: ['Rajdhani', '-apple-system', 'sans-serif'],
+                display: ['Orbitron', '-apple-system', 'sans-serif'],
             },
             colors: {
                 background: 'hsl(var(--background))',
@@ -54,25 +54,15 @@ module.exports = {
                     '4': 'hsl(var(--chart-4))',
                     '5': 'hsl(var(--chart-5))'
                 },
-                claude: {
-                    coral: '#D97757',
-                    'coral-light': '#E8956F',
-                    'coral-dark': '#C4624A',
-                    cream: '#FAFAF8',
-                    warm: '#F5F3EF',
-                    'warm-dark': '#EDEAE4',
-                    sand: '#E8E4DE',
+                // Electric Void neon palette
+                neon: {
+                    cyan: '#00F3FF',
+                    purple: '#7000FF',
+                    red: '#FF003C',
+                    green: '#00FF88',
+                    yellow: '#FFD600',
+                    blue: '#0088FF',
                 },
-                apple: {
-                    green: '#34C759',
-                    orange: '#FF9500',
-                    red: '#FF3B30',
-                    blue: '#007AFF',
-                    purple: '#AF52DE',
-                    pink: '#FF2D55',
-                    teal: '#5AC8FA',
-                    indigo: '#5856D6',
-                }
             },
             borderRadius: {
                 lg: 'var(--radius)',
@@ -100,6 +90,17 @@ module.exports = {
                     '0%': { opacity: '0', transform: 'scale(0.96)' },
                     '100%': { opacity: '1', transform: 'scale(1)' }
                 },
+                'pulse-glow': {
+                    '0%, 100%': { boxShadow: '0 0 5px rgba(0,243,255,0.2), 0 0 10px rgba(0,243,255,0.1)' },
+                    '50%': { boxShadow: '0 0 15px rgba(0,243,255,0.4), 0 0 30px rgba(0,243,255,0.2)' },
+                },
+                'glitch': {
+                    '0%, 100%': { transform: 'translate(0)' },
+                    '20%': { transform: 'translate(-2px, 2px)' },
+                    '40%': { transform: 'translate(-2px, -2px)' },
+                    '60%': { transform: 'translate(2px, 2px)' },
+                    '80%': { transform: 'translate(2px, -2px)' },
+                },
             },
             animation: {
                 'accordion-down': 'accordion-down 0.2s ease-out',
@@ -107,6 +108,8 @@ module.exports = {
                 'fade-in': 'fade-in 0.4s ease-out',
                 'slide-up': 'slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
                 'scale-in': 'scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
+                'glitch': 'glitch 0.3s ease-in-out',
             },
         }
     },

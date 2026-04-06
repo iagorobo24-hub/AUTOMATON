@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+import secrets
 
 
 class Settings(BaseSettings):
@@ -8,7 +9,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
 
     MONGO_URL: str = "mongodb://localhost:27017"
-    DB_NAME: str = "automaton_db"
+    DB_NAME: str = "automaton_qwencli_db"
 
     EMERGENT_LLM_KEY: str = ""
     OPENAI_API_KEY: str = ""
@@ -22,10 +23,10 @@ class Settings(BaseSettings):
 
     PAPER_TRADING: bool = True
 
-    SECRET_KEY: str = "change-this-to-a-random-secret-key"
+    SECRET_KEY: str = secrets.token_urlsafe(32)
     JWT_ALGORITHM: str = "HS256"
 
-    CORS_ORIGINS: List[str] = ["*"]
+    CORS_ORIGINS: List[str] = ["http://localhost:3001", "http://127.0.0.1:3001"]
 
     DEBUG: bool = True
 

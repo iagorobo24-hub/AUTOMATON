@@ -12,11 +12,13 @@ router = APIRouter()
 
 @router.get("/")
 async def get_agents(
-    status: Optional[str] = None, db_service: DatabaseService = Depends(get_db_service)
+    status: Optional[str] = None,
+    simulation: Optional[bool] = None,
+    db_service: DatabaseService = Depends(get_db_service)
 ):
-    """Get all agents with optional status filter"""
+    """Get all agents with optional status and mode filters"""
     status_enum = AgentStatus(status) if status else None
-    agents = await db_service.get_agents(status=status_enum)
+    agents = await db_service.get_agents(status=status_enum, simulation=simulation)
     return {"agents": agents}
 
 
@@ -48,6 +50,13 @@ async def create_agent(
 ):
     """Create a new agent with full schema"""
     agent = await db_service.create_agent(request)
+
+    # Mark as simulation if requested
+    if request.metadata and request.metadata.get("simulation"):
+        await db_service.db.agents.update_one(
+            {"id": agent.id},
+            {"$set": {"metadata.simulation": True}},
+        )
 
     await notification_service.notify_agent_created(
         agent.id, agent.name, request.initial_capital
