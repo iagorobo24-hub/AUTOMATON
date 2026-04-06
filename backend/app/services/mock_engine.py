@@ -28,13 +28,25 @@ class MockEngine:
         self.is_running = False
         self.total_trades = 0
         self.total_pnl = 0.0
-        self.trade_count_per_cycle = 3  # trades per cycle
+        self.trade_count_per_cycle = 3
+        self._tasks: list[asyncio.Task] = []
 
     async def start(self):
-        """Start the mock engine background task"""
+        """Start the mock engine background tasks"""
         self.is_running = True
-        asyncio.create_task(self._price_loop())
-        asyncio.create_task(self._agent_loop())
+        self._tasks.append(asyncio.create_task(self._price_loop()))
+        self._tasks.append(asyncio.create_task(self._agent_loop()))
+
+    async def stop(self):
+        """Stop all background tasks gracefully"""
+        self.is_running = False
+        for task in self._tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._tasks.clear()
 
     async def _price_loop(self):
         """Background loop to fluctuate prices realistically"""

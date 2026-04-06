@@ -238,6 +238,25 @@ class PaperTradingEngine:
             symbol, f"{signal['strategy']} - {signal['type']}", signal["score"] / 10
         )
 
+        # Log position opening activity
+        await self.notification_service.log_activity(
+            type="trade_opened",
+            title=f"Posición Abierta: {symbol}",
+            description=f"{agent_name} abrió posición {signal['type']} con {signal['strategy']} @ ${signal['entry_price']:.2f}",
+            icon="trending-up",
+            color="cyan",
+            agent_id=agent_id,
+            agent_name=agent_name,
+            link="/trades",
+            metadata={
+                "symbol": symbol,
+                "strategy": signal["strategy"],
+                "entry_price": signal["entry_price"],
+                "stop_loss": signal["stop_loss"],
+                "score": signal["score"],
+            },
+        )
+
     async def _monitor_positions(self):
         """Monitor open positions for exit conditions using real prices"""
         symbols_to_remove = []
@@ -318,8 +337,11 @@ class PaperTradingEngine:
 
             if roi > 50 and trades >= 20 and balance > 200:
                 try:
+                    from ..models.requests import AgentReplicateRequest
                     parent = await self.db_service.get_agent(agent["id"])
-                    child = await self.db_service.replicate_agent(agent["id"])
+                    child = await self.db_service.replicate_agent(
+                        agent["id"], AgentReplicateRequest()
+                    )
                     if child:
                         logger.info(
                             f"AUTO-REPLICATION: {agent['name']} (ROI: {roi:.1f}%, "

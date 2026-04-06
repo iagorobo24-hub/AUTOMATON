@@ -1,12 +1,16 @@
 import React from 'react';
-import { BarChart3, Brain, Activity } from 'lucide-react';
+import { BarChart3, Brain, Activity, GitBranch } from 'lucide-react';
+import FamilyTree from './FamilyTree';
 
 export default function StructuralAnalysis({ stats, agents }) {
   const totalAgents = agents?.length || 0;
   const activeAgents = agents?.filter(a => a.status === 'active').length || 0;
   const successRate = stats?.trading?.win_rate || 0;
   const avgRoi = stats?.finances?.avg_roi || 0;
-  
+
+  // Build lineage from agents with parent_id
+  const lineage = agents?.filter(a => a.parent_id) || [];
+
   const agentDistribution = {
     active: agents?.filter(a => a.status === 'active').length || 0,
     replicating: agents?.filter(a => a.status === 'replicating').length || 0,

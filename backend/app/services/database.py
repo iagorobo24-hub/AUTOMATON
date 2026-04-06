@@ -186,12 +186,20 @@ class DatabaseService:
         return await self.agents.find_one({"id": agent_id}, {"_id": 0})
 
     async def get_agents(
-        self, status: Optional[AgentStatus] = None, limit: int = 100
+        self, status: Optional[AgentStatus] = None, simulation: Optional[bool] = None, limit: int = 100
     ) -> List[Dict]:
-        """Get all agents with optional status filter"""
+        """Get all agents with optional status and simulation mode filter"""
         query = {}
         if status:
             query["status"] = status.value
+        if simulation is not None:
+            if simulation:
+                query["metadata.simulation"] = True
+            else:
+                query["$or"] = [
+                    {"metadata.simulation": False},
+                    {"metadata.simulation": {"$exists": False}},
+                ]
         return await self.agents.find(query, {"_id": 0}).to_list(limit)
 
     async def update_agent(self, agent_id: str, updates: Dict) -> bool:

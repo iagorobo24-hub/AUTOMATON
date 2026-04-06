@@ -3,12 +3,14 @@ import httpx
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict
+from collections import OrderedDict
 
 router = APIRouter()
 
 COINGECKO_BASE = "https://api.coingecko.com/api/v3"
-crypto_cache = {}
+crypto_cache: OrderedDict[str, tuple] = OrderedDict()
 cache_ttl = 60
+max_cache_size = 100  # Eviction limit to prevent memory leaks
 
 async def fetch_crypto_data(endpoint: str, params: dict = None):
     cache_key = f"{endpoint}:{str(params)}"
@@ -24,6 +26,9 @@ async def fetch_crypto_data(endpoint: str, params: dict = None):
             response = await client.get(f"{COINGECKO_BASE}{endpoint}", params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
+            # Evict oldest entry if cache is full
+            if len(crypto_cache) >= max_cache_size:
+                crypto_cache.popitem(last=False)
             crypto_cache[cache_key] = (data, now)
             return data
         except Exception as e:

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { 
+import { motion, AnimatePresence } from "framer-motion";
+import {
   LayoutDashboard, Bot, TrendingUp, Wallet, MessageSquare,
   Menu, X, Zap, Activity, Bell, Settings, Search, ChevronRight,
-  AlertTriangle, Copy, DollarSign, Target
+  AlertTriangle, Copy, DollarSign, Target, FlaskConical, Coins
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,14 +17,14 @@ import {
   Dialog, DialogContent,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import axios from "axios";
-
-const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
+import { notificationsAPI, dashboardAPI } from "@/lib/api";
+import { useAppMode } from "@/hooks/useAppMode";
 
 const navItems = [
   { path: "/dashboard", label: "Panel", icon: LayoutDashboard },
   { path: "/agents", label: "Agentes", icon: Bot },
   { path: "/crypto", label: "Crypto", icon: TrendingUp },
+  { path: "/simulation", label: "Simulación", icon: Zap },
   { path: "/wallet", label: "Cartera", icon: Wallet },
   { path: "/activity", label: "Actividad", icon: Activity },
   { path: "/chat", label: "Orquestador", icon: MessageSquare },
@@ -40,18 +41,9 @@ const notificationIcons = {
   opportunity_detected: Target, default: Bell
 };
 
-const notificationColors = {
-  primary: "text-claude-coral bg-claude-coral/10",
-  green: "text-apple-green bg-green-50",
-  red: "text-apple-red bg-red-50",
-  purple: "text-apple-purple bg-purple-50",
-  yellow: "text-apple-orange bg-amber-50"
-};
-
 const NotificationItem = ({ notification, onRead, onDismiss, onNavigate }) => {
   const Icon = notificationIcons[notification.type] || notificationIcons.default;
-  const colorClass = notificationColors[notification.color] || notificationColors.primary;
-  
+
   const timeAgo = (dateString) => {
     const seconds = Math.floor((Date.now() - new Date(dateString)) / 1000);
     if (seconds < 60) return 'Ahora';
@@ -61,28 +53,35 @@ const NotificationItem = ({ notification, onRead, onDismiss, onNavigate }) => {
   };
 
   return (
-    <div 
+    <div
       className={cn(
-        "flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all group",
-        !notification.read ? "bg-claude-warm/50" : "hover:bg-black/[0.02]"
+        "flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-all group",
+        !notification.read ? "bg-white/5" : "hover:bg-white/[0.02]"
       )}
+      role="button"
+      tabIndex={0}
+      aria-label={`${notification.title} — ${notification.message}`}
       onClick={() => { if (!notification.read) onRead(notification.id); if (notification.link) onNavigate(notification.link); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRead(notification.id); } }}
     >
-      <div className={cn("p-2 rounded-xl shrink-0", colorClass)}>
-        <Icon className="w-4 h-4" />
+      <div className="p-2 rounded-lg shrink-0 bg-cyan-500/10 text-cyan-400">
+        <Icon className="w-4 h-4" aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <p className={cn("text-sm", !notification.read ? "font-semibold text-foreground" : "text-muted-foreground")}>
             {notification.title}
           </p>
-          {!notification.read && <div className="w-2 h-2 rounded-full bg-claude-coral shrink-0 mt-2" />}
+          {!notification.read && <div className="w-2 h-2 rounded-full bg-cyan-500 shrink-0 mt-2" aria-label="No leída" />}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notification.message}</p>
-        <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(notification.created_at)}</p>
+        <p className="text-[10px] text-muted-foreground/50 mt-1 font-mono">{timeAgo(notification.created_at)}</p>
       </div>
-      <button onClick={(e) => { e.stopPropagation(); onDismiss(notification.id); }}
-        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded-lg transition-all">
+      <button
+        onClick={(e) => { e.stopPropagation(); onDismiss(notification.id); }}
+        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/10 rounded-lg transition-all"
+        aria-label="Descartar notificación"
+      >
         <X className="w-3 h-3 text-muted-foreground" />
       </button>
     </div>
@@ -94,26 +93,26 @@ const NotificationsDropdown = ({ notifications, unreadCount, onRead, onReadAll, 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative rounded-full h-10 w-10">
-          <Bell className="w-[18px] h-[18px]" />
+        <Button variant="ghost" size="icon" className="relative rounded-lg h-10 w-10" aria-label={`${unreadCount} notificaciones sin leer`}>
+          <Bell className="w-[18px] h-[18px]" aria-hidden="true" />
           {unreadCount > 0 && (
-            <span className="absolute top-1 right-1 w-4 h-4 bg-apple-red text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+            <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 rounded-2xl p-0 shadow-lg border-black/5" onCloseAutoFocus={(e) => e.preventDefault()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-black/5">
+      <DropdownMenuContent align="end" className="w-80 rounded-xl p-0 shadow-xl shadow-black/40 border-white/10 bg-black/80 backdrop-blur-xl" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <DropdownMenuLabel className="font-semibold text-sm p-0">Notificaciones</DropdownMenuLabel>
           <div className="flex gap-1">
-            {unreadCount > 0 && <button onClick={(e) => { e.preventDefault(); onReadAll(); }} className="text-xs text-claude-coral hover:underline px-2 py-1 rounded-lg">Marcar leídas</button>}
-            {notifications.length > 0 && <button onClick={(e) => { e.preventDefault(); onDismissAll(); setIsOpen(false); }} className="text-xs text-muted-foreground hover:text-apple-red px-2 py-1 rounded-lg">Limpiar</button>}
+            {unreadCount > 0 && <button onClick={(e) => { e.preventDefault(); onReadAll(); }} className="text-xs text-cyan-400 hover:underline px-2 py-1 rounded-lg">Marcar leídas</button>}
+            {notifications.length > 0 && <button onClick={(e) => { e.preventDefault(); onDismissAll(); setIsOpen(false); }} className="text-xs text-muted-foreground hover:text-red-400 px-2 py-1 rounded-lg">Limpiar</button>}
           </div>
         </div>
         <ScrollArea className="max-h-[400px]">
           <div className="p-2 space-y-1">
-            {notifications.length > 0 ? notifications.map((n) => (
+            {notifications.length > 0 ? notifications.slice(0, 10).map((n) => (
               <NotificationItem key={n.id} notification={n} onRead={onRead} onDismiss={onDismiss} onNavigate={(link) => { onNavigate(link); setIsOpen(false); }} />
             )) : (
               <div className="text-center py-10 text-muted-foreground">
@@ -150,21 +149,26 @@ const CommandPalette = ({ open, onClose }) => {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="p-0 max-w-lg rounded-2xl shadow-2xl border-0">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-black/5">
-          <Search className="w-[18px] h-[18px] text-muted-foreground" />
-          <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="border-0 bg-transparent focus-visible:ring-0 px-0 text-base" autoFocus />
+      <DialogContent className="p-0 max-w-lg rounded-xl shadow-2xl shadow-black/50 border-white/10 bg-black/90 backdrop-blur-xl" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
+          <Search className="w-[18px] h-[18px] text-muted-foreground" aria-hidden="true" />
+          <Input placeholder="Buscar comandos..." value={search} onChange={(e) => setSearch(e.target.value)}
+            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-cyan-500 px-0 text-base placeholder:text-muted-foreground"
+            autoFocus aria-label="Buscar comandos" data-testid="command-search-input" />
         </div>
         <ScrollArea className="max-h-[300px]">
-          <div className="p-2">
+          <div className="p-2" role="listbox" aria-label="Comandos disponibles">
             {filtered.map((cmd, i) => (
               <button key={i} onClick={() => { cmd.action(); onClose(); setSearch(""); }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-black/[0.04] transition-colors text-left">
-                <cmd.icon className="w-[18px] h-[18px] text-muted-foreground" />
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/[0.06] transition-colors text-left"
+                role="option" aria-selected={i === 0}>
+                <cmd.icon className="w-[18px] h-[18px] text-muted-foreground" aria-hidden="true" />
                 <span className="text-sm">{cmd.label}</span>
               </button>
             ))}
+            {filtered.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground text-sm">Sin resultados</div>
+            )}
           </div>
         </ScrollArea>
       </DialogContent>
@@ -178,7 +182,10 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     const fetch = async () => {
-      try { const r = await axios.get(`${API}/dashboard/stats`); setCounts({ dying: r.data.agents?.dying || 0, replicating: r.data.agents?.replicating || 0 }); } catch {}
+      try {
+        const r = await dashboardAPI.stats();
+        setCounts({ dying: r.data.agents?.dying || 0, replicating: r.data.agents?.replicating || 0 });
+      } catch {}
     };
     fetch();
     const i = setInterval(fetch, 30000);
@@ -187,20 +194,38 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   return (
     <>
-      {isOpen && <div className="fixed inset-0 bg-black/20 z-30 lg:hidden backdrop-blur-sm" onClick={onClose} />}
-      <aside className={cn(
-        "fixed left-0 top-0 h-full w-64 z-40 bg-white/80 backdrop-blur-xl border-r border-black/5",
-        "transform transition-transform duration-300 ease-out lg:translate-x-0",
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="h-16 flex items-center px-6 border-b border-black/5">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
+            onClick={onClose} aria-hidden="true"
+          />
+        )}
+      </AnimatePresence>
+      <motion.aside
+        initial={false}
+        animate={{ x: isOpen || typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : -256 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="fixed left-0 top-0 h-full w-64 z-40 bg-black/80 backdrop-blur-xl border-r border-white/10"
+        role="navigation"
+        aria-label="Navegación principal"
+      >
+        <div className="h-16 flex items-center px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-claude-coral/10 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-claude-coral" />
+            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center glow-cyan">
+              <Zap className="w-4 h-4 text-cyan-400" aria-hidden="true" />
             </div>
-            <span className="font-semibold text-lg tracking-tight">Automaton</span>
+            <span className="font-heading font-bold text-lg tracking-wider text-foreground uppercase">Automaton</span>
           </div>
-          <button onClick={onClose} className="lg:hidden ml-auto text-muted-foreground"><X className="w-5 h-5" /></button>
+          <button
+            onClick={onClose}
+            className="lg:hidden ml-auto text-muted-foreground hover:text-foreground transition-colors p-1"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <nav className="p-3 space-y-0.5 mt-2">
@@ -208,34 +233,49 @@ const Sidebar = ({ isOpen, onClose }) => {
             const isActive = location.pathname === item.path;
             return (
               <NavLink key={item.path} to={item.path} onClick={onClose}
-                className={cn("flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all",
-                  isActive ? "bg-claude-coral/10 text-claude-coral" : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground")}>
+                className={cn(
+                  "flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20"
+                    : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+                data-testid={`nav-${item.path.slice(1)}`}
+              >
                 <div className="flex items-center gap-3">
-                  <item.icon className="w-[18px] h-[18px]" />
+                  <item.icon className="w-[18px] h-[18px]" aria-hidden="true" />
                   {item.label}
                 </div>
                 {item.path === '/agents' && counts.dying > 0 && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-apple-red/10 text-apple-red rounded-full">{counts.dying}</span>
+                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-red-500/15 text-red-400 rounded-full ring-1 ring-red-500/20" aria-label={`${counts.dying} agentes muriendo`}>
+                    {counts.dying}
+                  </span>
                 )}
               </NavLink>
             );
           })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-black/5">
+        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10">
           {secondaryNavItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <NavLink key={item.path} to={item.path} onClick={onClose}
-                className={cn("flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all",
-                  isActive ? "bg-claude-coral/10 text-claude-coral" : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground")}>
-                <item.icon className="w-[18px] h-[18px]" />
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20"
+                    : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <item.icon className="w-[18px] h-[18px]" aria-hidden="true" />
                 {item.label}
               </NavLink>
             );
           })}
         </div>
-      </aside>
+      </motion.aside>
     </>
   );
 };
@@ -243,9 +283,11 @@ const Sidebar = ({ isOpen, onClose }) => {
 const Topbar = ({ onMenuClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { mode, toggleMode, isSimulation } = useAppMode();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [connected, setConnected] = useState(true);
 
   const titles = { '/dashboard': 'Panel', '/agents': 'Agentes', '/crypto': 'Crypto', '/wallet': 'Cartera', '/activity': 'Actividad', '/chat': 'Orquestador', '/settings': 'Ajustes' };
   const breadcrumbMap = {
@@ -259,44 +301,85 @@ const Topbar = ({ onMenuClick }) => {
   };
 
   const fetchNotifications = useCallback(async () => {
-    try { const r = await axios.get(`${API}/notifications?limit=20`); setNotifications(r.data.notifications || []); setUnreadCount(r.data.unread_count || 0); } catch {}
+    try {
+      const r = await notificationsAPI.list(false, 20);
+      setNotifications(r.data.notifications || []);
+      setUnreadCount(r.data.unread_count || 0);
+      setConnected(true);
+    } catch {
+      setConnected(false);
+    }
   }, []);
 
   useEffect(() => { fetchNotifications(); const i = setInterval(fetchNotifications, 15000); return () => clearInterval(i); }, [fetchNotifications]);
   useEffect(() => { const h = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCommandOpen(true); } }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, []);
 
-  const handleMarkRead = async (id) => { try { await axios.post(`${API}/notifications/${id}/read`); fetchNotifications(); } catch {} };
-  const handleMarkAllRead = async () => { try { await axios.post(`${API}/notifications/read-all`); fetchNotifications(); } catch {} };
-  const handleDismiss = async (id) => { try { await axios.delete(`${API}/notifications/${id}`); fetchNotifications(); } catch {} };
-  const handleDismissAll = async () => { try { await axios.delete(`${API}/notifications`); fetchNotifications(); } catch {} };
+  const handleMarkRead = async (id) => { try { await notificationsAPI.markRead(id); fetchNotifications(); } catch {} };
+  const handleMarkAllRead = async () => { try { await notificationsAPI.markAllRead(); fetchNotifications(); } catch {} };
+  const handleDismiss = async (id) => { try { await notificationsAPI.dismiss(id); fetchNotifications(); } catch {} };
+  const handleDismissAll = async () => { try { await notificationsAPI.dismissAll(); fetchNotifications(); } catch {} };
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-16 bg-white/60 backdrop-blur-xl border-b border-black/5">
+      <header className="sticky top-0 z-30 h-16 bg-black/60 backdrop-blur-xl border-b border-white/10" role="banner">
         <div className="h-full px-4 lg:px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="lg:hidden rounded-full" onClick={onMenuClick}><Menu className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" className="lg:hidden rounded-lg" onClick={onMenuClick} aria-label="Abrir menú">
+              <Menu className="w-5 h-5" aria-hidden="true" />
+            </Button>
             <div>
-              <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5">
+              <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-0.5" aria-label="Migas de pan">
                 {(breadcrumbMap[location.pathname] || [{ label: 'Automaton' }]).map((item, i, arr) => (
                   <span key={i} className="flex items-center gap-1">
                     {item.href ? <button onClick={() => navigate(item.href)} className="hover:text-foreground transition-colors">{item.label}</button> : <span className="text-foreground font-medium">{item.label}</span>}
-                    {i < arr.length - 1 && <ChevronRight className="w-3 h-3" />}
+                    {i < arr.length - 1 && <ChevronRight className="w-3 h-3" aria-hidden="true" />}
                   </span>
                 ))}
               </nav>
-              <h1 className="font-semibold text-lg tracking-tight">{titles[location.pathname] || 'Automaton'}</h1>
+              <h1 className="font-heading font-semibold text-lg tracking-wide text-foreground uppercase">{titles[location.pathname] || 'Automaton'}</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="hidden sm:flex items-center gap-2 text-muted-foreground rounded-full" onClick={() => setCommandOpen(true)}>
-              <Search className="w-4 h-4" /><span className="text-xs">Buscar</span>
-              <kbd className="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-black/5 rounded-md">⌘K</kbd>
+            <Button variant="ghost" size="sm" className="hidden sm:flex items-center gap-2 text-muted-foreground rounded-lg hover:bg-white/5" onClick={() => setCommandOpen(true)}>
+              <Search className="w-4 h-4" aria-hidden="true" /><span className="text-xs">Buscar</span>
+              <kbd className="ml-2 px-1.5 py-0.5 text-[10px] font-mono bg-white/5 rounded border border-white/10">⌘K</kbd>
             </Button>
             <NotificationsDropdown notifications={notifications} unreadCount={unreadCount} onRead={handleMarkRead} onReadAll={handleMarkAllRead} onDismiss={handleDismiss} onDismissAll={handleDismissAll} onNavigate={navigate} />
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50">
-              <div className="w-1.5 h-1.5 rounded-full bg-apple-green animate-pulse" />
-              <span className="text-[11px] font-medium text-apple-green">Conectado</span>
+            {/* Mode Toggle */}
+            <button
+              onClick={toggleMode}
+              className={cn(
+                "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer",
+                isSimulation
+                  ? "bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/15"
+                  : "bg-green-500/10 border-green-500/20 hover:bg-green-500/15"
+              )}
+              aria-label={`Cambiar a modo ${isSimulation ? "normal" : "simulación"}`}
+            >
+              {isSimulation ? (
+                <FlaskConical className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
+              ) : (
+                <Coins className="w-3.5 h-3.5 text-green-400" aria-hidden="true" />
+              )}
+              <span className={cn(
+                "text-[11px] font-medium",
+                isSimulation ? "text-purple-400" : "text-green-400"
+              )}>{isSimulation ? "Simulación" : "Real"}</span>
+            </button>
+            <div className={cn(
+              "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border",
+              connected
+                ? "bg-green-500/10 border-green-500/20"
+                : "bg-red-500/10 border-red-500/20"
+            )}>
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                connected ? "bg-green-500 animate-pulse" : "bg-red-500"
+              )} aria-hidden="true" />
+              <span className={cn(
+                "text-[11px] font-medium",
+                connected ? "text-green-400" : "text-red-400"
+              )}>{connected ? 'Conectado' : 'Desconectado'}</span>
             </div>
           </div>
         </div>
@@ -309,11 +392,11 @@ const Topbar = ({ onMenuClick }) => {
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-[#F5F3EF]">
+    <div className="min-h-screen bg-background">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="lg:ml-64">
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-4 lg:p-6 max-w-[1400px] mx-auto">
+        <main className="p-4 lg:p-6 max-w-[1400px] mx-auto" role="main">
           <Outlet />
         </main>
       </div>

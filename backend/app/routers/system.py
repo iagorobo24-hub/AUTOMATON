@@ -8,9 +8,12 @@ from ..services.mock_engine import MockEngine
 from ..services.paper_engine import PaperTradingEngine
 from ..services import registry
 from ..api.deps import get_db_service, get_notification_service
+from ..models.requests import AgentCreateRequest
+from ..models.enums import AgentType
 
 router = APIRouter()
 
+# In-memory store, reset on server restart (intentional for dev mode)
 _system_mode = "test"
 
 
@@ -102,14 +105,17 @@ async def reset_agents(
         )
 
     from ..models.requests import AgentCreateRequest
+    from ..models.enums import AgentType
 
     names = ["ADAN", "EVA", "LILITH"]
-    types = ["crypto_analyzer", "trader", "business_scout"]
+    agent_types = [AgentType.CRYPTO_TRADER, AgentType.CRYPTO_TRADER, AgentType.BUSINESS_SCOUT]
     created = []
 
     for i in range(3):
         req = AgentCreateRequest(
-            name=names[i], type=types[i], initial_capital=initial_capital
+            name=names[i],
+            agent_type=agent_types[i],
+            initial_capital=initial_capital
         )
         agent = await db_service.create_agent(req)
         created.append({"id": agent.id, "name": agent.name, "capital": initial_capital})

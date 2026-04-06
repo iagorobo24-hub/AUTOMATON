@@ -1,74 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
 import {
-  Bot,
-  Plus,
-  Copy,
-  Trash2,
-  Activity,
-  TrendingUp,
-  TrendingDown,
-  MoreVertical,
-  RefreshCw,
-  Search,
-  X,
-  ChevronDown,
-  Wallet,
+  Bot, Plus, Copy, Trash2, Activity, TrendingUp, TrendingDown,
+  MoreVertical, RefreshCw, Search, X, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
+import { agentsAPI } from "@/lib/api";
+import { useAppMode } from "@/hooks/useAppMode";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-const CORAL = "#D97757";
+const GREEN = "#00FF88";
+const RED = "#FF003C";
+const YELLOW = "#FFD600";
+const CYAN = "#00F3FF";
+const PURPLE = "#7000FF";
+const GRAY = "#6B7280";
 
 const statusConfig = {
-  active: { label: "Activo", dot: "bg-emerald-500", text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
-  replicating: { label: "Replicando", dot: "bg-orange-400", text: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200" },
-  dying: { label: "Muriendo", dot: "bg-red-500", text: "text-red-500", bg: "bg-red-50", border: "border-red-200" },
-  dead: { label: "Muerto", dot: "bg-gray-400", text: "text-gray-500", bg: "bg-gray-100", border: "border-gray-200" },
-  paused: { label: "Pausado", dot: "bg-amber-400", text: "text-amber-500", bg: "bg-amber-50", border: "border-amber-200" },
-  hibernating: { label: "Hibernando", dot: "bg-blue-400", text: "text-blue-500", bg: "bg-blue-50", border: "border-blue-200" },
+  active: { badge: "evo-badge-success", dot: "bg-green-500", label: "Activo" },
+  replicating: { badge: "evo-badge-cyan", dot: "bg-cyan-400", label: "Replicando" },
+  dying: { badge: "evo-badge-danger", dot: "bg-red-500", label: "En riesgo" },
+  dead: { badge: "evo-badge bg-white/5 text-muted-foreground ring-white/10", dot: "bg-gray-500", label: "Muerto" },
+  paused: { badge: "evo-badge-warning", dot: "bg-amber-400", label: "Pausado" },
+  hibernating: { badge: "evo-badge-info", dot: "bg-blue-400", label: "Hibernando" },
 };
 
-/* ─── Apple-style progress bar ─── */
+/* ─── Health Bar ─── */
 function HealthBar({ value }) {
   const pct = Math.max(0, Math.min(100, value));
-  const color = pct > 60 ? "bg-emerald-500" : pct > 30 ? "bg-amber-400" : "bg-red-500";
+  const color = pct > 60 ? "bg-green-500" : pct > 30 ? "bg-yellow-500" : "bg-red-500";
   return (
-    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-      <div
-        className={`h-full rounded-full transition-all duration-500 ${color}`}
-        style={{ width: `${pct}%` }}
-      />
+    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
-/* ─── Apple-style dropdown ─── */
-function Dropdown({ open, onToggle, children }) {
-  if (!open) return null;
-  return (
-    <div className="absolute right-0 top-10 z-30 w-52 rounded-2xl bg-white shadow-xl border border-gray-100 overflow-hidden">
-      {children}
-    </div>
-  );
-}
-
-function DropdownItem({ onClick, disabled, accent, children }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors
-        ${disabled ? "opacity-40 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"}
-        ${accent || "text-gray-700"}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ─── Single Agent Card ─── */
+/* ─── Agent Card ─── */
 function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -82,72 +49,64 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
   const roi = performance.roi_percent ?? agent.roi ?? 0;
   const tradesCount = tradingStats.total_trades ?? agent.trades_count ?? 0;
   const successfulTrades = tradingStats.winning_trades ?? agent.successful_trades ?? 0;
-  const childrenCount = lineage.children_ids?.length ?? agent.children_ids?.length ?? 0;
+  const childrenCount = lineage.children_ids?.length ?? 0;
   const generation = agent.generation ?? 1;
 
   const sc = statusConfig[agent.status] || statusConfig.active;
   const healthPercent = Math.max(0, Math.min(100, (balance / initialBalance) * 100));
 
   return (
-    <div className="relative bg-white rounded-2xl shadow-sm border border-gray-100 p-6 transition-all duration-200 hover:shadow-md">
-      {/* Header row */}
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="relative glass-card rounded-xl p-5 transition-all duration-200 hover:border-cyan-500/20"
+    >
+      {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${CORAL}18` }}>
-            <Bot className="w-5 h-5" style={{ color: CORAL }} />
+          <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+            <Bot className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">{agent.name}</h3>
-            <p className="text-xs text-gray-400 uppercase tracking-wide">{agent.type}</p>
+            <h3 className="font-semibold text-sm text-foreground">{agent.name}</h3>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">{agent.agent_type || agent.type}</p>
           </div>
         </div>
-
-        {/* Dropdown trigger */}
         <div className="relative">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
-          >
-            <MoreVertical className="w-4 h-4 text-gray-400" />
+          <button onClick={() => setMenuOpen(!menuOpen)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors" aria-label="Opciones del agente">
+            <MoreVertical className="w-4 h-4 text-muted-foreground" />
           </button>
-          <Dropdown open={menuOpen} onToggle={() => setMenuOpen(false)}>
-            <DropdownItem onClick={() => { onDeposit(agent.id); setMenuOpen(false); }}>
-              <Activity className="w-4 h-4 text-blue-500" />
-              <span>Fondear +€100</span>
-            </DropdownItem>
-            <div className="h-px bg-gray-100 mx-2" />
-            <DropdownItem onClick={() => { onSimulate(agent.id, 10); setMenuOpen(false); }}>
-              <TrendingUp className="w-4 h-4 text-emerald-500" />
-              <span>Simular +€10</span>
-            </DropdownItem>
-            <DropdownItem onClick={() => { onSimulate(agent.id, -10); setMenuOpen(false); }}>
-              <TrendingDown className="w-4 h-4 text-red-500" />
-              <span>Simular −€10</span>
-            </DropdownItem>
-            <div className="h-px bg-gray-100 mx-2" />
-            <DropdownItem
-              onClick={() => { onReplicate(agent.id); setMenuOpen(false); }}
-              disabled={balance < 50 || agent.status === "dead"}
-              accent="text-gray-700"
-            >
-              <Copy className="w-4 h-4" style={{ color: CORAL }} />
-              <span>Replicar</span>
-            </DropdownItem>
-            <DropdownItem
-              onClick={() => { onDestroy(agent.id); setMenuOpen(false); }}
-              disabled={agent.status === "dead"}
-              accent="text-red-500"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Eliminar</span>
-            </DropdownItem>
-          </Dropdown>
+          {menuOpen && (
+            <div className="absolute right-0 top-10 z-30 w-52 glass-card rounded-lg overflow-hidden shadow-xl shadow-black/40">
+              <button onClick={() => { onDeposit(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 text-foreground">
+                <Activity className="w-4 h-4 text-blue-400" /> Fondear +€100
+              </button>
+              <div className="h-px bg-white/5 mx-2" />
+              <button onClick={() => { onSimulate(agent.id, 10); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 text-foreground">
+                <TrendingUp className="w-4 h-4 text-green-400" /> Simular +€10
+              </button>
+              <button onClick={() => { onSimulate(agent.id, -10); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 text-foreground">
+                <TrendingDown className="w-4 h-4 text-red-400" /> Simular −€10
+              </button>
+              <div className="h-px bg-white/5 mx-2" />
+              <button onClick={() => { onReplicate(agent.id); setMenuOpen(false); }} disabled={balance < 50 || agent.status === "dead"} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-foreground">
+                <Copy className="w-4 h-4 text-cyan-400" /> Replicar
+              </button>
+              <button onClick={() => { onDestroy(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 text-red-400">
+                <Trash2 className="w-4 h-4" /> Eliminar
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Status badge */}
-      <div className="mb-4">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-full ${sc.bg} ${sc.text} ${sc.border} border`}>
+      {/* Close menu on outside click */}
+      {menuOpen && <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />}
+
+      {/* Status */}
+      <div className={`mb-4 ${sc.badge}`}>
+        <span className="inline-flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
           {sc.label}
         </span>
@@ -156,12 +115,12 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
       {/* Balance + ROI */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5">Saldo</p>
-          <p className="font-bold text-lg text-gray-900">€{balance.toFixed(2)}</p>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-0.5">Saldo</p>
+          <p className="font-bold text-lg text-foreground font-mono">€{balance.toFixed(2)}</p>
         </div>
         <div>
-          <p className="text-[11px] text-gray-400 uppercase tracking-wide mb-0.5">ROI</p>
-          <p className={`font-bold text-lg ${roi >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-0.5">ROI</p>
+          <p className="font-bold text-lg font-mono" style={{ color: roi >= 0 ? GREEN : RED }}>
             {roi >= 0 ? "+" : ""}{roi.toFixed(1)}%
           </p>
         </div>
@@ -169,7 +128,7 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
 
       {/* Health bar */}
       <div className="mb-4">
-        <div className="flex justify-between text-[11px] text-gray-400 mb-1.5">
+        <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
           <span className="uppercase tracking-wide">Salud</span>
           <span>{healthPercent.toFixed(0)}%</span>
         </div>
@@ -177,166 +136,100 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
       </div>
 
       {/* Footer stats */}
-      <div className="grid grid-cols-4 gap-3 pt-4 border-t border-gray-100">
+      <div className="grid grid-cols-4 gap-3 pt-4 border-t border-white/5">
         {[
           { label: "Gen", value: generation },
           { label: "Trades", value: tradesCount },
-          { label: "Ganados", value: successfulTrades, cls: "text-emerald-600" },
+          { label: "Ganados", value: successfulTrades, cls: "text-green-400" },
           { label: "Clones", value: childrenCount },
         ].map((s) => (
           <div key={s.label} className="text-center">
-            <p className="text-[10px] text-gray-400 uppercase tracking-wide">{s.label}</p>
-            <p className={`text-sm font-semibold text-gray-700 ${s.cls || ""}`}>{s.value}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">{s.label}</p>
+            <p className={`text-sm font-semibold ${s.cls || "text-foreground"}`}>{s.value}</p>
           </div>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-/* ─── Create Agent Dialog ─── */
+/* ─── Create Dialog ─── */
 function CreateDialog({ open, onClose, onCreate }) {
   const [name, setName] = useState("");
-  const [type, setType] = useState("crypto_analyzer");
-  const [balance, setBalance] = useState(100);
+  const [type, setType] = useState("crypto_trader");
+  const [balance, setBalance] = useState(1000);
   const [typeOpen, setTypeOpen] = useState(false);
 
   const handleSubmit = () => {
-    if (!name.trim()) {
-      toast.error("El nombre del agente es obligatorio");
-      return;
-    }
-    onCreate({ name: name.trim(), type, initial_balance: balance });
-    setName("");
-    setType("crypto_analyzer");
-    setBalance(100);
+    if (!name.trim()) { toast.error("El nombre es obligatorio"); return; }
+    onCreate({ name: name.trim(), agent_type: type, initial_capital: balance });
+    setName(""); setType("crypto_trader"); setBalance(1000);
     onClose();
   };
 
   if (!open) return null;
 
-    const types = [
-    { value: "crypto_analyzer", label: "Analista Crypto" },
-    { value: "business_scout", label: "Explorador de Negocios" },
-    { value: "trader", label: "Trader" },
+  const types = [
+    { value: "crypto_trader", label: "Crypto Trader" },
+    { value: "business_scout", label: "Business Scout" },
+    { value: "market_analyzer", label: "Market Analyzer" },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Panel */}
-      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose} role="dialog" aria-modal="true" aria-label="Crear nuevo agente">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="relative glass-card rounded-xl w-full max-w-md mx-4 p-7"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Nuevo Agente</h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors">
-            <X className="w-4 h-4 text-gray-400" />
+          <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-foreground">Nuevo Agente</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors" aria-label="Cerrar">
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
         <div className="space-y-5">
-          {/* Name */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Nombre</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Alpha-001"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm placeholder-gray-300 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-              style={{ focusRingColor: CORAL }}
-              onFocus={(e) => { e.target.style.boxShadow = `0 0 0 3px ${CORAL}25`; e.target.style.borderColor = CORAL; }}
-              onBlur={(e) => { e.target.style.boxShadow = "none"; e.target.style.borderColor = "#e5e7eb"; }}
-            />
+            <label className="evo-section-title mb-1.5 block">Nombre</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="ADAN-002" className="evo-input" data-testid="agent-name-input" aria-label="Nombre del agente" />
           </div>
-
-          {/* Type */}
           <div className="relative">
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Tipo</label>
-            <button
-              onClick={() => setTypeOpen(!typeOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 hover:bg-gray-100 transition-colors"
-            >
+            <label className="evo-section-title mb-1.5 block">Tipo</label>
+            <button onClick={() => setTypeOpen(!typeOpen)} className="evo-input w-full flex items-center justify-between text-left" aria-expanded={typeOpen} aria-haspopup="listbox">
               <span>{types.find((t) => t.value === type)?.label}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </button>
             {typeOpen && (
-              <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+              <div className="absolute z-20 w-full mt-1 glass-card rounded-lg overflow-hidden shadow-xl shadow-black/40" role="listbox">
                 {types.map((t) => (
-                  <button
-                    key={t.value}
-                    onClick={() => { setType(t.value); setTypeOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${t.value === type ? "font-medium" : "text-gray-600"} hover:bg-gray-50`}
-                  >
+                  <button key={t.value} onClick={() => { setType(t.value); setTypeOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-white/5 ${t.value === type ? "text-cyan-400 font-medium" : "text-muted-foreground"}`}>
                     {t.label}
                   </button>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Balance */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Saldo inicial (€)</label>
-            <input
-              type="number"
-              min="10"
-              step="10"
-              value={balance}
-              onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-              onFocus={(e) => { e.target.style.boxShadow = `0 0 0 3px ${CORAL}25`; e.target.style.borderColor = CORAL; }}
-              onBlur={(e) => { e.target.style.boxShadow = "none"; e.target.style.borderColor = "#e5e7eb"; }}
-            />
+            <label className="evo-section-title mb-1.5 block">Saldo inicial (€)</label>
+            <input type="number" min="10" step="10" value={balance} onChange={(e) => setBalance(parseFloat(e.target.value) || 0)} className="evo-input" aria-label="Saldo inicial" />
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 mt-8">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-            style={{ backgroundColor: CORAL }}
-          >
-            Desplegar
-          </button>
+        <div className="flex gap-2.5 mt-7">
+          <button onClick={onClose} className="evo-button-outline flex-1 py-2.5 text-sm">Cancelar</button>
+          <button onClick={handleSubmit} className="evo-button-primary flex-1 py-2.5 text-sm">Desplegar</button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Status count bar ─── */
-function StatusBar({ counts }) {
-  const items = [
-    { key: "active", label: "Activos", dot: "bg-emerald-500" },
-    { key: "replicating", label: "Replicando", dot: "bg-orange-400" },
-    { key: "dying", label: "Muriendo", dot: "bg-red-500" },
-    { key: "dead", label: "Muertos", dot: "bg-gray-400" },
-  ];
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {items.map((it) => (
-        <div key={it.key} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`w-2 h-2 rounded-full ${it.dot}`} />
-            <span className="text-xs text-gray-400 uppercase tracking-wide">{it.label}</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{counts[it.key]}</p>
-        </div>
-      ))}
+      </motion.div>
     </div>
   );
 }
 
 /* ─── Main Page ─── */
 export default function AgentsPage() {
+  const { isSimulation } = useAppMode();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -344,212 +237,156 @@ export default function AgentsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchAgents = async () => {
+  const fetchAgents = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/agents`);
+      const res = await agentsAPI.list({ simulation: isSimulation });
       setAgents(res.data.agents || []);
-    } catch {
-      toast.error("Error al cargar agentes");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    } catch { toast.error("Error al cargar agentes"); }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [isSimulation]);
 
-  useEffect(() => { fetchAgents(); }, []);
+  useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
   const handleCreate = async (data) => {
     try {
-      await axios.post(`${API}/agents`, data);
+      await agentsAPI.create({ ...data, metadata: { simulation: isSimulation } });
       toast.success("Agente desplegado");
       fetchAgents();
-    } catch {
-      toast.error("Error al crear agente");
-    }
+    } catch { toast.error("Error al crear agente"); }
   };
 
   const handleReplicate = async (id) => {
-    try {
-      await axios.post(`${API}/agents/${id}/replicate`);
-      toast.success("Agente replicado");
-      fetchAgents();
-    } catch (err) {
-      toast.error(err.response?.data?.detail || "Error al replicar");
-    }
+    try { await agentsAPI.replicate(id, {}); toast.success("Agente replicado"); fetchAgents(); }
+    catch (err) { toast.error(err?.message || "Error al replicar"); }
   };
 
   const handleDestroy = async (id) => {
-    try {
-      await axios.delete(`${API}/agents/${id}`);
-      toast.success("Agente eliminado");
-      fetchAgents();
-    } catch {
-      toast.error("Error al eliminar agente");
-    }
+    try { await agentsAPI.delete(id); toast.success("Agente eliminado"); fetchAgents(); }
+    catch { toast.error("Error al eliminar"); }
   };
 
   const handleSimulate = async (id, profit) => {
-    try {
-      await axios.post(`${API}/agents/${id}/simulate-trade?profit=${profit}`);
-      toast.success(`Trade simulado: ${profit >= 0 ? "+" : ""}€${profit}`);
-      fetchAgents();
-    } catch {
-      toast.error("Error al simular trade");
-    }
+    try { await agentsAPI.simulateTrade(id, profit); toast.success(`Trade simulado: ${profit >= 0 ? "+" : ""}€${profit}`); fetchAgents(); }
+    catch { toast.error("Error al simular trade"); }
   };
 
   const handleDeposit = async (id) => {
-    try {
-      await axios.post(`${API}/agents/${id}/deposit?amount=100`);
-      toast.success("Fondeado: +€100");
-      fetchAgents();
-    } catch {
-      toast.error("Error al fondear");
-    }
+    try { await agentsAPI.deposit(id, 100); toast.success("Fondeado: +€100"); fetchAgents(); }
+    catch { toast.error("Error al fondear"); }
   };
 
   const counts = {
-    active: agents.filter((a) => a.status === "active").length,
-    replicating: agents.filter((a) => a.status === "replicating").length,
-    dying: agents.filter((a) => a.status === "dying").length,
-    dead: agents.filter((a) => a.status === "dead").length,
+    active: agents.filter(a => a.status === "active").length,
+    replicating: agents.filter(a => a.status === "replicating").length,
+    dying: agents.filter(a => a.status === "dying").length,
+    dead: agents.filter(a => a.status === "dead").length,
   };
 
-  const filtered = agents.filter((a) => {
-    const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.type.toLowerCase().includes(search.toLowerCase());
+  const filtered = agents.filter(a => {
+    const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || (a.agent_type || a.type || "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || a.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchAgents();
-  };
+  const statusFilters = [
+    { key: "all", label: "Todos", color: CYAN },
+    { key: "active", label: "Activos", color: GREEN },
+    { key: "replicating", label: "Replicando", color: CYAN },
+    { key: "dying", label: "En riesgo", color: RED },
+    { key: "dead", label: "Muertos", color: GRAY },
+  ];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#F5F3EF" }}>
+    <div className="min-h-screen bg-background" data-testid="agents-page">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Agentes</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Despliega, replica y gestiona agentes autónomos</p>
+            <h1 className="font-heading text-3xl font-bold uppercase tracking-wide text-foreground">Agentes</h1>
+            <p className="text-sm text-muted-foreground mt-1">Despliega, replica y gestiona agentes autónomos</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all shadow-sm"
-            >
+          <div className="flex items-center gap-2">
+            <button onClick={() => { setRefreshing(true); fetchAgents(); }} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar agentes">
               <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-              Actualizar
+              <span className="ml-1.5 hidden sm:inline">Actualizar</span>
             </button>
-            <button
-              onClick={() => setCreateOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] shadow-sm"
-              style={{ backgroundColor: CORAL }}
-            >
+            <button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm">
               <Plus className="w-4 h-4" />
-              Nuevo Agente
+              <span className="ml-1.5">Nuevo Agente</span>
             </button>
           </div>
         </div>
 
         {/* Status counts */}
-        <div className="mb-6">
-          <StatusBar counts={counts} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {Object.entries(counts).map(([key, count]) => {
+            const sc = statusConfig[key];
+            return (
+              <div key={key} className="glass-card rounded-xl px-5 py-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`w-2 h-2 rounded-full ${sc?.dot || "bg-gray-500"}`} />
+                  <span className="text-xs text-muted-foreground uppercase tracking-wide">{sc?.label || key}</span>
+                </div>
+                <p className="text-2xl font-bold text-foreground font-mono">{count}</p>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Search + filter bar */}
+        {/* Search + filters */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar agentes…"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:border-transparent transition-all shadow-sm"
-              onFocus={(e) => { e.target.style.boxShadow = `0 0 0 3px ${CORAL}25, 0 1px 2px rgba(0,0,0,0.04)`; e.target.style.borderColor = CORAL; }}
-              onBlur={(e) => { e.target.style.boxShadow = "0 1px 2px rgba(0,0,0,0.04)"; e.target.style.borderColor = "#e5e7eb"; }}
-            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar agentes…" className="evo-input pl-10" aria-label="Buscar agentes" data-testid="agents-search-input" />
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {["all", "active", "replicating", "dying", "dead"].map((s) => {
-              const sc = s === "all" ? null : statusConfig[s];
-              const isActive = statusFilter === s;
+          <div className="flex gap-1.5 flex-wrap">
+            {statusFilters.map((s) => {
+              const isActive = statusFilter === s.key;
               return (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-medium uppercase tracking-wide transition-all shadow-sm
-                    ${isActive
-                      ? "text-white"
-                      : "bg-white border border-gray-200 text-gray-500 hover:bg-gray-50"
-                    }`}
-                  style={isActive ? { backgroundColor: s === "all" ? CORAL : undefined } : {}}
-                >
-                  {isActive && s !== "all" && sc && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                      {sc.label}
-                    </span>
-                  )}
-                  {isActive && s === "all" && "Todos"}
-                  {!isActive && s === "all" && "Todos"}
-                  {!isActive && s !== "all" && sc?.label}
+                <button key={s.key} onClick={() => setStatusFilter(s.key)}
+                  className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all ${
+                    isActive ? "bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/20" : "glass-card text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                  }`}>
+                  {s.label}
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Agent grid */}
+        {/* Grid */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl h-72 animate-pulse shadow-sm border border-gray-100" />
+              <div key={i} className="glass-card rounded-xl h-72 animate-pulse" />
             ))}
           </div>
         ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                onReplicate={handleReplicate}
-                onDestroy={handleDestroy}
-                onSimulate={handleSimulate}
-                onDeposit={handleDeposit}
-              />
+              <AgentCard key={agent.id} agent={agent} onReplicate={handleReplicate} onDestroy={handleDestroy} onSimulate={handleSimulate} onDeposit={handleDeposit} />
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-20 text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `${CORAL}12` }}>
-              <Activity className="w-6 h-6" style={{ color: CORAL, opacity: 0.5 }} />
+          <div className="glass-card rounded-xl py-20 text-center">
+            <div className="w-14 h-14 mx-auto mb-4 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+              <Activity className="w-6 h-6 text-cyan-400 opacity-50" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            <h3 className="text-lg font-semibold text-foreground mb-1">
               {search || statusFilter !== "all" ? "Sin resultados" : "No hay agentes desplegados"}
             </h3>
-            <p className="text-sm text-gray-400 mb-6">
-              {search || statusFilter !== "all"
-                ? "Prueba a ajustar la búsqueda o los filtros"
-                : "Despliega tu primer agente autónomo para empezar"}
+            <p className="text-sm text-muted-foreground mb-6">
+              {search || statusFilter !== "all" ? "Prueba a ajustar la búsqueda o los filtros" : "Despliega tu primer agente autónomo"}
             </p>
             {!search && statusFilter === "all" && (
-              <button
-                onClick={() => setCreateOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{ backgroundColor: CORAL }}
-              >
-                <Plus className="w-4 h-4" />
-                Desplegar Agente
+              <button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm">
+                <Plus className="w-4 h-4" /> Desplegar Agente
               </button>
             )}
           </div>
         )}
       </div>
 
-      {/* Create dialog */}
       <CreateDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreate={handleCreate} />
     </div>
   );
