@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from typing import Dict, Optional
 from datetime import datetime, timezone, timedelta
 from ..services.database import DatabaseService
 from ..api.deps import get_db_service
+from ..core.mode import get_mode
 
 router = APIRouter()
 
 @router.get("/stats")
 async def get_dashboard_stats(
+    mode: Optional[str] = Query(None),
     db_service: DatabaseService = Depends(get_db_service)
 ):
-    """Get comprehensive dashboard statistics"""
-    stats = await db_service.get_dashboard_stats()
+    """Get comprehensive dashboard statistics filtered by mode"""
+    filter_mode = mode if mode is not None else get_mode()
+    stats = await db_service.get_dashboard_stats(mode=filter_mode)
     
     # Update orchestrator metrics
     await db_service.update_orchestrator_metrics()

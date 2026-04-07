@@ -13,7 +13,6 @@ from ..routers import (
     signals,
     trading,
     system,
-    simulation,
 )
 
 api_router = APIRouter()
@@ -33,4 +32,3 @@ api_router.include_router(payments.router, prefix="/payments", tags=["payments"]
 api_router.include_router(signals.router, prefix="/signals", tags=["signals"])
 api_router.include_router(trading.router, prefix="/trading", tags=["trading"])
 api_router.include_router(system.router, prefix="/system", tags=["system"])
-api_router.include_router(simulation.router, prefix="/simulation", tags=["simulation"])

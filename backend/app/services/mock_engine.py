@@ -13,8 +13,9 @@ class MockEngine:
     fluctuating prices, and visible PnL on the dashboard.
     """
 
-    def __init__(self, db_service: DatabaseService):
+    def __init__(self, db_service: DatabaseService, notification_service=None):
         self.db_service = db_service
+        self.notification_service = notification_service
         self.assets = ["BTC", "ETH", "SOL", "BNB", "ADA", "DOT"]
         self.base_prices = {
             "BTC": 65000.0,
@@ -99,6 +100,20 @@ class MockEngine:
                     await self.db_service.simulate_trade(agent["id"], profit)
                     self.total_trades += 1
                     self.total_pnl += profit
+
+                    # Log activity for the trade
+                    if self.notification_service:
+                        trade_type = "trade_win" if is_win else "trade_loss"
+                        await self.notification_service.log_activity(
+                            type=trade_type,
+                            title=f"Trade {'Ganado' if is_win else 'Perdido'}",
+                            description=f"{agent['name']} simuló {'+' if profit >= 0 else ''}€{profit:.2f}",
+                            icon="trending-up" if is_win else "trending-down",
+                            color="green" if is_win else "red",
+                            agent_id=agent["id"],
+                            agent_name=agent["name"],
+                            amount=profit,
+                        )
 
             await asyncio.sleep(8)
 

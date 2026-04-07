@@ -6,6 +6,7 @@ from ..models.requests import AgentCreateRequest, AgentReplicateRequest
 from ..services.database import DatabaseService
 from ..services.notifications import NotificationService
 from ..api.deps import get_db_service, get_notification_service
+from ..core.mode import get_mode
 
 router = APIRouter()
 
@@ -13,21 +14,24 @@ router = APIRouter()
 @router.get("/")
 async def get_agents(
     status: Optional[str] = None,
-    simulation: Optional[bool] = None,
+    mode: Optional[str] = Query(None, description="Filter by mode: 'real' or 'test'. Defaults to current global mode."),
     db_service: DatabaseService = Depends(get_db_service)
 ):
-    """Get all agents with optional status and mode filters"""
+    """Get all agents filtered by current mode (or override with ?mode=real/test)"""
+    filter_mode = mode if mode is not None else get_mode()
     status_enum = AgentStatus(status) if status else None
-    agents = await db_service.get_agents(status=status_enum, simulation=simulation)
+    agents = await db_service.get_agents(status=status_enum, mode=filter_mode)
     return {"agents": agents}
 
 
 @router.get("/status-summary")
 async def get_agents_status_summary(
+    mode: Optional[str] = Query(None),
     db_service: DatabaseService = Depends(get_db_service),
 ):
-    """Get summary of agent statuses"""
-    agents = await db_service.get_agents()
+    """Get summary of agent statuses for current mode"""
+    filter_mode = mode if mode is not None else get_mode()
+    agents = await db_service.get_agents(mode=filter_mode)
 
     summary = {
         "total": len(agents),
@@ -48,15 +52,15 @@ async def create_agent(
     db_service: DatabaseService = Depends(get_db_service),
     notification_service: NotificationService = Depends(get_notification_service),
 ):
-    """Create a new agent with full schema"""
+    """Create a new agent in current mode"""
     agent = await db_service.create_agent(request)
 
-    # Mark as simulation if requested
-    if request.metadata and request.metadata.get("simulation"):
-        await db_service.db.agents.update_one(
-            {"id": agent.id},
-            {"$set": {"metadata.simulation": True}},
-        )
+    # Mark agent with current mode
+    current_mode = get_mode()
+    await db_service.db.agents.update_one(
+        {"id": agent.id},
+        {"$set": {"metadata.mode": current_mode}},
+    )
 
     await notification_service.notify_agent_created(
         agent.id, agent.name, request.initial_capital
@@ -110,12 +114,16 @@ async def replicate_agent(
 async def destroy_agent(
     agent_id: str, db_service: DatabaseService = Depends(get_db_service)
 ):
-    """Destroy/terminate an agent"""
+    """Destroy/terminate an agent - removes from database with cascade"""
     agent = await db_service.get_agent(agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    await db_service.update_agent_status(agent_id, AgentStatus.DEAD, reason="manual")
+    # Cascade delete related data
+    await db_service.db.trades.delete_many({"agent_id": agent_id})
+    await db_service.db.wallets.delete_one({"agent_id": agent_id})
+    await db_service.db.activity_feed.delete_many({"agent_id": agent_id})
+    await db_service.db.agents.delete_one({"id": agent_id})
 
     return {
         "message": f"Agent {agent_id} destroyed",

@@ -186,20 +186,15 @@ class DatabaseService:
         return await self.agents.find_one({"id": agent_id}, {"_id": 0})
 
     async def get_agents(
-        self, status: Optional[AgentStatus] = None, simulation: Optional[bool] = None, limit: int = 100
+        self, status: Optional[AgentStatus] = None, mode: Optional[str] = None, limit: int = 100
     ) -> List[Dict]:
-        """Get all agents with optional status and simulation mode filter"""
+        """Get all agents with optional status and mode filter.
+        Mode: 'real' or 'test'. If None, returns all agents."""
         query = {}
         if status:
             query["status"] = status.value
-        if simulation is not None:
-            if simulation:
-                query["metadata.simulation"] = True
-            else:
-                query["$or"] = [
-                    {"metadata.simulation": False},
-                    {"metadata.simulation": {"$exists": False}},
-                ]
+        if mode is not None:
+            query["metadata.mode"] = mode
         return await self.agents.find(query, {"_id": 0}).to_list(limit)
 
     async def update_agent(self, agent_id: str, updates: Dict) -> bool:
@@ -351,7 +346,8 @@ class DatabaseService:
         elif roi >= replication_rules.get(
             "min_roi_to_replicate", 50
         ) and new_trades >= replication_rules.get("min_trades_to_replicate", 100):
-            new_status = AgentStatus.REPLICATING.value
+            # Agent qualifies for replication - ReplicationService handles status change
+            new_status = AgentStatus.ACTIVE.value
         else:
             new_status = AgentStatus.ACTIVE.value
 
@@ -683,10 +679,15 @@ class DatabaseService:
 
     # ==================== DASHBOARD STATS ====================
 
-    async def get_dashboard_stats(self) -> Dict:
-        """Get comprehensive dashboard statistics"""
-        agents = await self.get_agents()
-        trades = await self.get_all_trades(limit=1000)
+    async def get_dashboard_stats(self, mode: Optional[str] = None) -> Dict:
+        """Get comprehensive dashboard statistics filtered by mode"""
+        agents = await self.get_agents(mode=mode)
+        agent_ids = list({a["id"] for a in agents})
+        # Filter trades at database level for efficiency
+        trades = await self.db.trades.find(
+            {"agent_id": {"$in": agent_ids}} if agent_ids else {"agent_id": None},
+            {"_id": 0}
+        ).sort("created_at", -1).limit(1000).to_list(1000)
         active = [a for a in agents if a.get("status") == "active"]
         total_balance = sum(
             a.get("finances", {}).get("current_balance", 0) for a in agents

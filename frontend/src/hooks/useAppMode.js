@@ -1,46 +1,76 @@
 /**
- * App Mode Hook - Manages simulation vs normal mode
- * Uses localStorage for persistence and custom event for cross-tab sync
+ * App Mode Hook - Manages Real vs Test mode
+ * Backend is the source of truth for mode.
+ * All API calls are automatically filtered by current mode.
  */
 import { useState, useEffect, useCallback } from "react";
 
 const MODE_KEY = "automaton_mode";
 const EVENT_NAME = "automaton_mode_change";
-
-const validModes = ["normal", "simulation"];
+const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:8002/api";
 
 export function useAppMode() {
   const [mode, setModeState] = useState(() => {
-    try {
-      const stored = localStorage.getItem(MODE_KEY);
-      return validModes.includes(stored) ? stored : "normal";
-    } catch {
-      return "normal";
-    }
+    const stored = localStorage.getItem(MODE_KEY);
+    return stored === "real" ? "real" : "test";
   });
+  const [synced, setSynced] = useState(false);
 
-  const setMode = useCallback((newMode) => {
-    if (!validModes.includes(newMode)) return;
-    localStorage.setItem(MODE_KEY, newMode);
-    setModeState(newMode);
-    // Notify other tabs/components
-    window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: newMode }));
+  const syncMode = useCallback(async (newMode) => {
+    if (!["real", "test"].includes(newMode)) return;
+    try {
+      const resp = await fetch(`${API_BASE}/system/mode`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: newMode }),
+      });
+      const data = await resp.json();
+      if (data.success) {
+        localStorage.setItem(MODE_KEY, newMode);
+        setModeState(newMode);
+        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: newMode }));
+      }
+    } catch (e) {
+      console.error("Failed to sync mode with backend:", e);
+    }
   }, []);
 
   const toggleMode = useCallback(() => {
-    setMode(mode === "normal" ? "simulation" : "normal");
-  }, [mode, setMode]);
+    syncMode(mode === "real" ? "test" : "real");
+  }, [mode, syncMode]);
 
-  // Listen for mode changes from other components/tabs
+  // Listen for mode changes from other tabs
   useEffect(() => {
     const handler = (e) => {
-      if (validModes.includes(e.detail)) {
+      if (["real", "test"].includes(e.detail)) {
         setModeState(e.detail);
+        localStorage.setItem(MODE_KEY, e.detail);
       }
     };
     window.addEventListener(EVENT_NAME, handler);
     return () => window.removeEventListener(EVENT_NAME, handler);
   }, []);
 
-  return { mode, setMode, toggleMode, isSimulation: mode === "simulation", isNormal: mode === "normal" };
+  // Sync with backend on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/system/mode`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.mode && data.mode !== mode) {
+          localStorage.setItem(MODE_KEY, data.mode);
+          setModeState(data.mode);
+        }
+        setSynced(true);
+      })
+      .catch(() => setSynced(true));
+  }, []);
+
+  return {
+    mode,
+    setMode: syncMode,
+    toggleMode,
+    isReal: mode === "real",
+    isTest: mode === "test",
+    synced,
+  };
 }

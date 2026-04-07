@@ -36,7 +36,7 @@ function HealthBar({ value }) {
 }
 
 /* ─── Agent Card ─── */
-function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
+function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit, tradeSource, isTest }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const finances = agent.finances || {};
@@ -149,6 +149,15 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
           </div>
         ))}
       </div>
+
+      {/* Trade source badge */}
+      <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-center">
+        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+          isTest ? "bg-purple-500/15 text-purple-400" : "bg-green-500/15 text-green-400"
+        }`}>
+          Operaciones {tradeSource}
+        </span>
+      </div>
     </motion.div>
   );
 }
@@ -229,7 +238,7 @@ function CreateDialog({ open, onClose, onCreate }) {
 
 /* ─── Main Page ─── */
 export default function AgentsPage() {
-  const { isSimulation } = useAppMode();
+  const { isTest } = useAppMode();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -237,19 +246,21 @@ export default function AgentsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
 
+  const tradeSource = isTest ? "Simulado" : "Real";
+
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await agentsAPI.list({ simulation: isSimulation });
+      const res = await agentsAPI.list();
       setAgents(res.data.agents || []);
     } catch { toast.error("Error al cargar agentes"); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [isSimulation]);
+  }, []);
 
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
   const handleCreate = async (data) => {
     try {
-      await agentsAPI.create({ ...data, metadata: { simulation: isSimulation } });
+      await agentsAPI.create(data);
       toast.success("Agente desplegado");
       fetchAgents();
     } catch { toast.error("Error al crear agente"); }
@@ -364,7 +375,7 @@ export default function AgentsPage() {
         ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} onReplicate={handleReplicate} onDestroy={handleDestroy} onSimulate={handleSimulate} onDeposit={handleDeposit} />
+              <AgentCard key={agent.id} agent={agent} onReplicate={handleReplicate} onDestroy={handleDestroy} onSimulate={handleSimulate} onDeposit={handleDeposit} tradeSource={tradeSource} isTest={isTest} />
             ))}
           </div>
         ) : (

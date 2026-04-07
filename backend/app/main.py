@@ -36,32 +36,41 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.on_event("startup")
 async def startup_event():
+    from .core.mode import is_test, get_mode
     db_service = await get_db_service()
     notification_service = await get_notification_service()
 
-    mock_engine = MockEngine(db_service)
-    await mock_engine.start()
-    app.state.mock_engine = mock_engine
-    registry.set_mock_engine(mock_engine)
+    # In test mode: use MockEngine (simulated trading)
+    # In real mode: use TradingEngine (live trading)
+    if is_test():
+        mock_engine = MockEngine(db_service, notification_service)
+        await mock_engine.start()
+        app.state.mock_engine = mock_engine
+        registry.set_mock_engine(mock_engine)
+        logger.info("Started in TEST mode (Mock Engine)")
+    else:
+        mock_engine = MockEngine(db_service, notification_service)
+        await mock_engine.start()
+        app.state.mock_engine = mock_engine
+        registry.set_mock_engine(mock_engine)
+
+        trading_engine = TradingEngine(db_service, notification_service)
+        await trading_engine.start()
+        app.state.trading_engine = trading_engine
+        registry.set_trading_engine(trading_engine)
+        logger.info("Started in REAL mode (Trading Engine)")
 
     replication_service = ReplicationService(db_service, notification_service)
     await replication_service.start()
     app.state.replication_service = replication_service
     registry.set_replication_service(replication_service)
 
-    trading_engine = TradingEngine(db_service, notification_service)
-    await trading_engine.start()
-    app.state.trading_engine = trading_engine
-    registry.set_trading_engine(trading_engine)
-
     snapshot_service = PortfolioSnapshotService(db_service)
     await snapshot_service.start()
     app.state.snapshot_service = snapshot_service
     registry.set_snapshot_service(snapshot_service)
 
-    logger.info(
-        "All services started: Mock Engine, Replication, Trading Engine, Portfolio Snapshots"
-    )
+    logger.info(f"All services started. Mode: {get_mode()}")
 
 
 @app.on_event("shutdown")

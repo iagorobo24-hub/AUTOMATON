@@ -1,8 +1,12 @@
 /**
  * Centralized API client for AUTOMATON Orchestrator
- * 
+ *
  * Single source of truth for all backend communication.
  * Handles base URL, error handling, timeouts, and request deduplication.
+ *
+ * Mode management: Backend is the source of truth for mode (real/test).
+ * Frontend queries and sets mode via /system/mode endpoint.
+ * All agent queries are automatically filtered by backend's current mode.
  */
 import axios from 'axios';
 

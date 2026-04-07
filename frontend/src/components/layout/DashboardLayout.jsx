@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Bot, TrendingUp, Wallet, MessageSquare,
   Menu, X, Zap, Activity, Bell, Settings, Search, ChevronRight,
-  AlertTriangle, Copy, DollarSign, Target, FlaskConical, Coins
+  AlertTriangle, Copy, DollarSign, Target, Coins
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ const navItems = [
   { path: "/dashboard", label: "Panel", icon: LayoutDashboard },
   { path: "/agents", label: "Agentes", icon: Bot },
   { path: "/crypto", label: "Crypto", icon: TrendingUp },
-  { path: "/simulation", label: "Simulación", icon: Zap },
   { path: "/wallet", label: "Cartera", icon: Wallet },
   { path: "/activity", label: "Actividad", icon: Activity },
   { path: "/chat", label: "Orquestador", icon: MessageSquare },
@@ -283,7 +282,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 const Topbar = ({ onMenuClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { mode, toggleMode, isSimulation } = useAppMode();
+  const { mode, toggleMode, isTest } = useAppMode();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -350,21 +349,21 @@ const Topbar = ({ onMenuClick }) => {
               onClick={toggleMode}
               className={cn(
                 "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer",
-                isSimulation
+                isTest
                   ? "bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/15"
                   : "bg-green-500/10 border-green-500/20 hover:bg-green-500/15"
               )}
-              aria-label={`Cambiar a modo ${isSimulation ? "normal" : "simulación"}`}
+              aria-label={`Cambiar a modo ${isTest ? "Real" : "Test"}`}
             >
-              {isSimulation ? (
+              {isTest ? (
                 <FlaskConical className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
               ) : (
                 <Coins className="w-3.5 h-3.5 text-green-400" aria-hidden="true" />
               )}
               <span className={cn(
                 "text-[11px] font-medium",
-                isSimulation ? "text-purple-400" : "text-green-400"
-              )}>{isSimulation ? "Simulación" : "Real"}</span>
+                isTest ? "text-purple-400" : "text-green-400"
+              )}>{isTest ? "Test" : "Real"}</span>
             </button>
             <div className={cn(
               "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border",
@@ -391,6 +390,7 @@ const Topbar = ({ onMenuClick }) => {
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { mode, toggleMode, isTest } = useAppMode();
   return (
     <div className="min-h-screen bg-background">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

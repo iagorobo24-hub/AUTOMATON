@@ -11,7 +11,6 @@ import WalletPage from "@/pages/WalletPage";
 import ChatPage from "@/pages/ChatPage";
 import ActivityPage from "@/pages/ActivityPage";
 import SettingsPage from "@/pages/SettingsPage";
-import SimulationPage from "@/pages/SimulationPage";
 
 import DashboardLayout from "@/components/layout/DashboardLayout";
 
@@ -46,7 +45,6 @@ function App() {
           <Route path="wallet" element={<AnimatedOutlet><WalletPage /></AnimatedOutlet>} />
           <Route path="activity" element={<AnimatedOutlet><ActivityPage /></AnimatedOutlet>} />
           <Route path="chat" element={<AnimatedOutlet><ChatPage /></AnimatedOutlet>} />
-          <Route path="simulation" element={<AnimatedOutlet><SimulationPage /></AnimatedOutlet>} />
           <Route path="settings" element={<AnimatedOutlet><SettingsPage /></AnimatedOutlet>} />
         </Route>
       </Routes>

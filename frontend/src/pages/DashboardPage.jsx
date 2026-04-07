@@ -264,7 +264,7 @@ const EmergencyDialog = ({ open, onClose, onConfirm, loading }) => {
 /* ═══════════════ MAIN DASHBOARD ═══════════════ */
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { isSimulation } = useAppMode();
+  const { isTest } = useAppMode();
   const [stats, setStats] = useState(null);
   const [agents, setAgents] = useState([]);
   const [cryptoData, setCryptoData] = useState([]);
@@ -282,7 +282,7 @@ export default function DashboardPage() {
     try {
       const [statsRes, agentsRes, cryptoRes] = await Promise.all([
         dashboardAPI.stats(),
-        agentsAPI.list({ simulation: isSimulation }),
+        agentsAPI.list(),
         cryptoAPI.topCoins(),
       ]);
 
@@ -301,7 +301,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [isSimulation]);
+  }, []);
 
   const fetchPortfolioHistory = useCallback(async () => {
     try {
@@ -318,7 +318,7 @@ export default function DashboardPage() {
     }
   }, [portfolioPeriod]);
 
-  useEffect(() => { fetchData(); const i = setInterval(fetchData, 30000); return () => clearInterval(i); }, [fetchData, isSimulation]);
+  useEffect(() => { fetchData(); const i = setInterval(fetchData, 30000); return () => clearInterval(i); }, [fetchData]);
   useEffect(() => { fetchPortfolioHistory(); }, [fetchPortfolioHistory]);
 
   const handlePauseAll = async () => {
@@ -409,8 +409,8 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-background">
       <Confetti active={showConfetti} />
 
-      {/* Simulation Mode Banner */}
-      {isSimulation && (
+      {/* Test Mode Banner */}
+      {isTest && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
@@ -418,7 +418,7 @@ export default function DashboardPage() {
         >
           <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2">
             <Zap className="w-4 h-4 text-purple-400" />
-            <span className="text-sm text-purple-400 font-medium">Modo Simulación — Los datos mostrados son ficticios</span>
+            <span className="text-sm text-purple-400 font-medium">Modo Test — Los datos son simulados, sin operaciones reales</span>
           </div>
         </motion.div>
       )}
