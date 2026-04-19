@@ -1,0 +1,7 @@
+[22:02:45] --- Step 1: Checking dependencies ---
+[22:02:45] [OK] Node.js found
+[22:02:45] [OK] Python found
+[22:02:45] [OK] npm found
+[22:02:45] --- Step 2: Checking Docker (optional) ---
+[22:02:45] [OK] Docker Desktop is running
+[22:02:45] Starting MongoDB container...

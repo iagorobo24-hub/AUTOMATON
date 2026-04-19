@@ -1,0 +1,28 @@
+[17:45:21] --- Step 1: Checking dependencies ---
+[17:45:21] [OK] Node.js found
+[17:45:21] [OK] Python found
+[17:45:21] [OK] npm found
+[17:45:21] --- Step 2: Checking Docker (optional) ---
+[17:45:21] [OK] Docker Desktop is running
+[17:45:21] Starting MongoDB container...
+[17:45:21] [OK] MongoDB container started
+[17:45:21] --- Step 3: Setting up Backend ---
+[17:45:21] Seeding database...
+[17:45:22] [OK] Database seeded
+[17:45:22] --- Step 4: Setting up Frontend ---
+[17:45:22] --- Step 5: Setting up Desktop ---
+[17:45:22] --- Starting Services ---
+[17:45:22] Starting Backend API (Port 8000)...
+[17:45:22] Started: powershell.exe (PID: 26180)
+[17:45:22] Waiting for Backend API...
+[17:45:26] [OK] Backend API is ready! (2 attempts)
+[17:45:26] Starting Frontend UI (Port 3000)...
+[17:45:26] Started: powershell.exe (PID: 32236)
+[17:45:26] Waiting for Frontend UI...
+[17:46:15]   ... still waiting for Frontend UI (attempt 10/90)
+[17:47:02]   ... still waiting for Frontend UI (attempt 20/90)
+[17:47:50]   ... still waiting for Frontend UI (attempt 30/90)
+[17:48:39]   ... still waiting for Frontend UI (attempt 40/90)
+[17:49:29]   ... still waiting for Frontend UI (attempt 50/90)
+[17:50:16]   ... still waiting for Frontend UI (attempt 60/90)
+[17:51:05]   ... still waiting for Frontend UI (attempt 70/90)
