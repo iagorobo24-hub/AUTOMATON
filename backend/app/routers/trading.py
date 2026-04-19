@@ -78,3 +78,84 @@ async def get_active_positions(request: Request):
             "positions": list(engine.active_positions.values()),
         }
     return {"count": 0, "positions": []}
+
+
+# ============================================================================
+# TRADING MODE ENDPOINTS
+# ============================================================================
+
+@router.get("/mode")
+async def get_trading_mode(request: Request):
+    """Get current trading mode (paper or live)"""
+    from ..core.config import settings, TradingMode
+    
+    engine = getattr(request.app.state, "trading_engine", None)
+    
+    return {
+        "mode": settings.TRADING_MODE.value,
+        "is_live": settings.TRADING_MODE == TradingMode.LIVE,
+        "engine_running": engine is not None and engine.is_running,
+        "binance_configured": bool(settings.BINANCE_API_KEY and settings.BINANCE_SECRET_KEY),
+    }
+
+
+@router.post("/mode")
+async def set_trading_mode(request: Request, mode: str):
+    """
+    Switch trading mode between paper and live
+    
+    WARNING: This is a critical operation. Live trading uses real money.
+    Requires:
+    - Valid Binance API keys configured
+    - Confirmation in production
+    """
+    from ..core.config import settings, TradingMode
+    from ..services import registry
+    
+    # Validate mode
+    try:
+        new_mode = TradingMode(mode.lower())
+    except ValueError:
+        return {"success": False, "error": f"Invalid mode: {mode}. Must be 'paper' or 'live'"}
+    
+    # Check if switching to live
+    if new_mode == TradingMode.LIVE:
+        # Validate configuration
+        is_valid, message = settings.validate_for_live_trading()
+        if not is_valid:
+            return {"success": False, "error": message}
+    
+    # Update settings (in production, persist this)
+    old_mode = settings.TRADING_MODE
+    settings.TRADING_MODE = new_mode
+    
+    # Update trading engine if running
+    engine = getattr(request.app.state, "trading_engine", None)
+    if engine:
+        engine.paper_trading = (new_mode == TradingMode.PAPER)
+    
+    return {
+        "success": True,
+        "old_mode": old_mode.value,
+        "new_mode": new_mode.value,
+        "message": f"Trading mode changed from {old_mode.value} to {new_mode.value}"
+    }
+
+
+@router.get("/mode/validate")
+async def validate_live_trading(request: Request):
+    """Validate if live trading can be enabled"""
+    from ..core.config import settings
+    
+    is_valid, message = settings.validate_for_live_trading()
+    
+    return {
+        "can_enable_live": is_valid,
+        "message": message,
+        "checks": {
+            "trading_mode_set_to_live": settings.TRADING_MODE.value == "live",
+            "binance_api_key_configured": bool(settings.BINANCE_API_KEY),
+            "binance_secret_configured": bool(settings.BINANCE_SECRET_KEY),
+            "debug_mode_disabled": not settings.DEBUG,
+        }
+    }

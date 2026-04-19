@@ -79,3 +79,7 @@ agenthub/agents/youtube/db
 
 # Mobile development
 android-sdk/
+
+# Don't track the hooks folder itself (hooks go to .git/hooks)
+/hooks/
+!.hooks/setup.sh
