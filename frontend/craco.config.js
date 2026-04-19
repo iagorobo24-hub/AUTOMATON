@@ -1,4 +1,3 @@
-// craco.config.js
 const path = require("path");
 
 const isDevServer = process.env.NODE_ENV !== "production";
@@ -35,9 +34,10 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
-  // Allow connections from any host (needed for Electron)
   devServerConfig.allowedHosts = 'all';
   devServerConfig.host = '0.0.0.0';
+  devServerConfig.port = 3001;  // Use port 3001 for OpenCode
+  devServerConfig.historyApiFallback = true;
   return devServerConfig;
 };
 

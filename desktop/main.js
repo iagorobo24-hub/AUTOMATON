@@ -4,10 +4,11 @@ const path = require('path');
 let mainWindow = null;
 let tray = null;
 
-// Configuracion de la aplicacion
+const isDev = !app.isPackaged;
+
 const APP_CONFIG = {
   name: 'AUTOMATON',
-  version: '1.0.0',
+  version: '2.2.0',
   width: 1400,
   height: 900,
   minWidth: 1024,
@@ -17,9 +18,12 @@ const APP_CONFIG = {
     nodeIntegration: false,
     contextIsolation: true,
     preload: path.join(__dirname, 'preload.js'),
-    sandbox: false,
+    sandbox: true,
   },
 };
+
+const FRONTEND_DEV_URL = 'http://localhost:3001';
+const BACKEND_API_URL = 'http://localhost:8001';
 
 function createWindow() {
   console.log('[MAIN] Creating main window...');
@@ -37,38 +41,28 @@ function createWindow() {
   });
 
   const startUrl = isDev
-    ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../frontend/build/index.html')}`;
+    ? FRONTEND_DEV_URL
+    : `file://${path.join(__dirname, '../build/index.html')}`;
 
   console.log('[MAIN] Loading URL:', startUrl);
   mainWindow.loadURL(startUrl);
-
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     console.log('[MAIN] Window ready and shown');
   });
 
-
   mainWindow.setMenuBarVisibility(false);
-
 
   mainWindow.on('closed', () => {
     mainWindow = null;
     console.log('[MAIN] Window closed');
   });
 
-
-  mainWindow.on('minimize', (event) => {
-
-  });
-
-
   if (isDev) {
     mainWindow.webContents.openDevTools();
   }
 }
-
 
 function createAppMenu() {
   const template = [
@@ -107,6 +101,16 @@ function createAppMenu() {
       submenu: [
         { role: 'minimize' },
         { role: 'close' },
+        { type: 'separator' },
+        {
+          label: 'Always on Top',
+          type: 'checkbox',
+          click: (menuItem) => {
+            if (mainWindow) {
+              mainWindow.setAlwaysOnTop(menuItem.checked);
+            }
+          },
+        },
       ],
     },
     {
@@ -119,8 +123,8 @@ function createAppMenu() {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: 'Acerca de AUTOMATON',
-              message: 'AUTOMATON v' + APP_CONFIG.version,
-              detail: 'Framework de Agentes Autoreplicantes para Trading Crypto',
+              message: `AUTOMATON v${APP_CONFIG.version}`,
+              detail: 'Plataforma de Trading Automatizado con IA',
             });
           },
         },
@@ -132,12 +136,11 @@ function createAppMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-// Crear icono en bandeja del sistema
 function createTray() {
   try {
     const iconPath = path.join(__dirname, 'icon.ico');
     tray = new Tray(iconPath);
-    
+
     const contextMenu = Menu.buildFromTemplate([
       {
         label: 'Mostrar AUTOMATON',
@@ -159,26 +162,24 @@ function createTray() {
         click: () => app.quit(),
       },
     ]);
-    
+
     tray.setToolTip('AUTOMATON - Agentes de Trading');
     tray.setContextMenu(contextMenu);
-    
+
     tray.on('double-click', () => {
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
       }
     });
-    
+
     console.log('[MAIN] Tray created successfully');
   } catch (error) {
     console.log('[MAIN] Tray not created (icon may not exist):', error.message);
   }
 }
 
-// Registrar atajos de teclado
 function registerShortcuts() {
-  // Mostrar/ocultar ventana
   globalShortcut.register('CommandOrControl+Shift+A', () => {
     if (mainWindow) {
       if (mainWindow.isVisible()) {
@@ -189,13 +190,9 @@ function registerShortcuts() {
       }
     }
   });
-
-  console.log('[MAIN] Global shortcuts registered');
 }
 
-// IPC Handlers
 function setupIpcHandlers() {
-  // Obtener info de la app
   ipcMain.handle('get-app-info', () => {
     return {
       name: APP_CONFIG.name,
@@ -204,10 +201,10 @@ function setupIpcHandlers() {
       arch: process.arch,
       electron: process.versions.electron,
       node: process.versions.node,
+      chrome: process.versions.chrome,
     };
   });
 
-  // Obtener estado de la ventana
   ipcMain.handle('get-window-state', () => {
     if (!mainWindow) return null;
     return {
@@ -215,10 +212,10 @@ function setupIpcHandlers() {
       isMaximized: mainWindow.isMaximized(),
       isFullScreen: mainWindow.isFullScreen(),
       isVisible: mainWindow.isVisible(),
+      isFocused: mainWindow.isFocused(),
     };
   });
 
-  // Control de ventana
   ipcMain.handle('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();
   });
@@ -243,12 +240,10 @@ function setupIpcHandlers() {
     }
   });
 
-  // Tema
   ipcMain.handle('get-theme', () => {
     return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
   });
 
-  // Notificaciones
   ipcMain.handle('show-notification', (event, { title, body }) => {
     const { Notification } = require('electron');
     if (Notification.isSupported()) {
@@ -256,13 +251,19 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('get-backend-url', () => {
+    return BACKEND_API_URL;
+  });
+
+  ipcMain.handle('get-frontend-url', () => {
+    return isDev ? FRONTEND_DEV_URL : null;
+  });
+
   console.log('[MAIN] IPC handlers registered');
 }
 
-// Manejo de errores no capturados
 process.on('uncaughtException', (error) => {
   console.error('[MAIN] Uncaught Exception:', error);
-  // No salir en desarrollo para facilitar debug
   if (!isDev) {
     app.exit(1);
   }
@@ -272,16 +273,18 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('[MAIN] Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// App lifecycle
 app.whenReady().then(() => {
   console.log('[MAIN] App ready, initializing...');
-  
+  console.log('[MAIN] Running in:', isDev ? 'development' : 'production');
+  console.log('[MAIN] Frontend URL:', isDev ? FRONTEND_DEV_URL : 'build');
+  console.log('[MAIN] Backend API:', BACKEND_API_URL);
+
   createAppMenu();
   setupIpcHandlers();
   createWindow();
   createTray();
   registerShortcuts();
-  
+
   console.log('[MAIN] Initialization complete');
 });
 

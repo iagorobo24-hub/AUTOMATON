@@ -1,15 +1,13 @@
-# Automaton QwenCLI Launcher v2
-# Improved reliability with better process management and error handling
-# Ports: Backend=8002, Frontend=3001, MongoDB=27017, MongoExpress=8082
+# AUTOMATON Launcher v3 (OpenCode)
+# Ports: Backend=8001, Frontend=3001, MongoDB=27017
 
 $ErrorActionPreference = "Continue"
 
-$BACKEND_PORT = 8002
+$BACKEND_PORT = 8001
 $FRONTEND_PORT = 3001
 $MONGO_PORT = 27017
-$MONGOEXPRESS_PORT = 8082
 
-Write-Host "=== AUTOMATON QwenCLI ECOSYSTEM STARTUP ===" -ForegroundColor Cyan
+Write-Host "=== AUTOMATON OpenCode STARTUP ===" -ForegroundColor Cyan
 Write-Host ""
 
 $rootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -21,7 +19,7 @@ $BGProcs = @()
 
 function Cleanup {
     Write-Host ""
-    Write-Host "[*] Shutting down AUTOMATON QwenCLI services..." -ForegroundColor Yellow
+    Write-Host "[*] Shutting down AUTOMATON services..." -ForegroundColor Yellow
     foreach ($proc in $BGProcs) {
         try {
             if ($proc -and !$proc.HasExited) {
@@ -30,7 +28,7 @@ function Cleanup {
             }
         } catch {}
     }
-    # Also kill any orphaned processes on our ports
+    # Kill orphaned processes on our ports
     foreach ($port in @($BACKEND_PORT, $FRONTEND_PORT)) {
         try {
             $conns = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
@@ -101,12 +99,17 @@ try {
 
 # STEP 2: Start MongoDB
 Write-Host "[2/6] Starting MongoDB..." -ForegroundColor Blue
-docker-compose -f (Join-Path $rootDir ".devops\docker-compose.yml") up -d 2>&1 | Out-Null
-Start-Sleep -Seconds 5
+$dockerComposePath = Join-Path $rootDir ".devops\docker-compose.yml"
+if (Test-Path $dockerComposePath) {
+    docker-compose -f $dockerComposePath up -d 2>&1 | Out-Null
+    Start-Sleep -Seconds 5
+} else {
+    Write-Host "[!] docker-compose.yml not found, skipping MongoDB" -ForegroundColor Yellow
+}
 Write-Host "[+] MongoDB started" -ForegroundColor Green
 
-# STEP 3: Seed DB
-Write-Host "[3/6] Seeding database..." -ForegroundColor Blue
+# STEP 3: Setup Backend
+Write-Host "[3/6] Setting up Backend..." -ForegroundColor Blue
 Push-Location $backendDir
 if (!(Test-Path "venv\Scripts\python.exe")) {
     Write-Host "    Creating Python venv..." -ForegroundColor Gray
@@ -116,20 +119,19 @@ if (!(Test-Path "venv\Scripts\uvicorn.exe")) {
     Write-Host "    Installing backend deps..." -ForegroundColor Gray
     .\venv\Scripts\pip.exe install -r requirements.txt 2>&1 | Out-Null
 }
-.\venv\Scripts\python.exe app/core/seed.py 2>&1 | Out-Null
 Pop-Location
-Write-Host "[+] Database seeded" -ForegroundColor Green
+Write-Host "[+] Backend ready" -ForegroundColor Green
 
-# STEP 4: Start Backend
+# STEP 4: Start Backend API
 Write-Host "[4/6] Starting Backend API (port $BACKEND_PORT)..." -ForegroundColor Blue
 $uvicorn = Join-Path $backendDir "venv\Scripts\python.exe"
 $uvArgs = @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", $BACKEND_PORT.ToString(), "--reload")
-$uvProc = Start-Process -FilePath $uvicorn -ArgumentList $uvArgs -WorkingDirectory $backendDir -WindowStyle Hidden -PassThru
+$uvProc = Start-Process -FilePath $uvicorn -ArgumentList $uvArgs -WorkingDirectory $backendDir -WindowStyle Hidden -PassThru -RedirectStandardOutput "$env:TEMP\automaton_backend.log" -RedirectStandardError "$env:TEMP\automaton_backend_err.log"
 $BGProcs += $uvProc
 Write-Host "    Backend PID: $($uvProc.Id)" -ForegroundColor Gray
 
 if (!(Wait-ForPort -Port $BACKEND_PORT -TimeoutSeconds 30 -Name "Backend API")) {
-    Write-Host "[!] Backend failed. Exiting." -ForegroundColor Red
+    Write-Host "[!] Backend failed. Check logs." -ForegroundColor Red
     Cleanup
     exit 1
 }
@@ -138,12 +140,11 @@ if (!(Wait-ForPort -Port $BACKEND_PORT -TimeoutSeconds 30 -Name "Backend API")) 
 Write-Host "[5/6] Starting Frontend UI (port $FRONTEND_PORT)..." -ForegroundColor Blue
 Push-Location $frontendDir
 if (!(Test-Path "node_modules")) {
-    Write-Host "    Installing frontend deps (this may take a while)..." -ForegroundColor Gray
+    Write-Host "    Installing frontend deps..." -ForegroundColor Gray
     npm install --legacy-peer-deps 2>&1 | Out-Null
 }
 Pop-Location
 
-# Use npm run start which respects the craco.config.js
 $env:BROWSER = "none"
 $env:PORT = $FRONTEND_PORT.ToString()
 $feProc = Start-Process -FilePath "npm" -ArgumentList "run", "start" -WorkingDirectory $frontendDir -WindowStyle Hidden -PassThru
@@ -152,19 +153,15 @@ Remove-Item env:BROWSER -ErrorAction SilentlyContinue
 Remove-Item env:PORT -ErrorAction SilentlyContinue
 Write-Host "    Frontend PID: $($feProc.Id)" -ForegroundColor Gray
 
-# Wait for frontend - CRACO takes longer to compile
-Write-Host "    Waiting for frontend to compile..." -ForegroundColor Gray
 $feReady = Wait-ForPort -Port $FRONTEND_PORT -TimeoutSeconds 180 -Name "Frontend UI"
 if (!$feReady) {
     Write-Host "[!] Frontend timed out after 180s" -ForegroundColor Red
     Cleanup
     exit 1
 }
-# Additional wait for webpack to finish initial compilation
-Write-Host "    Waiting for webpack compilation..." -ForegroundColor Gray
-Start-Sleep -Seconds 15
+Start-Sleep -Seconds 10
 
-# STEP 6: Launch Electron
+# STEP 6: Launch Electron Desktop
 Write-Host "[6/6] Launching AUTOMATON Desktop..." -ForegroundColor Cyan
 $electronExe = Join-Path $desktopDir "node_modules\electron\dist\electron.exe"
 if (!(Test-Path $electronExe)) {
@@ -191,7 +188,6 @@ Write-Host "  App is running. Close the Electron window to stop all services." -
 Write-Host "  Frontend:  http://localhost:$FRONTEND_PORT" -ForegroundColor Cyan
 Write-Host "  Backend:   http://localhost:$BACKEND_PORT" -ForegroundColor Green
 Write-Host "  Mongo:     localhost:$MONGO_PORT" -ForegroundColor Blue
-Write-Host "  Mongo UI:  http://localhost:$MONGOEXPRESS_PORT" -ForegroundColor Blue
 Write-Host ""
 
 # Wait for Electron to exit
