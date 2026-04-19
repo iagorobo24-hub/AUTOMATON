@@ -1,8 +1,6 @@
 const path = require("path");
 
-const isDevServer = process.env.NODE_ENV !== "production";
-
-let webpackConfig = {
+module.exports = {
   eslint: {
     configure: {
       extends: ["plugin:react-hooks/recommended"],
@@ -16,29 +14,11 @@ let webpackConfig = {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
-    configure: (webpackConfig) => {
-      webpackConfig.watchOptions = {
-        ...webpackConfig.watchOptions,
-        ignored: [
-          '**/node_modules/**',
-          '**/.git/**',
-          '**/build/**',
-          '**/dist/**',
-          '**/coverage/**',
-          '**/public/**',
-        ],
-      };
-      return webpackConfig;
-    },
+  },
+  devServer: {
+    allowedHosts: 'all',
+    host: '0.0.0.0',
+    port: 3001,
+    historyApiFallback: true,
   },
 };
-
-webpackConfig.devServer = (devServerConfig) => {
-  devServerConfig.allowedHosts = 'all';
-  devServerConfig.host = '0.0.0.0';
-  devServerConfig.port = 3001;  // Use port 3001 for OpenCode
-  devServerConfig.historyApiFallback = true;
-  return devServerConfig;
-};
-
-module.exports = webpackConfig;

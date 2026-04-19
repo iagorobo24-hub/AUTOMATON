@@ -3,8 +3,8 @@
 
 $ErrorActionPreference = "Continue"
 
-$BACKEND_PORT = 8001
-$FRONTEND_PORT = 3001
+$BACKEND_PORT = 8000
+$FRONTEND_PORT = 3000
 $MONGO_PORT = 27017
 
 Write-Host "=== AUTOMATON OpenCode STARTUP ===" -ForegroundColor Cyan

@@ -22,8 +22,8 @@ const APP_CONFIG = {
   },
 };
 
-const FRONTEND_DEV_URL = 'http://localhost:3001';
-const BACKEND_API_URL = 'http://localhost:8001';
+const FRONTEND_DEV_URL = 'http://localhost:3000';
+const BACKEND_API_URL = 'http://localhost:8000';
 
 function createWindow() {
   console.log('[MAIN] Creating main window...');
