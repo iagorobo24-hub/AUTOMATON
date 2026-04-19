@@ -1,11 +1,14 @@
 @echo off
-TITLE AUTOMATON Ecosystem Launcher
+TITLE AUTOMATON OpenCode Launcher
 echo.
 echo ============================================
-echo   AUTOMATON // NEXUS-9 Launcher
+echo   AUTOMATON // OpenCode Launcher
 echo ============================================
 echo.
-echo Iniciando AUTOMATON...
+echo Starting AUTOMATON...
 echo.
-powershell.exe -ExecutionPolicy Bypass -NoLogo -NoProfile -Command "& { Set-Location '%~dp0'; . .\launcher.ps1 }"
+
+REM Set execution policy for this session
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Set-Location '%~dp0'; & { .\launcher.ps1 }"
+
 pause

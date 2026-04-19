@@ -45,6 +45,25 @@ function createWindow() {
     : `file://${path.join(__dirname, '../build/index.html')}`;
 
   console.log('[MAIN] Loading URL:', startUrl);
+  
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[MAIN] Failed to load:', errorCode, errorDescription);
+    mainWindow.loadURL(`data:text/html,
+      <html>
+        <body style="background:#050505;color:#fff;font-family:monospace;padding:50px;text-align:center;">
+          <h2>AUTOMATON - Error Loading</h2>
+          <p>Failed to load: ${errorDescription}</p>
+          <p>URL: ${startUrl}</p>
+          <p>Make sure the frontend is running on port 3001</p>
+        </body>
+      </html>
+    `);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[MAIN] Page loaded successfully');
+  });
+  
   mainWindow.loadURL(startUrl);
 
   mainWindow.once('ready-to-show', () => {
