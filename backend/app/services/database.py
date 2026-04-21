@@ -68,6 +68,8 @@ class DatabaseService:
         self.audit_logs = db.audit_logs
         self.orchestrator_state = db.orchestrator_state
         self.clone_configs = db.clone_configs
+        self.users = db.users  # User authentication
+        self.risk_state = db.risk_state  # Risk manager persisted state
 
     # ==================== HELPERS ====================
 
@@ -762,3 +764,57 @@ class DatabaseService:
                 ),
             },
         }
+
+    # =========================================================================
+    # User Authentication Methods
+    # =========================================================================
+
+    async def create_user(self, user_data: Dict) -> Dict:
+        """Create a new user"""
+        # Check if username exists
+        existing = await self.users.find_one({"username": user_data.get("username")})
+        if existing:
+            raise ValueError("Username already exists")
+
+        # Check if email exists
+        existing = await self.users.find_one({"email": user_data.get("email")})
+        if existing:
+            raise ValueError("Email already exists")
+
+        user_doc = {
+            "id": str(uuid.uuid4()),
+            "username": user_data.get("username"),
+            "email": user_data.get("email"),
+            "hashed_password": user_data.get("hashed_password"),
+            "is_active": True,
+            "is_superuser": False,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+
+        await self.users.insert_one(user_doc)
+        return user_doc
+
+    async def get_user_by_username(self, username: str) -> Optional[Dict]:
+        """Get user by username"""
+        return await self.users.find_one({"username": username})
+
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict]:
+        """Get user by ID"""
+        return await self.users.find_one({"id": user_id})
+
+    async def authenticate_user(self, username: str, password: str) -> Optional[Dict]:
+        """Authenticate user - returns user if valid, None if invalid"""
+        from passlib.hash import bcrypt
+
+        user = await self.get_user_by_username(username)
+        if not user:
+            return None
+        if not user.get("is_active", True):
+            return None
+
+        hashed = user.get("hashed_password", "")
+        if not bcrypt.verify(password, hashed):
+            return None
+
+        return user

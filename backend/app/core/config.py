@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     MONGO_URL: str = "mongodb://localhost:27017"
     DB_NAME: str = "automaton_db"
     
-    SECRET_KEY: str = "change-this-to-a-random-secret-key-in-production"
+    SECRET_KEY: str = ""  # REQUIRED: Set via .env file (generate with: python -c "import secrets; print(secrets.token_hex(32))")
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 60 * 24 * 7
     

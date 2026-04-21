@@ -79,20 +79,41 @@ class TradingEngine:
         mode = "PAPER TRADING" if self.paper_trading else "LIVE TRADING"
         logger.info(f"Trading Engine started in {mode} mode")
 
+        # Load persisted risk state FIRST
+        await self.risk_manager.load_state()
+
         agents = await self.db_service.get_agents()
         total_capital = sum(
             a.get("finances", {}).get("current_balance", 0) for a in agents
         )
-        self.risk_manager.set_portfolio_start_value(total_capital)
-        logger.info(f"Portfolio start value: ${total_capital:.2f}")
+        # Only set if not already loaded from persistence
+        if self.risk_manager._portfolio_start_value <= 0:
+            self.risk_manager.set_portfolio_start_value(total_capital)
+            logger.info(f"Portfolio start value set: ${total_capital:.2f}")
+        else:
+            logger.info(f"Portfolio start value restored: ${self.risk_manager._portfolio_start_value:.2f}")
 
         asyncio.create_task(self._trading_loop())
         asyncio.create_task(self._position_monitor_loop())
 
+        # Background task to save risk state periodically
+        asyncio.create_task(self._risk_state_persistence_loop())
+
     async def stop(self):
         """Stop the trading engine"""
+        # Save risk state before stopping
+        await self.risk_manager.save_state()
         self.is_running = False
         logger.info("Trading Engine stopped")
+
+    async def _risk_state_persistence_loop(self):
+        """Periodically save risk state to DB"""
+        while self.is_running:
+            try:
+                await asyncio.sleep(300)  # Every 5 minutes
+                await self.risk_manager.save_state()
+            except Exception as e:
+                logger.error(f"Error saving risk state: {e}")
 
     async def _trading_loop(self):
         """Main trading loop - scans for opportunities"""

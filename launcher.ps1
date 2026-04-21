@@ -1,5 +1,5 @@
 # AUTOMATON Launcher v3 (OpenCode)
-# Ports: Backend=8001, Frontend=3001, MongoDB=27017
+# Ports: Backend=8000, Frontend=3001, MongoDB=27017
 
 $ErrorActionPreference = "Continue"
 

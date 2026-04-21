@@ -25,6 +25,8 @@ class NotificationService:
             return {k: self._serialize_datetime(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._serialize_datetime(item) for item in obj]
+        elif hasattr(obj, 'value'):  # Handle enums
+            return obj.value
         return obj
     
     # ==================== NOTIFICATIONS ====================

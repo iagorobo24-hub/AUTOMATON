@@ -154,3 +154,76 @@ class RiskManager:
     def record_trade_result(self, pnl: float):
         """Record a trade result for daily tracking"""
         self._daily_loss_usd = max(0, self._daily_loss_usd - pnl)
+
+    # =========================================================================
+    # Persistence Methods (survives restart)
+    # =========================================================================
+
+    async def load_state(self):
+        """Load state from MongoDB on startup"""
+        if not self.db_service:
+            logger.warning("No DB service, skipping state load")
+            return
+
+        try:
+            state = await self.db_service.risk_state.find_one({"type": "risk_manager"})
+            if state:
+                # Restore daily loss tracking
+                self._daily_loss_start = state.get("daily_loss_start")
+                if isinstance(self._daily_loss_start, str):
+                    from datetime import date
+                    self._daily_loss_start = date.fromisoformat(self._daily_loss_start)
+
+                # Check if we need to reset for new day
+                today = datetime.now(timezone.utc).date()
+                if self._daily_loss_start != today:
+                    self._daily_loss_usd = 0.0
+                    self._daily_loss_start = today
+                    logger.info("New day detected, reset daily loss tracking")
+
+                self._daily_loss_usd = state.get("daily_loss_usd", 0.0)
+                self._portfolio_start_value = state.get("portfolio_start_value", 0.0)
+
+                # Restore circuit breaker state
+                cb_time = state.get("circuit_breaker_time")
+                if cb_time:
+                    if isinstance(cb_time, str):
+                        self._circuit_breaker_time = datetime.fromisoformat(cb_time)
+                    else:
+                        self._circuit_breaker_time = cb_time
+                    self._circuit_breaker_active = state.get("circuit_breaker_active", False)
+
+                    logger.info(f"Restored circuit breaker: active={self._circuit_breaker_active}")
+                else:
+                    self._circuit_breaker_active = False
+                    self._circuit_breaker_time = None
+
+                logger.info("RiskManager state loaded from database")
+            else:
+                logger.info("No existing risk state, starting fresh")
+        except Exception as e:
+            logger.error(f"Failed to load risk state: {e}")
+
+    async def save_state(self):
+        """Save state to MongoDB after changes"""
+        if not self.db_service:
+            return
+
+        try:
+            await self.db_service.risk_state.update_one(
+                {"type": "risk_manager"},
+                {
+                    "$set": {
+                        "type": "risk_manager",
+                        "daily_loss_start": self._daily_loss_start.isoformat() if self._daily_loss_start else None,
+                        "daily_loss_usd": self._daily_loss_usd,
+                        "portfolio_start_value": self._portfolio_start_value,
+                        "circuit_breaker_active": self._circuit_breaker_active,
+                        "circuit_breaker_time": self._circuit_breaker_time.isoformat() if self._circuit_breaker_time else None,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+                upsert=True
+            )
+        except Exception as e:
+            logger.error(f"Failed to save risk state: {e}")

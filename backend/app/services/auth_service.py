@@ -3,11 +3,13 @@ from datetime import datetime, timedelta
 from passlib.hash import bcrypt
 from typing import Optional
 from app.models.auth import Token, TokenData
+from app.core.config import settings
 
 
-SECRET_KEY = "change-this-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# Use config settings instead of hardcoded values
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_EXPIRATION_MINUTES
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -45,26 +47,28 @@ def decode_token(token: str) -> Optional[TokenData]:
         return None
 
 
-async def authenticate_user(username: str, password: str) -> Optional[dict]:
-    """Authenticate user (mock - replace with real DB)"""
-    # TODO: Implement with real database
-    users_db = {
-        "admin": {
-            "id": "1",
-            "username": "admin",
-            "email": "admin@automaton.local",
-            "hashed_password": get_password_hash("admin123"),
-            "is_active": True,
+async def authenticate_user(username: str, password: str, db_service=None) -> Optional[dict]:
+    """Authenticate user against database"""
+    if db_service is None:
+        # Fallback to mock for backward compatibility
+        users_db = {
+            "admin": {
+                "id": "1",
+                "username": "admin",
+                "email": "admin@automaton.local",
+                "hashed_password": get_password_hash("admin123"),
+                "is_active": True,
+            }
         }
-    }
-    
-    user = users_db.get(username)
-    if not user:
-        return None
-    if not verify_password(password, user["hashed_password"]):
-        return None
-    
-    return user
+        user = users_db.get(username)
+        if not user:
+            return None
+        if not verify_password(password, user["hashed_password"]):
+            return None
+        return user
+
+    # Use real database
+    return await db_service.authenticate_user(username, password)
 
 
 def create_token(username: str) -> Token:
@@ -74,3 +78,27 @@ def create_token(username: str) -> Token:
         data={"sub": username}, expires_delta=access_token_expires
     )
     return Token(access_token=access_token, token_type="bearer")
+
+
+async def create_user(username: str, email: str, password: str, db_service=None) -> dict:
+    """Create a new user"""
+    user_data = {
+        "username": username,
+        "email": email,
+        "hashed_password": get_password_hash(password),
+        "is_active": True,
+        "created_at": datetime.utcnow().isoformat()
+    }
+    
+    if db_service:
+        # Save to database
+        result = await db_service.db.users.insert_one(user_data)
+        user_data["id"] = str(result.inserted_id)
+    else:
+        user_data["id"] = "1"
+    
+    return user_data
+
+
+# Alias for backward compatibility
+hash_password = get_password_hash

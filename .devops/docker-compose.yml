@@ -1,27 +1,68 @@
+# AUTOMATON OpenCode - Docker Compose
+# Usage: docker-compose -f .devops/docker-compose.yml up -d
+
 version: '3.8'
 
 services:
+  # =============================================================================
+  # Database
+  # =============================================================================
   mongodb:
-    image: mongo:6.0
-    container_name: automaton_qwencli_mongodb
-    restart: always
-    environment:
-      MONGO_INITDB_DATABASE: automaton_qwencli_db
+    image: mongo:7.0
+    container_name: automaton_mongodb
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
-      - ../data/qwencli_db:/data/db
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: automaton_db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # =============================================================================
+  # MongoDB Admin UI (Optional)
+  # =============================================================================
   mongo-express:
     image: mongo-express
-    container_name: automaton_qwencli_mongo_express
-    restart: always
+    container_name: automaton_mongo_express
+    restart: unless-stopped
     ports:
       - "8082:8081"
     environment:
       ME_CONFIG_MONGODB_SERVER: mongodb
       ME_CONFIG_MONGODB_PORT: 27017
       ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: pass
+      ME_CONFIG_BASICAUTH_PASSWORD: changeme
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+
+  # =============================================================================
+  # Backend API (Optional - for containerized development)
+  # =============================================================================
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: automaton_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=automaton_db
+      - ENVIRONMENT=development
+      - DEBUG=true
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+
+volumes:
+  mongodb_data:
+    driver: local
