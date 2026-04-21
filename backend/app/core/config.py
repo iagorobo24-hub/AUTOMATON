@@ -17,8 +17,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
     
+    # Legacy MongoDB settings
     MONGO_URL: str = "mongodb://localhost:27017"
     DB_NAME: str = "automaton_db"
+    
+    # SQLModel/SQLite settings
+    DATABASE_URL: Optional[str] = "sqlite+aiosqlite:///./automaton.db"
     
     SECRET_KEY: str = ""  # REQUIRED: Set via .env file (generate with: python -c "import secrets; print(secrets.token_hex(32))")
     JWT_ALGORITHM: str = "HS256"

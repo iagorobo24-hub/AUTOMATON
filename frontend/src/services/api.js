@@ -1,243 +1,95 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// API service for AUTOMATON v2
+// Uses backend at localhost:8000 (or from Electron's window.api.getBackendUrl())
 
-// Create axios instance
+const DEFAULT_BACKEND_URL = 'http://localhost:8000';
+
+// Get backend URL - from Electron API if available, else default
+function getBackendUrl() {
+  if (typeof window !== 'undefined' && window.api && window.api.getBackendUrl) {
+    return window.api.getBackendUrl();
+  }
+  return DEFAULT_BACKEND_URL;
+}
+
+/**
+ * Base fetch function with error handling
+ * @param {string} endpoint - API endpoint (e.g., '/api/agents')
+ * @param {object} options - Fetch options
+ * @returns {Promise<any>}
+ */
+async function fetchApi(endpoint, options = {}) {
+  const baseUrl = getBackendUrl();
+  const url = `${baseUrl}${endpoint}`;
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`HTTP ${response.status}: ${error}`);
+    }
+    
+    return await response.json();
+  } catch (err) {
+    console.error(`[API] Error fetching ${endpoint}:`, err);
+    throw err;
+  }
+}
+
+// Agents API
+export const getAgents = async () => {
+  return fetchApi('/api/agents');
+};
+
+export const createAgent = async (data) => {
+  const queryParams = new URLSearchParams({
+    nombre: data.nombre,
+    estrategia: data.estrategia,
+    presupuesto: data.presupuesto.toString(),
+    umbral: (data.umbral || 0.15).toString(),
+  });
+  
+  return fetchApi(`/api/agents?${queryParams}`, {
+    method: 'POST',
+  });
+};
+
+export const deleteAgent = async (id) => {
+  return fetchApi(`/api/agents/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Trades API
+export const getTrades = async (agentId) => {
+  const queryParams = agentId ? `?agente_id=${agentId}` : '';
+  return fetchApi(`/api/trades${queryParams}`);
+};
+
+export const getStats = async () => {
+  return fetchApi('/api/trades/stats');
+};
+
+// System API
+export const getEstado = async () => {
+  return fetchApi('/api/estado');
+};
+
+// Export default object with all methods
 const api = {
-  // Auth endpoints
-  auth: {
-    login: async (username, password) => {
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
-      
-      const response = await fetch(`${API_BASE_URL}/auth/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-      
-      const data = await response.json();
-      localStorage.setItem('token', data.access_token);
-      return data;
-    },
-    
-    logout: () => {
-      localStorage.removeItem('token');
-    },
-    
-    getToken: () => localStorage.getItem('token'),
-    
-    register: async (userData) => {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Registration failed');
-      }
-      
-      return response.json();
-    },
-  },
-  
-  // Agents endpoints
-  agents: {
-    list: async () => {
-      const response = await fetch(`${API_BASE_URL}/agents`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    get: async (id) => {
-      const response = await fetch(`${API_BASE_URL}/agents/${id}`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    create: async (agentData) => {
-      const response = await fetch(`${API_BASE_URL}/agents`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api.auth.getToken()}`,
-        },
-        body: JSON.stringify(agentData),
-      });
-      return response.json();
-    },
-    
-    update: async (id, agentData) => {
-      const response = await fetch(`${API_BASE_URL}/agents/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api.auth.getToken()}`,
-        },
-        body: JSON.stringify(agentData),
-      });
-      return response.json();
-    },
-    
-    delete: async (id) => {
-      const response = await fetch(`${API_BASE_URL}/agents/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.ok;
-    },
-  },
-  
-  // Trades endpoints
-  trades: {
-    list: async (params = {}) => {
-      const query = new URLSearchParams(params).toString();
-      const response = await fetch(`${API_BASE_URL}/trades?${query}`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    get: async (id) => {
-      const response = await fetch(`${API_BASE_URL}/trades/${id}`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    close: async (id) => {
-      const response = await fetch(`${API_BASE_URL}/trades/${id}/close`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-  },
-  
-  // Strategies endpoints
-  strategies: {
-    list: async () => {
-      const response = await fetch(`${API_BASE_URL}/strategies`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    get: async (id) => {
-      const response = await fetch(`${API_BASE_URL}/strategies/${id}`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    backtest: async (strategyId, params) => {
-      const response = await fetch(`${API_BASE_URL}/strategies/${strategyId}/backtest`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api.auth.getToken()}`,
-        },
-        body: JSON.stringify(params),
-      });
-      return response.json();
-    },
-  },
-  
-  // Replication endpoints
-  replication: {
-    list: async () => {
-      const response = await fetch(`${API_BASE_URL}/replication`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    get: async (id) => {
-      const response = await fetch(`${API_BASE_URL}/replication/${id}`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    replicate: async (agentId) => {
-      const response = await fetch(`${API_BASE_URL}/replication/replicate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api.auth.getToken()}`,
-        },
-        body: JSON.stringify({ agent_id: agentId }),
-      });
-      return response.json();
-    },
-  },
-  
-  // Metrics endpoints
-  metrics: {
-    dashboard: async () => {
-      const response = await fetch(`${API_BASE_URL}/metrics/dashboard`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    performance: async (agentId) => {
-      const response = await fetch(`${API_BASE_URL}/metrics/performance/${agentId}`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-  },
-  
-  // Settings endpoints
-  settings: {
-    get: async () => {
-      const response = await fetch(`${API_BASE_URL}/settings`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    update: async (settings) => {
-      const response = await fetch(`${API_BASE_URL}/settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api.auth.getToken()}`,
-        },
-        body: JSON.stringify(settings),
-      });
-      return response.json();
-    },
-  },
-  
-  // Trading mode
-  trading: {
-    getMode: async () => {
-      const response = await fetch(`${API_BASE_URL}/trading/mode`, {
-        headers: { Authorization: `Bearer ${api.auth.getToken()}` },
-      });
-      return response.json();
-    },
-    
-    setMode: async (mode) => {
-      const response = await fetch(`${API_BASE_URL}/trading/mode`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api.auth.getToken()}`,
-        },
-        body: JSON.stringify({ mode }),
-      });
-      return response.json();
-    },
-  },
+  fetchApi,
+  getAgents,
+  createAgent,
+  deleteAgent,
+  getTrades,
+  getStats,
+  getEstado,
 };
 
 export default api;

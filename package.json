@@ -1,0 +1,17 @@
+{
+  "name": "automaton-v2",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names \"BACKEND,FRONTEND,ELECTRON\" --prefix-colors \"yellow,cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:backend": "cd backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:electron": "wait-on http-get://127.0.0.1:8000/health http-get://localhost:5173 --timeout 60000 && cd electron && npx electron .",
+    "install:all": "npm install && cd frontend && npm install && cd ../electron && npm install",
+    "setup": "npm run install:all && cd backend && pip install -r requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "wait-on": "^7.2.0"
+  }
+}

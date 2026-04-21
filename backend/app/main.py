@@ -1,149 +1,117 @@
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.middleware import SlowAPIMiddleware
-from datetime import datetime, timezone
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.database import init_db
+from app.models import Agent, Trade, AgentStatus, StrategyEnum, TradeType
+from app.services.agent_engine import AgentEngine
+from app.routers import agents, trades
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Initialize rate limiter
-limiter = Limiter(key_func=get_remote_address)
+# Global agent engine instance
+agent_engine: AgentEngine = None
 
-from .core.config import settings
-from .api.api import api_router
-from .api.deps import client, db, get_db_service, get_notification_service
-from .services.mock_engine import MockEngine
-from .services.replication import ReplicationService
-from .services.trading_engine import TradingEngine
-from .services.portfolio_snapshot import PortfolioSnapshotService
-from app.services import registry
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown"""
+    global agent_engine
+    
+    # Startup
+    logger.info("[MAIN] Starting up...")
+    
+    # Initialize database
+    init_db()
+    logger.info("[MAIN] Database initialized")
+    
+    # Start agent engine
+    agent_engine = AgentEngine()
+    await agent_engine.start()
+    app.state.agent_engine = agent_engine
+    logger.info("[MAIN] AgentEngine started")
+    
+    yield
+    
+    # Shutdown
+    logger.info("[MAIN] Shutting down...")
+    if agent_engine:
+        await agent_engine.stop()
+    logger.info("[MAIN] Shutdown complete")
+
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description="Self-replicating AI agent platform with crypto trading capabilities",
+    title="AUTOMATON v2",
+    version="2.2.0",
+    description="Agentes de trading crypto autónomos",
+    lifespan=lifespan,
 )
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Add rate limiting middleware
-app.add_middleware(SlowAPIMiddleware)
-
-# Attach limiter to app state for use in routers
-app.state.limiter = limiter
-
-# Add exception handler for rate limiting
-@app.exception_handler(429)
-async def rate_limit_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=429,
-        content={"detail": "Rate limit exceeded. Please try again later."}
-    )
-
-app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
-@app.on_event("startup")
-async def startup_event():
-    db_service = await get_db_service()
-    notification_service = await get_notification_service()
-
-    # Startup with error handling
-    try:
-        mock_engine = MockEngine(db_service)
-        await mock_engine.start()
-        app.state.mock_engine = mock_engine
-        registry.set_mock_engine(mock_engine)
-        logger.info("Mock Engine: OK")
-    except Exception as e:
-        logger.error(f"Mock Engine failed: {e}")
-        raise
-
-    try:
-        replication_service = ReplicationService(db_service, notification_service)
-        await replication_service.start()
-        app.state.replication_service = replication_service
-        registry.set_replication_service(replication_service)
-        logger.info("Replication Service: OK")
-    except Exception as e:
-        logger.error(f"Replication Service failed: {e}")
-        raise
-
-    try:
-        trading_engine = TradingEngine(db_service, notification_service)
-        await trading_engine.start()
-        app.state.trading_engine = trading_engine
-        registry.set_trading_engine(trading_engine)
-        logger.info("Trading Engine: OK")
-    except Exception as e:
-        logger.error(f"Trading Engine failed: {e}")
-        raise
-
-    try:
-        snapshot_service = PortfolioSnapshotService(db_service)
-        await snapshot_service.start()
-        app.state.snapshot_service = snapshot_service
-        registry.set_snapshot_service(snapshot_service)
-        logger.info("Portfolio Snapshot Service: OK")
-    except Exception as e:
-        logger.error(f"Portfolio Snapshot Service failed: {e}")
-        raise
-
-    logger.info("All services started successfully")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down services...")
-
-    if hasattr(app.state, "trading_engine") and app.state.trading_engine:
-        await app.state.trading_engine.stop()
-
-    if hasattr(app.state, "snapshot_service") and app.state.snapshot_service:
-        await app.state.snapshot_service.stop()
-
-    if hasattr(app.state, "replication_service") and app.state.replication_service:
-        await app.state.replication_service.stop()
-
-    if hasattr(app.state, "mock_engine") and app.state.mock_engine:
-        await app.state.mock_engine.stop()
-
-    client.close()
-    logger.info("Shutdown complete")
+# Include routers
+app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
+app.include_router(trades.router, prefix="/api/trades", tags=["trades"])
 
 
 @app.get("/")
-async def root():
+def root():
     return {
-        "message": "Automaton Orchestrator API",
-        "version": settings.VERSION,
+        "message": "AUTOMATON v2 API",
+        "version": "2.2.0",
         "status": "operational",
     }
 
 
 @app.get("/health")
-async def health():
-    engine_status = "running" if hasattr(app.state, "trading_engine") else "stopped"
+def health():
+    """Health check endpoint for wait-on"""
+    engine_status = "running" if agent_engine and agent_engine.running else "stopped"
     return {
-        "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "project": settings.PROJECT_NAME,
-        "trading_engine": engine_status,
+        "status": "ok",
+        "agent_engine": engine_status,
     }
+
+
+@app.post("/api/agents/crear")
+def crear_agente_api(
+    nombre: str,
+    estrategia: StrategyEnum,
+    presupuesto: float,
+    umbral: float = 0.15,
+):
+    """Convenience endpoint to create agent via engine"""
+    if not agent_engine:
+        return {"error": "AgentEngine not running"}, 503
+    
+    agente = agent_engine.crear_agente(nombre, estrategia, presupuesto, umbral)
+    return {
+        "id": agente.id,
+        "nombre": agente.nombre,
+        "estrategia": agente.estrategia.value,
+    }
+
+
+@app.get("/api/estado")
+def get_estado():
+    """Get global system state"""
+    if not agent_engine:
+        return {"error": "AgentEngine not running"}, 503
+    
+    return agent_engine.get_estado()
 
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

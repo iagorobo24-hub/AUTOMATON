@@ -7,12 +7,9 @@ class AgentType(str, Enum):
     HYBRID = "hybrid"
 
 class AgentStatus(str, Enum):
-    ACTIVE = "active"
-    REPLICATING = "replicating"
-    DYING = "dying"
-    DEAD = "dead"
-    PAUSED = "paused"
-    HIBERNATING = "hibernating"
+    ACTIVO = "ACTIVO"
+    MUERTO = "MUERTO"
+    REPLICADO = "REPLICADO"
 
 class TradeSide(str, Enum):
     LONG = "long"
@@ -61,3 +58,13 @@ class NotificationPriority(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+class StrategyEnum(str, Enum):
+    S1 = "S1"  # Momentum simple
+    S2 = "S2"  # Mean reversion
+    S3 = "S3"  # Breakout
+    S4 = "S4"  # Hybrid
+
+class TradeType(str, Enum):
+    LONG = "LONG"
+    SHORT = "SHORT"

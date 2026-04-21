@@ -1,75 +1,129 @@
-# 🤖 AUTOMATON: Framework de Agentes Emergentes
+# 🤖 AUTOMATON v2
 
-> **Sistemas de IA autónomos con memoria persistente y comportamientos emergentes.**
+> **Agentes de trading crypto autónomos con estrategias de replicación.**
 
-AUTOMATON es un ecosistema diseñado para la creación, prueba y despliegue de agentes de IA con capacidades de memoria a largo plazo y una estructura de micro-servicios modular. Su arquitectura permite que los agentes evolucionen y respondan a entornos complejos mediante una lógica "emergente".
-
----
-
-## 🌟 Características Principales
-
-- **Emergent Core**: Directorio especializado para comportamientos no lineales y respuestas adaptativas de agentes.
-- **Persistent Memory**: Sistema de gestión de memoria diseñado para que los agentes retengan contexto entre sesiones.
-- **Frontend & Backend Decoupled**: Arquitectura moderna con backend de servicios y frontend reactivo.
-- **Hardening Técnico**: Documentación de guías de diseño (`design_guidelines.json`) y reportes de tests exhaustivos (`test_reports/`).
+AUTOMATON v2 es un ecosistema de agentes de trading que operan de forma autónoma, ejecutan estrategias y se replican cuando alcanzan umbrales de profit.
 
 ---
 
-## 🏗️ Arquitectura del Framework
+## 🚀 Quick Start
 
-```mermaid
-graph TD
-    User((Usuario)) --> UI[Frontend React/Vite]
-    UI --> API[Backend API Core]
-    API --> Memory[Memory Management System]
-    API --> Emergent[.emergent Logic Engine]
-    API --> Tests[Automated Test Suite]
-    Memory --> DB[(Persistence Layer)]
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/tu-repo/automaton-v2.git
+cd automaton-v2
+
+# 2. Instalar todas las dependencias (Node + Python)
+npm run setup
+
+# 3. Iniciar el sistema completo
+npm run dev
 ```
 
-### Stack Tecnológico
-- **Lógica**: Python (backend_test.py) y TypeScript.
-- **Configuración**: Guías de diseño estructuradas en JSON.
-- **Calidad**: Suite de tests automatizados con reportes detallados en Markdown.
+El comando `npm run dev` inicia:
+- 🟡 **BACKEND** (FastAPI) en http://127.0.0.1:8000
+- 🔵 **FRONTEND** (Vite) en http://localhost:5173  
+- 🟣 **ELECTRON** (Desktop app) - espera a que backend y frontend estén listos
 
 ---
 
-## 🚦 Estado del Desarrollo
+## �️ Arquitectura
 
-| Componente | Estado | Descripción |
-| :--- | :--- | :--- |
-| **Backend** | ✅ Estable | Motor de lógica y rutas de agentes. |
-| **Frontend** | 🔄 En Progreso | Interfaz de monitorización de agentes. |
-| **Memory System** | ✅ Estable | Capacidad de retención de contexto. |
-| **Emergent Engine** | 🔄 Experimental | Lógica de comportamientos adaptativos. |
+```
+AUTOMATON/
+├── electron/           # Electron main process
+│   ├── main.js
+│   ├── preload.js
+│   └── package.json
+├── frontend/           # React 18 + Vite
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── pages/
+│   │   └── services/api.js
+│   └── package.json
+├── backend/            # FastAPI + SQLModel + SQLite
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── models.py
+│   │   ├── database.py
+│   │   ├── services/
+│   │   │   ├── strategies.py
+│   │   │   └── agent_engine.py
+│   │   └── routers/
+│   │       ├── agents.py
+│   │       └── trades.py
+│   └── requirements.txt
+├── package.json        # Orquestador raíz
+└── .env.example
+```
+
+### Stack
+- **Electron 31** - Desktop shell
+- **React 18** + **Vite** - Frontend
+- **FastAPI** + **SQLModel** + **SQLite** - Backend
+- **Concurrently** + **wait-on** - Orquestación
 
 ---
 
-## 🚀 Futuras Mejoras & Sugerencias de IA
+## 📝 Comandos
 
-Basado en la estructura de `AUTOMATON`, se sugieren las siguientes evoluciones:
-
-1.  **Orquestación de Memoria Semántica**: Implementar la skill `multi-agent-orchestrator` para gestionar el paso de contexto de la carpeta `memory/` a múltiples agentes simultáneos.
-2.  **Visualización de Emergencia**: Usar `performance-profiler` para medir la latencia del motor `.emergent` y visualizar en el frontend los árboles de decisión de los agentes en tiempo real.
-3.  **Auditoría de Comportamiento**: Activar `automated-test-oracle` para garantizar que los comportamientos emergentes no se desvíen de las guías de diseño definidas en `design_guidelines.json`.
-4.  **Simulación de Entornos Hostiles**: Utilizar `synthetic-user-tester` para poner a prueba la resiliencia de los agentes ante entradas de usuario que intenten romper su lógica persistente.
-5.  **Documentación Dinámica**: Emplear `readme-architect` para generar reportes automáticos de cada fase de "emergencia" detectada en los logs.
-
----
-
-## 🚀 Instalación y Setup
-
-1. **Backend**:
-   ```bash
-   python -m pip install -r requirements.txt
-   python backend_test.py
-   ```
-2. **Frontend**:
-   ```bash
-   cd frontend
-   npm install && npm run dev
-   ```
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Inicia backend + frontend + electron |
+| `npm run dev:backend` | Solo FastAPI en :8000 |
+| `npm run dev:frontend` | Solo Vite en :5173 |
+| `npm run dev:electron` | Solo Electron (espera servicios) |
+| `npm run install:all` | Instala deps de npm en todos los dirs |
+| `npm run setup` | Instala todo (npm + pip) |
 
 ---
 
-© 2024 **iagorobo24-hub** | *Building autonomous emergent systems.*
+## ⚙️ Configuración
+
+Copiar `.env.example` a `.env` y ajustar:
+
+```bash
+cp .env.example .env
+```
+
+Variables disponibles:
+- `FRONTEND_URL` - URL del frontend (default: http://localhost:5173)
+- `BACKEND_URL` - URL del backend (default: http://127.0.0.1:8000)
+
+---
+
+## 🧠 Cómo Funciona
+
+1. **Agentes** tienen: nombre, estrategia (S1/S2/S3), presupuesto, umbral de réplica
+2. **Estrategias**:
+   - **S1** - Momentum: compra si últimos 3 precios suben
+   - **S2** - Mean Reversion: compra si precio < media * 0.98
+   - **S3** - Breakout: compra si rompe máximo de 10 velas
+3. **Ciclo de vida**: cada 5 segundos el engine evalúa señales y actualiza presupuestos
+4. **Muerte**: si presupuesto ≤ 0, agente pasa a estado MUERTO
+5. **Réplica**: si profit ≥ umbral, agente se replica (crea hijo con presupuesto fresco)
+---
+
+## 📁 Estructura del Proyecto
+
+```
+AUTOMATON/
+├── electron/           # Electron main process
+├── frontend/           # React 18 + Vite
+├── backend/            # FastAPI + SQLModel
+├── package.json        # Orquestador raíz
+├── .gitignore
+└── README.md
+```
+
+---
+
+## �️ Requisitos
+
+- **Node.js** >= 18.0.0
+- **Python** >= 3.11
+- **npm** >= 9.0.0
+
+---
+
+© 2024 AUTOMATON Team | *Autonomous trading agents*
