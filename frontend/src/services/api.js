@@ -1,12 +1,12 @@
 // API service for AUTOMATON v2
 // Uses backend at localhost:8000 (or from Electron's window.api.getBackendUrl())
 
-const DEFAULT_BACKEND_URL = 'http://localhost:8000';
+const DEFAULT_BACKEND_URL = '';
 
-// Get backend URL - from Electron API if available, else default
-function getBackendUrl() {
+// Get backend URL - from Electron API if available, else default (empty for Vite proxy)
+async function getBackendUrl() {
   if (typeof window !== 'undefined' && window.api && window.api.getBackendUrl) {
-    return window.api.getBackendUrl();
+    return await window.api.getBackendUrl();
   }
   return DEFAULT_BACKEND_URL;
 }
@@ -18,8 +18,10 @@ function getBackendUrl() {
  * @returns {Promise<any>}
  */
 async function fetchApi(endpoint, options = {}) {
-  const baseUrl = getBackendUrl();
+  const baseUrl = await getBackendUrl();
   const url = `${baseUrl}${endpoint}`;
+  
+  console.log(`[API] Fetching: ${url}`);
   
   try {
     const response = await fetch(url, {
