@@ -4,6 +4,20 @@
 
 AUTOMATON v2 es un ecosistema de agentes de trading que operan de forma autónoma, ejecutan estrategias y se replican cuando alcanzan umbrales de profit.
 
+👉 **[Ver Análisis Completo del Sistema y Documentación Visual](docs/ANALYSIS.md)**
+
+---
+
+## 🖼️ Visual Preview
+
+<p align="center">
+  <img src="docs/screenshots/dashboard_overview.png" width="45%" alt="Dashboard Overview" />
+  <img src="docs/screenshots/agents_management.png" width="45%" alt="Agents Management" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/trades_history.png" width="91%" alt="Trades History" />
+</p>
+
 ---
 
 ## 🚀 Quick Start
