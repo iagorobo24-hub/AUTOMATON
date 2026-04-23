@@ -1,81 +1,39 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 
-import Dashboard from './pages/Dashboard.jsx';
-import Agents from './pages/Agents.jsx';
-import Trades from './pages/Trades.jsx';
-
-function Sidebar() {
-  return (
-    <nav style={styles.sidebar}>
-      <div style={styles.logo}>AUTOMATON</div>
-      <NavLink to="/" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.active : {}) })} end>
-        Dashboard
-      </NavLink>
-      <NavLink to="/agents" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.active : {}) })}>
-        Agentes
-      </NavLink>
-      <NavLink to="/trades" style={({ isActive }) => ({ ...styles.link, ...(isActive ? styles.active : {}) })}>
-        Trades
-      </NavLink>
-    </nav>
-  );
-}
+import DashboardPro from './pages/DashboardPro.jsx';
+import CryptoPro from './pages/CryptoPro.jsx';
+import OpsMonitorPro from './pages/OpsMonitorPro.jsx';
+import AgentsPage from './pages/AgentsPage.jsx';
+import SettingsPage from './pages/SettingsPage.jsx';
 
 function App() {
   return (
     <BrowserRouter>
-      <div style={styles.app}>
-        <Sidebar />
-        <main style={styles.main}>
+      <div className="flex min-h-screen bg-background text-white font-geist">
+        {/* Simple Pro Sidebar */}
+        <nav className="w-64 border-r border-border-pro p-6 space-y-8">
+          <div className="text-emerald-pro font-bold tracking-tighter text-xl mb-10">AUTOMATON_PRO</div>
+          <ul className="space-y-4 text-sm font-mono">
+            <li><Link to="/" className="hover:text-emerald-pro transition-colors">>> DASHBOARD</Link></li>
+            <li><Link to="/crypto" className="hover:text-emerald-pro transition-colors">>> CRYPTO_TERMINAL</Link></li>
+            <li><Link to="/monitor" className="hover:text-emerald-pro transition-colors">>> OPS_MONITOR</Link></li>
+            <li><Link to="/agents" className="hover:text-emerald-pro transition-colors">>> AGENT_GENETICS</Link></li>
+            <li><Link to="/settings" className="hover:text-emerald-pro transition-colors">>> SYS_CONFIG</Link></li>
+          </ul>
+        </nav>
+
+        <main className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/trades" element={<Trades />} />
+            <Route path="/" element={<DashboardPro />} />
+            <Route path="/crypto" element={<CryptoPro />} />
+            <Route path="/monitor" element={<OpsMonitorPro />} />
+            <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </div>
     </BrowserRouter>
   );
 }
-
-const styles = {
-  app: {
-    display: 'flex',
-    minHeight: '100vh',
-    backgroundColor: '#050505',
-  },
-  sidebar: {
-    width: '200px',
-    backgroundColor: '#0a0a0a',
-    borderRight: '1px solid #222',
-    padding: '24px 0',
-    display: 'flex',
-    flexDirection: 'column',
-    fontFamily: 'JetBrains Mono, monospace',
-  },
-  logo: {
-    padding: '0 24px 24px',
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#00ff88',
-    borderBottom: '1px solid #222',
-    marginBottom: '16px',
-  },
-  link: {
-    padding: '12px 24px',
-    color: '#888',
-    textDecoration: 'none',
-    fontSize: '14px',
-    transition: 'color 0.2s',
-  },
-  active: {
-    color: '#00ff88',
-    backgroundColor: '#00ff8811',
-  },
-  main: {
-    flex: 1,
-    overflow: 'auto',
-  },
-};
 
 export default App;

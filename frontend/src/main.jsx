@@ -1,10 +1,20 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App.jsx'
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import './styles/theme.css'
 import './index.css'
 import './App.css'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 console.log('[MAIN] Starting app...')
 console.log('[MAIN] Root element:', document.getElementById('root'))
@@ -16,7 +26,9 @@ try {
   root.render(
     <React.StrictMode>
       <ErrorBoundary>
-        <App />
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
       </ErrorBoundary>
     </React.StrictMode>,
   )
