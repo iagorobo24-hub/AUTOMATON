@@ -14,11 +14,11 @@ function App() {
         <nav className="w-64 border-r border-border-pro p-6 space-y-8">
           <div className="text-emerald-pro font-bold tracking-tighter text-xl mb-10">AUTOMATON_PRO</div>
           <ul className="space-y-4 text-sm font-mono">
-            <li><Link to="/" className="hover:text-emerald-pro transition-colors">>> DASHBOARD</Link></li>
-            <li><Link to="/crypto" className="hover:text-emerald-pro transition-colors">>> CRYPTO_TERMINAL</Link></li>
-            <li><Link to="/monitor" className="hover:text-emerald-pro transition-colors">>> OPS_MONITOR</Link></li>
-            <li><Link to="/agents" className="hover:text-emerald-pro transition-colors">>> AGENT_GENETICS</Link></li>
-            <li><Link to="/settings" className="hover:text-emerald-pro transition-colors">>> SYS_CONFIG</Link></li>
+            <li><Link to="/" className="hover:text-emerald-pro transition-colors">&gt;&gt; DASHBOARD</Link></li>
+            <li><Link to="/crypto" className="hover:text-emerald-pro transition-colors">&gt;&gt; CRYPTO_TERMINAL</Link></li>
+            <li><Link to="/monitor" className="hover:text-emerald-pro transition-colors">&gt;&gt; OPS_MONITOR</Link></li>
+            <li><Link to="/agents" className="hover:text-emerald-pro transition-colors">&gt;&gt; AGENT_GENETICS</Link></li>
+            <li><Link to="/settings" className="hover:text-emerald-pro transition-colors">&gt;&gt; SYS_CONFIG</Link></li>
           </ul>
         </nav>
 
