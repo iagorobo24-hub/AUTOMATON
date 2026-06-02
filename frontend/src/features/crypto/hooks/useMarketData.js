@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/shared/lib/api-client';
+import api from "@/lib/api";
 
 /**
  * Hook to fetch market data for the tactical terminal

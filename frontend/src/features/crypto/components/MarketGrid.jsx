@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui/Button';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useMarketData } from '../hooks/useMarketData';
 import { useQuickDeploy } from '../hooks/useQuickDeploy';
 
@@ -9,7 +9,7 @@ export function MarketGrid() {
   const { mutate: deploy, isPending: isDeploying } = useQuickDeploy();
 
   if (isLoading) {
-    return <div className="p-8 text-center text-emerald-pro animate-pulse font-mono">LOADING_TACTICAL_DATA...</div>;
+    return <div className="p-8 text-center text-text-blue-500 animate-pulse font-mono">LOADING_TACTICAL_DATA...</div>;
   }
 
   if (isError) {
@@ -38,7 +38,7 @@ export function MarketGrid() {
                     {coin.symbol[0]}
                   </div>
                   <div>
-                    <div className="font-bold text-emerald-pro leading-none">{coin.symbol}</div>
+                    <div className="font-bold text-text-blue-500 leading-none">{coin.symbol}</div>
                     <div className="text-[10px] text-[#86948a] uppercase mt-1">{coin.name}</div>
                   </div>
                 </div>
@@ -46,13 +46,13 @@ export function MarketGrid() {
               <td className="px-4 py-4 text-right font-mono text-sm tracking-tighter">
                 ${coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
-              <td className={`px-4 py-4 text-right font-mono text-sm ${coin.change24h >= 0 ? 'text-emerald-pro' : 'text-red-400'}`}>
+              <td className={`px-4 py-4 text-right font-mono text-sm ${coin.change24h >= 0 ? 'text-text-blue-500' : 'text-red-400'}`}>
                 {coin.change24h >= 0 ? '+' : ''}{coin.change24h.toFixed(2)}%
               </td>
               <td className="px-4 py-4 text-center">
                 <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase ${
                   coin.rsi > 70 ? 'bg-red-400/10 text-red-400' : 
-                  coin.rsi < 30 ? 'bg-emerald-pro/10 text-emerald-pro' : 
+                  coin.rsi < 30 ? 'bg-text-blue-500/10 text-text-blue-500' : 
                   'bg-[#3c4a42]/20 text-[#86948a]'
                 }`}>
                   {coin.rsi} {coin.rsi > 70 ? 'OVERBOUGHT' : coin.rsi < 30 ? 'OVERSOLD' : 'NEUTRAL'}
@@ -63,7 +63,7 @@ export function MarketGrid() {
               </td>
               <td className="px-4 py-4 text-center">
                 <Button 
-                  variant="emerald" 
+                  variant="blue" 
                   className="text-[10px] py-1 px-3 h-auto"
                   onClick={() => deploy(coin.symbol)}
                   disabled={isDeploying}

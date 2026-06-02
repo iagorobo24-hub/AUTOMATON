@@ -83,7 +83,44 @@ export const getEstado = async () => {
   return fetchApi('/api/estado');
 };
 
-// Export default object with all methods
+// ========== CRYPTO API ==========
+
+/**
+ * Get top cryptocurrencies by market cap
+ * @param {number} limit - Number of coins to return (default 10)
+ * @returns {Promise<{coins: Array}>}
+ */
+export const getTopCoins = async (limit = 10) => {
+  return fetchApi(`/api/crypto/top-coins?limit=${limit}`);
+};
+
+/**
+ * Get trending cryptocurrencies
+ * @returns {Promise<{trending: Array}>}
+ */
+export const getTrending = async () => {
+  return fetchApi('/api/crypto/trending');
+};
+
+/**
+ * Get current price for a specific coin
+ * @param {string} coinId - Coin ID (e.g., 'bitcoin', 'ethereum')
+ * @returns {Promise<Object>}
+ */
+export const getCoinPrice = async (coinId) => {
+  return fetchApi(`/api/crypto/price/${coinId}`);
+};
+
+/**
+ * Get price history for a coin
+ * @param {string} coinId - Coin ID
+ * @param {number} days - Days of history (default 7)
+ * @returns {Promise<{prices: Array}>}
+ */
+export const getCoinHistory = async (coinId, days = 7) => {
+  return fetchApi(`/api/crypto/history/${coinId}?days=${days}`);
+};
+
 const api = {
   fetchApi,
   getAgents,
@@ -92,6 +129,10 @@ const api = {
   getTrades,
   getStats,
   getEstado,
+  getTopCoins,
+  getTrending,
+  getCoinPrice,
+  getCoinHistory,
 };
 
 export default api;

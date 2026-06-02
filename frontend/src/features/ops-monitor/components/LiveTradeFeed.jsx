@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from "@/shared/components/ui/Card";
+import { Card } from "@/components/ui/card";
 import { useTradingSocket } from "@/shared/hooks/useTradingSocket";
 import { ArrowUpRight, ArrowDownRight, Zap, ListFilter } from "lucide-react";
 
@@ -47,9 +47,9 @@ export function LiveTradeFeed() {
       <div className="p-4 border-b border-[#3c4a42] flex items-center justify-between bg-[#141b17]">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Zap className={`w-4 h-4 ${isConnected ? 'text-[#10b981]' : 'text-orange-500'}`} />
+            <Zap className={`w-4 h-4 ${isConnected ? 'text-[#3b82f6]' : 'text-orange-500'}`} />
             {isConnected && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#10b981] rounded-full animate-ping" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#3b82f6] rounded-full animate-ping" />
             )}
           </div>
           <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Live Operations Monitor</h3>
@@ -59,7 +59,7 @@ export function LiveTradeFeed() {
              <ListFilter className="w-3 h-3 text-gray-500" />
              <span className="text-[9px] font-mono text-gray-500 uppercase">Filter</span>
           </div>
-          <div className="text-[9px] font-mono font-bold text-[#10b981] bg-[#10b981]/10 px-2 py-0.5">
+          <div className="text-[9px] font-mono font-bold text-[#3b82f6] bg-[#3b82f6]/10 px-2 py-0.5">
             {isConnected ? 'LIVE_STREAM' : 'RECONNECTING...'}
           </div>
         </div>
@@ -80,12 +80,12 @@ export function LiveTradeFeed() {
               <tr key={trade.id} className="hover:bg-[#1a211d] group transition-all duration-200">
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-1 h-8 ${trade.type === 'LONG' ? 'bg-[#10b981]' : 'bg-red-500'}`} />
+                    <div className={`w-1 h-8 ${trade.type === 'LONG' ? 'bg-[#3b82f6]' : 'bg-red-500'}`} />
                     <div>
                       <div className="font-bold text-sm text-gray-200 tracking-tight">{trade.pair}</div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-[9px] font-mono px-1 py-0.5 rounded-sm ${
-                          trade.type === 'LONG' ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-red-500/10 text-red-500'
+                          trade.type === 'LONG' ? 'bg-[#3b82f6]/10 text-[#3b82f6]' : 'bg-red-500/10 text-red-500'
                         }`}>
                           {trade.type}
                         </span>
@@ -97,7 +97,7 @@ export function LiveTradeFeed() {
                 <td className="px-4 py-4">
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-mono text-gray-400 uppercase tracking-tighter">Alpha_V2</span>
-                    <span className="text-[9px] font-mono text-[#10b981]/60 uppercase">High_Freq</span>
+                    <span className="text-[9px] font-mono text-[#3b82f6]/60 uppercase">High_Freq</span>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-right">
@@ -110,7 +110,7 @@ export function LiveTradeFeed() {
                 </td>
                 <td className="px-4 py-4 text-right">
                   <div className={`font-mono text-sm font-bold flex items-center justify-end gap-1.5 ${
-                    trade.pnl >= 0 ? 'text-[#10b981]' : 'text-red-500'
+                    trade.pnl >= 0 ? 'text-[#3b82f6]' : 'text-red-500'
                   }`}>
                     <span className="text-xs">{trade.pnl >= 0 ? '+' : ''}</span>
                     {trade.pnl.toFixed(2)}%
@@ -133,7 +133,7 @@ export function LiveTradeFeed() {
         <div className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">
           Active Ops: {trades.length}
         </div>
-        <div className="text-[9px] font-mono text-[#10b981]/70 uppercase tracking-widest animate-pulse">
+        <div className="text-[9px] font-mono text-[#3b82f6]/70 uppercase tracking-widest animate-pulse">
           Listening for AGENT_EVENTS...
         </div>
       </div>

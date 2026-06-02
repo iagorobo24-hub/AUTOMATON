@@ -1,4 +1,4 @@
-"""Frontend component tests"""
+/* Frontend component tests */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 
@@ -191,3 +191,4 @@ describe('App Components', () => {
     const cleanup = () => {};
     expect(cleanup).toBeDefined();
   });
+});

@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react';
 import { getAgents, createAgent, deleteAgent } from '../services/api.js';
+import { Plus, Search } from 'lucide-react';
+
+import Layout from '../components/layout/Layout';
+import AgentTable from '../components/agents/AgentTable';
+import AgentDetailPanel from '../components/agents/AgentDetailPanel';
+import EmptyState from '../components/shared/EmptyState';
+import { Bot } from 'lucide-react';
 
 function Agents() {
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
@@ -39,352 +49,181 @@ function Agents() {
       setFormData({ nombre: '', estrategia: 'S1', presupuesto: 1000, umbral: 0.15 });
       fetchAgents();
     } catch (err) {
-      setError(`Error creando agente: ${err.message}`);
+      setError(`Error creating agent: ${err.message}`);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este agente?')) return;
+  const handleDelete = async (agent) => {
+    if (!confirm(`Delete agent ${agent.nombre}?`)) return;
     try {
-      await deleteAgent(id);
+      await deleteAgent(agent.id);
+      if (selectedAgent?.id === agent.id) {
+        setDetailOpen(false);
+        setSelectedAgent(null);
+      }
       fetchAgents();
     } catch (err) {
-      setError(`Error eliminando: ${err.message}`);
+      setError(`Error deleting: ${err.message}`);
     }
   };
 
-  const getEstadoColor = (estado) => {
-    switch (estado) {
-      case 'ACTIVO': return '#00ff88';
-      case 'MUERTO': return '#ff4444';
-      case 'REPLICADO': return '#4488ff';
-      default: return '#888888';
-    }
+  const handleStop = (agent) => {
+    // Placeholder for stop functionality
+    console.log('Stop agent:', agent.id);
   };
 
-  const calcularProfit = (agente) => {
-    return agente.presupuesto_actual - agente.presupuesto_inicial;
+  const handleSelectAgent = (agent) => {
+    setSelectedAgent(agent);
+    setDetailOpen(true);
   };
 
-  const calcularProfitPercent = (agente) => {
-    const profit = calcularProfit(agente);
-    return ((profit / agente.presupuesto_inicial) * 100).toFixed(2);
-  };
+  const filteredAgents = agents.filter(agent => 
+    agent.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    agent.estrategia.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  if (loading) return <div style={styles.loading}>Cargando...</div>;
+  // Loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-[var(--text-muted)]">Loading agents...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Layout>
+        <EmptyState 
+          icon={Bot}
+          title="Error loading agents"
+          subtitle={error}
+        />
+        <button onClick={fetchAgents} className="btn-primary mt-4">
+          Retry
+        </button>
+      </Layout>
+    );
+  }
+
+  const headerActions = (
+    <button onClick={() => setModalOpen(true)} className="btn-primary">
+      <Plus className="h-4 w-4 mr-2" />
+      New Agent
+    </button>
+  );
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Agentes</h1>
-        <button onClick={() => setModalOpen(true)} style={styles.button}>
-          + Nuevo Agente
-        </button>
+    <Layout actions={headerActions}>
+      {/* Search Bar */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
+          <input
+            type="text"
+            placeholder="Search agents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="app-input pl-10"
+          />
+        </div>
       </div>
 
-      {error && (
-        <div style={styles.error}>
-          {error}
-          <button onClick={() => setError(null)} style={styles.closeError}>×</button>
-        </div>
-      )}
+      {/* Agent Table */}
+      <AgentTable
+        agents={filteredAgents}
+        selectedAgent={selectedAgent}
+        onSelect={handleSelectAgent}
+        onStop={handleStop}
+        onDelete={handleDelete}
+      />
 
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Nombre</th>
-            <th style={styles.th}>Estrategia</th>
-            <th style={styles.th}>Presupuesto</th>
-            <th style={styles.th}>Profit %</th>
-            <th style={styles.th}>Estado</th>
-            <th style={styles.th}>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {agents.map((agente) => (
-            <tr key={agente.id} style={styles.tr}>
-              <td style={styles.td}>{agente.nombre}</td>
-              <td style={styles.td}>{agente.estrategia}</td>
-              <td style={styles.td}>
-                ${agente.presupuesto_actual?.toFixed(2)}
-                <span style={styles.initial}> / ${agente.presupuesto_inicial?.toFixed(0)}</span>
-              </td>
-              <td style={styles.td}>
-                <span style={{ 
-                  color: calcularProfit(agente) >= 0 ? '#00ff88' : '#ff4444' 
-                }}>
-                  {calcularProfitPercent(agente)}%
-                </span>
-              </td>
-              <td style={styles.td}>
-                <span style={{ 
-                  color: getEstadoColor(agente.estado),
-                  fontWeight: '600',
-                }}>
-                  ● {agente.estado}
-                </span>
-              </td>
-              <td style={styles.td}>
-                <button 
-                  onClick={() => handleDelete(agente.id)}
-                  style={styles.deleteBtn}
-                  disabled={agente.estado === 'MUERTO'}
-                >
-                  Eliminar
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Detail Panel */}
+      <AgentDetailPanel
+        agent={selectedAgent}
+        open={detailOpen}
+        onClose={() => {
+          setDetailOpen(false);
+          setSelectedAgent(null);
+        }}
+      />
 
-      {agents.length === 0 && (
-        <div style={styles.empty}>No hay agentes. Crea uno nuevo.</div>
-      )}
-
+      {/* Create Modal */}
       {modalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modal}>
-            <h2 style={styles.modalTitle}>Nuevo Agente</h2>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-6">New Agent</h2>
             <form onSubmit={handleCreate}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nombre</label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  required
-                  style={styles.input}
-                  placeholder="Agente Alpha"
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] uppercase mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={formData.nombre}
+                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    required
+                    className="app-input"
+                    placeholder="Agent Alpha"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] uppercase mb-2">Strategy</label>
+                  <select
+                    value={formData.estrategia}
+                    onChange={(e) => setFormData({ ...formData, estrategia: e.target.value })}
+                    className="app-input"
+                  >
+                    <option value="S1">S1 - Momentum</option>
+                    <option value="S2">S2 - Mean Reversion</option>
+                    <option value="S3">S3 - Breakout</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] uppercase mb-2">Initial Budget ($)</label>
+                  <input
+                    type="number"
+                    value={formData.presupuesto}
+                    onChange={(e) => setFormData({ ...formData, presupuesto: parseFloat(e.target.value) })}
+                    required
+                    min="100"
+                    className="app-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-[var(--text-muted)] uppercase mb-2">Replication Threshold (0.15 = 15%)</label>
+                  <input
+                    type="number"
+                    value={formData.umbral}
+                    onChange={(e) => setFormData({ ...formData, umbral: parseFloat(e.target.value) })}
+                    required
+                    min="0.05"
+                    max="1"
+                    step="0.05"
+                    className="app-input"
+                  />
+                </div>
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Estrategia</label>
-                <select
-                  value={formData.estrategia}
-                  onChange={(e) => setFormData({ ...formData, estrategia: e.target.value })}
-                  style={styles.input}
-                >
-                  <option value="S1">S1 - Momentum</option>
-                  <option value="S2">S2 - Mean Reversion</option>
-                  <option value="S3">S3 - Breakout</option>
-                </select>
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Presupuesto Inicial ($)</label>
-                <input
-                  type="number"
-                  value={formData.presupuesto}
-                  onChange={(e) => setFormData({ ...formData, presupuesto: parseFloat(e.target.value) })}
-                  required
-                  min="100"
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Umbral Réplica (0.15 = 15%)</label>
-                <input
-                  type="number"
-                  value={formData.umbral}
-                  onChange={(e) => setFormData({ ...formData, umbral: parseFloat(e.target.value) })}
-                  required
-                  min="0.05"
-                  max="1"
-                  step="0.05"
-                  style={styles.input}
-                />
-              </div>
-
-              <div style={styles.modalButtons}>
-                <button type="button" onClick={() => setModalOpen(false)} style={styles.cancelBtn}>
-                  Cancelar
+              <div className="flex gap-3 mt-6">
+                <button type="button" onClick={() => setModalOpen(false)} className="btn-ghost flex-1">
+                  Cancel
                 </button>
-                <button type="submit" style={styles.submitBtn}>
-                  Crear
+                <button type="submit" className="btn-primary flex-1">
+                  Create
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+    </Layout>
   );
 }
-
-const styles = {
-  container: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    minHeight: '100vh',
-    color: '#ffffff',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '24px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '600',
-    color: '#00ff88',
-    margin: 0,
-  },
-  button: {
-    padding: '12px 24px',
-    backgroundColor: '#00ff88',
-    color: '#000',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontFamily: 'JetBrains Mono, monospace',
-    fontWeight: '600',
-    fontSize: '14px',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    backgroundColor: '#0a0a0a',
-    border: '1px solid #222',
-    borderRadius: '8px',
-    overflow: 'hidden',
-  },
-  th: {
-    padding: '16px',
-    textAlign: 'left',
-    backgroundColor: '#111',
-    color: '#888',
-    fontSize: '12px',
-    textTransform: 'uppercase',
-    fontWeight: '500',
-    borderBottom: '1px solid #222',
-  },
-  tr: {
-    borderBottom: '1px solid #1a1a1a',
-  },
-  td: {
-    padding: '16px',
-    fontSize: '14px',
-  },
-  initial: {
-    color: '#666',
-    fontSize: '12px',
-  },
-  deleteBtn: {
-    padding: '6px 12px',
-    backgroundColor: '#ff4444',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    opacity: '0.8',
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '48px',
-    color: '#666',
-  },
-  loading: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    color: '#00ff88',
-    minHeight: '100vh',
-  },
-  error: {
-    backgroundColor: '#ff444422',
-    color: '#ff4444',
-    padding: '12px 16px',
-    borderRadius: '6px',
-    marginBottom: '16px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  closeError: {
-    background: 'none',
-    border: 'none',
-    color: '#ff4444',
-    fontSize: '20px',
-    cursor: 'pointer',
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: '#0a0a0a',
-    border: '1px solid #333',
-    borderRadius: '8px',
-    padding: '24px',
-    width: '400px',
-    maxWidth: '90vw',
-  },
-  modalTitle: {
-    margin: '0 0 24px 0',
-    color: '#00ff88',
-    fontSize: '20px',
-  },
-  formGroup: {
-    marginBottom: '16px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    color: '#888',
-    fontSize: '12px',
-    textTransform: 'uppercase',
-  },
-  input: {
-    width: '100%',
-    padding: '10px',
-    backgroundColor: '#111',
-    border: '1px solid #333',
-    borderRadius: '4px',
-    color: '#fff',
-    fontFamily: 'JetBrains Mono, monospace',
-    fontSize: '14px',
-    boxSizing: 'border-box',
-  },
-  modalButtons: {
-    display: 'flex',
-    gap: '12px',
-    marginTop: '24px',
-  },
-  cancelBtn: {
-    flex: 1,
-    padding: '12px',
-    backgroundColor: '#222',
-    color: '#fff',
-    border: '1px solid #333',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontFamily: 'JetBrains Mono, monospace',
-  },
-  submitBtn: {
-    flex: 1,
-    padding: '12px',
-    backgroundColor: '#00ff88',
-    color: '#000',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontFamily: 'JetBrains Mono, monospace',
-    fontWeight: '600',
-  },
-};
 
 export default Agents;

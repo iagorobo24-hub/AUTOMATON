@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react';
-import { getEstado, getStats } from '../services/api.js';
+import { getEstado, getStats, getAgents, getTopCoins } from '../services/api.js';
+import { Bot, Database, CheckCircle2, Activity, TrendingUp } from 'lucide-react';
+
+import Layout from '../components/layout/Layout';
+import StatCard from '../components/dashboard/StatCard';
+import ActivityFeed from '../components/dashboard/ActivityFeed';
+import AgentOverview from '../components/dashboard/AgentOverview';
+import EmptyState from '../components/shared/EmptyState';
+
+import { mockActivityFeed, mockAgents } from '../lib/mockData.js';
+
+console.log('[DASHBOARD] Module loaded')
 
 // Custom hook for interval
 function useInterval(callback, delay) {
@@ -13,18 +24,24 @@ function useInterval(callback, delay) {
 function Dashboard() {
   const [estado, setEstado] = useState(null);
   const [stats, setStats] = useState(null);
+  const [agents, setAgents] = useState([]);
+  const [cryptoData, setCryptoData] = useState(null);
+  const [cryptoError, setCryptoError] = useState(null);
+  const [cryptoLoading, setCryptoLoading] = useState(true);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     try {
       setError(null);
-      const [estadoData, statsData] = await Promise.all([
+      const [estadoData, statsData, agentsData] = await Promise.all([
         getEstado(),
         getStats(),
+        getAgents().catch(() => []),
       ]);
       setEstado(estadoData);
       setStats(statsData);
+      setAgents(agentsData || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -32,9 +49,29 @@ function Dashboard() {
     }
   };
 
-  // Initial load
+  const fetchCryptoData = async () => {
+    try {
+      setCryptoError(null);
+      const data = await getTopCoins(5);
+      setCryptoData(data);
+    } catch (err) {
+      console.error('[Dashboard] Crypto fetch error:', err);
+      setCryptoError(err.message);
+    } finally {
+      setCryptoLoading(false);
+    }
+  };
+
+
   useEffect(() => {
     fetchData();
+    fetchCryptoData();
+  }, []);
+
+  // Auto-refresh crypto data every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchCryptoData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Auto refresh every 5 seconds
@@ -42,182 +79,144 @@ function Dashboard() {
     fetchData();
   }, 5000);
 
-  if (loading) {
-    return <div style={styles.loading}>Cargando...</div>;
-  }
+  // Calculate derived stats
+  const totalAgents = agents.length;
+  const activeAgents = agents.filter(a => a.estado === 'ACTIVO').length;
+  const tasksCompleted = agents.reduce((sum, a) => sum + (a.tasks_completed || 0), 0);
+  const uptime = `${Math.floor((stats?.uptime_hours || 0) / 24)}d ${(stats?.uptime_hours || 0) % 24}h`;
+  const memoryUsage = Math.round(
+    agents.reduce((sum, a) => sum + (a.memory_usage || 0), 0) / (agents.length || 1)
+  );
 
-  if (error) {
+  // Loading state within layout
+  if (loading) {
     return (
-      <div style={styles.error}>
-        <h3>Error</h3>
-        <p>{error}</p>
-        <button onClick={fetchData} style={styles.button}>Reintentar</button>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-[var(--text-muted)]">Loading...</div>
+        </div>
+      </Layout>
     );
   }
 
-  const activos = estado?.agentes_activos || 0;
-  const muertos = estado?.agentes_muertos || 0;
-  const replicados = estado?.agentes_replicados || 0;
-  const profit = estado?.profit_total || 0;
-  const winRate = stats?.win_rate_percent || 0;
+  // Error state within layout
+  if (error) {
+    return (
+      <Layout>
+        <EmptyState 
+          icon={Activity}
+          title="Error loading dashboard"
+          subtitle={error}
+        />
+        <button onClick={fetchData} className="btn-primary mt-4">
+          Retry
+        </button>
+      </Layout>
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Dashboard</h1>
-      
-      <div style={styles.grid}>
-        <Card 
-          title="Agentes Activos" 
-          value={activos} 
-          color="#00ff88" 
+    <Layout>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard 
+          title="Total Agents" 
+          value={totalAgents} 
+          subtitle={`${activeAgents} active`}
+          icon={Bot}
         />
-        <Card 
-          title="Agentes Muertos" 
-          value={muertos} 
-          color="#ff4444" 
+        <StatCard 
+          title="Memory Usage" 
+          value={`${memoryUsage}%`}
+          subtitle={`${agents.reduce((sum, a) => sum + (a.memory_usage || 0), 0)}MB total`}
+          icon={Database}
         />
-        <Card 
-          title="Agentes Replicados" 
-          value={replicados} 
-          color="#4488ff" 
+        <StatCard 
+          title="Tasks Completed" 
+          value={tasksCompleted.toLocaleString()}
+          subtitle={`${stats?.win_rate_percent || 0}% win rate`}
+          icon={CheckCircle2}
         />
-        <Card 
-          title="P&L Total" 
-          value={`${profit >= 0 ? '+' : ''}${profit.toFixed(2)}`}
-          color={profit >= 0 ? '#00ff88' : '#ff4444'}
-        />
-        <Card 
-          title="Win Rate" 
-          value={`${winRate}%`}
-          color="#ffaa00"
-        />
-        <Card 
-          title="Total Trades" 
-          value={stats?.total_trades || 0}
-          color="#ffffff"
+        <StatCard 
+          title="Uptime" 
+          value={uptime}
+          subtitle="System online"
+          icon={Activity}
         />
       </div>
 
-      <div style={styles.prices}>
-        <h3 style={styles.subtitle}>Precios Simulados</h3>
-        <div style={styles.priceGrid}>
-          {estado?.precios_actuales && Object.entries(estado.precios_actuales).map(([symbol, price]) => (
-            <div key={symbol} style={styles.priceItem}>
-              <span style={styles.priceSymbol}>{symbol}</span>
-              <span style={styles.priceValue}>${price?.toFixed(2)}</span>
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ActivityFeed items={mockActivityFeed.slice(0, 8)} />
+        <AgentOverview agents={agents.length > 0 ? agents : mockAgents} />
+      </div>
+
+      {/* Crypto Market Section */}
+      {cryptoData?.coins && cryptoData.coins.length > 0 && (
+        <div className="app-card mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[var(--accent)]" />
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Crypto Market</h3>
             </div>
-          ))}
+            <button 
+              onClick={fetchCryptoData}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              disabled={cryptoLoading}
+            >
+              {cryptoLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {cryptoData.coins.map((coin) => {
+              const isPositive = (coin.price_change_24h || 0) >= 0;
+              return (
+                <div key={coin.id} className="p-3 rounded-lg bg-[var(--bg-elevated)]">
+                  <div className="flex items-center gap-2 mb-2">
+                    {coin.image && (
+                      <img src={coin.image} alt={coin.symbol} className="w-5 h-5 rounded-full" />
+                    )}
+                    <span className="text-xs font-medium text-[var(--text-secondary)]">{coin.symbol}</span>
+                  </div>
+                  <p className="text-sm font-mono font-bold text-[var(--accent)]">
+                    ${coin.current_price >= 1 ? coin.current_price.toLocaleString() : coin.current_price.toFixed(4)}
+                  </p>
+                  <p className={`text-xs ${isPositive ? 'text-blue-500' : 'text-red-500'}`}>
+                    {isPositive ? '+' : ''}{coin.price_change_24h?.toFixed(2)}%
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* Error State for Crypto */}
+      {cryptoError && (
+        <div className="app-card mt-6 border border-yellow-500/30">
+          <div className="flex items-center gap-2 text-yellow-500">
+            <TrendingUp className="w-4 h-4" />
+            <p className="text-sm">Crypto data temporarily unavailable</p>
+          </div>
+        </div>
+      )}
+
+      {/* Prices Section */}
+      {estado?.precios_actuales && (
+        <div className="app-card mt-6">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Market Prices</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {Object.entries(estado.precios_actuales).map(([symbol, price]) => (
+              <div key={symbol} className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-elevated)]">
+                <span className="text-xs font-medium text-[var(--text-secondary)]">{symbol}</span>
+                <span className="text-sm font-mono text-[var(--accent)]">${price?.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Layout>
   );
 }
-
-function Card({ title, value, color }) {
-  return (
-    <div style={{ ...styles.card, borderColor: color }}>
-      <div style={styles.cardTitle}>{title}</div>
-      <div style={{ ...styles.cardValue, color }}>{value}</div>
-    </div>
-  );
-}
-
-const styles = {
-  container: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    minHeight: '100vh',
-    color: '#ffffff',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '600',
-    marginBottom: '24px',
-    color: '#00ff88',
-  },
-  subtitle: {
-    fontSize: '18px',
-    fontWeight: '500',
-    marginBottom: '16px',
-    color: '#888888',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
-    marginBottom: '32px',
-  },
-  card: {
-    backgroundColor: '#0a0a0a',
-    border: '1px solid',
-    borderRadius: '8px',
-    padding: '20px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  cardTitle: {
-    fontSize: '14px',
-    color: '#888888',
-    textTransform: 'uppercase',
-  },
-  cardValue: {
-    fontSize: '32px',
-    fontWeight: '700',
-  },
-  prices: {
-    backgroundColor: '#0a0a0a',
-    border: '1px solid #222',
-    borderRadius: '8px',
-    padding: '20px',
-  },
-  priceGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-    gap: '16px',
-  },
-  priceItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '12px',
-    backgroundColor: '#111',
-    borderRadius: '4px',
-  },
-  priceSymbol: {
-    color: '#888',
-    fontWeight: '500',
-  },
-  priceValue: {
-    color: '#00ff88',
-    fontWeight: '600',
-  },
-  loading: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    color: '#00ff88',
-    minHeight: '100vh',
-  },
-  error: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    color: '#ff4444',
-    minHeight: '100vh',
-  },
-  button: {
-    marginTop: '16px',
-    padding: '10px 20px',
-    backgroundColor: '#00ff88',
-    color: '#000',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontFamily: 'JetBrains Mono, monospace',
-    fontWeight: '600',
-  },
-};
 
 export default Dashboard;

@@ -16,7 +16,7 @@ const PURPLE = "#7000FF";
 const GRAY = "#6B7280";
 
 const statusConfig = {
-  active: { badge: "evo-badge-success", dot: "bg-green-500", label: "Activo" },
+  active: { badge: "evo-badge-success", dot: "bg-blue-500", label: "Activo" },
   replicating: { badge: "evo-badge-cyan", dot: "bg-cyan-400", label: "Replicando" },
   dying: { badge: "evo-badge-danger", dot: "bg-red-500", label: "En riesgo" },
   dead: { badge: "evo-badge bg-white/5 text-muted-foreground ring-white/10", dot: "bg-gray-500", label: "Muerto" },
@@ -27,7 +27,7 @@ const statusConfig = {
 /* ─── Health Bar ─── */
 function HealthBar({ value }) {
   const pct = Math.max(0, Math.min(100, value));
-  const color = pct > 60 ? "bg-green-500" : pct > 30 ? "bg-yellow-500" : "bg-red-500";
+  const color = pct > 60 ? "bg-blue-500" : pct > 30 ? "bg-yellow-500" : "bg-red-500";
   return (
     <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
       <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
@@ -84,7 +84,7 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
               </button>
               <div className="h-px bg-white/5 mx-2" />
               <button onClick={() => { onSimulate(agent.id, 10); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 text-foreground">
-                <TrendingUp className="w-4 h-4 text-green-400" /> Simular +€10
+                <TrendingUp className="w-4 h-4 text-blue-400" /> Simular +€10
               </button>
               <button onClick={() => { onSimulate(agent.id, -10); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 text-foreground">
                 <TrendingDown className="w-4 h-4 text-red-400" /> Simular −€10
@@ -140,7 +140,7 @@ function AgentCard({ agent, onReplicate, onDestroy, onSimulate, onDeposit }) {
         {[
           { label: "Gen", value: generation },
           { label: "Trades", value: tradesCount },
-          { label: "Ganados", value: successfulTrades, cls: "text-green-400" },
+          { label: "Ganados", value: successfulTrades, cls: "text-blue-400" },
           { label: "Clones", value: childrenCount },
         ].map((s) => (
           <div key={s.label} className="text-center">

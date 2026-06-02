@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/shared/lib/api-client';
+import api from "@/lib/api";
 
 /**
  * Hook to perform an instantaneous agent deployment

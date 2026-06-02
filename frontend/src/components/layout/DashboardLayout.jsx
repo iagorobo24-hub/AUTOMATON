@@ -64,7 +64,7 @@ const NotificationItem = ({ notification, onRead, onDismiss, onNavigate }) => {
       onClick={() => { if (!notification.read) onRead(notification.id); if (notification.link) onNavigate(notification.link); }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRead(notification.id); } }}
     >
-      <div className="p-2 rounded-lg shrink-0 bg-cyan-500/10 text-cyan-400">
+      <div className="p-2 rounded-lg shrink-0 bg-blue-500/10 text-blue-400">
         <Icon className="w-4 h-4" aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
@@ -72,7 +72,7 @@ const NotificationItem = ({ notification, onRead, onDismiss, onNavigate }) => {
           <p className={cn("text-sm", !notification.read ? "font-semibold text-foreground" : "text-muted-foreground")}>
             {notification.title}
           </p>
-          {!notification.read && <div className="w-2 h-2 rounded-full bg-cyan-500 shrink-0 mt-2" aria-label="No leída" />}
+          {!notification.read && <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-2" aria-label="No leída" />}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notification.message}</p>
         <p className="text-[10px] text-muted-foreground/50 mt-1 font-mono">{timeAgo(notification.created_at)}</p>
@@ -106,7 +106,7 @@ const NotificationsDropdown = ({ notifications, unreadCount, onRead, onReadAll, 
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <DropdownMenuLabel className="font-semibold text-sm p-0">Notificaciones</DropdownMenuLabel>
           <div className="flex gap-1">
-            {unreadCount > 0 && <button onClick={(e) => { e.preventDefault(); onReadAll(); }} className="text-xs text-cyan-400 hover:underline px-2 py-1 rounded-lg">Marcar leídas</button>}
+            {unreadCount > 0 && <button onClick={(e) => { e.preventDefault(); onReadAll(); }} className="text-xs text-blue-400 hover:underline px-2 py-1 rounded-lg">Marcar leídas</button>}
             {notifications.length > 0 && <button onClick={(e) => { e.preventDefault(); onDismissAll(); setIsOpen(false); }} className="text-xs text-muted-foreground hover:text-red-400 px-2 py-1 rounded-lg">Limpiar</button>}
           </div>
         </div>
@@ -153,7 +153,7 @@ const CommandPalette = ({ open, onClose }) => {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
           <Search className="w-[18px] h-[18px] text-muted-foreground" aria-hidden="true" />
           <Input placeholder="Buscar comandos..." value={search} onChange={(e) => setSearch(e.target.value)}
-            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-cyan-500 px-0 text-base placeholder:text-muted-foreground"
+            className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-blue-500 px-0 text-base placeholder:text-muted-foreground"
             autoFocus aria-label="Buscar comandos" data-testid="command-search-input" />
         </div>
         <ScrollArea className="max-h-[300px]">
@@ -214,8 +214,8 @@ const Sidebar = ({ isOpen, onClose }) => {
       >
         <div className="h-16 flex items-center px-6 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center glow-cyan">
-              <Zap className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center glow-blue">
+              <Zap className="w-4 h-4 text-blue-400" aria-hidden="true" />
             </div>
             <span className="font-heading font-bold text-lg tracking-wider text-foreground uppercase">Automaton</span>
           </div>
@@ -236,7 +236,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 className={cn(
                   "flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20"
+                    ? "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20"
                     : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
                 )}
                 aria-current={isActive ? "page" : undefined}
@@ -264,7 +264,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive
-                    ? "bg-cyan-500/10 text-cyan-400 ring-1 ring-cyan-500/20"
+                    ? "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20"
                     : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground"
                 )}
                 aria-current={isActive ? "page" : undefined}
@@ -352,33 +352,33 @@ const Topbar = ({ onMenuClick }) => {
                 "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer",
                 isSimulation
                   ? "bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/15"
-                  : "bg-green-500/10 border-green-500/20 hover:bg-green-500/15"
+                  : "bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15"
               )}
               aria-label={`Cambiar a modo ${isSimulation ? "normal" : "simulación"}`}
             >
               {isSimulation ? (
                 <FlaskConical className="w-3.5 h-3.5 text-purple-400" aria-hidden="true" />
               ) : (
-                <Coins className="w-3.5 h-3.5 text-green-400" aria-hidden="true" />
+                <Coins className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" />
               )}
               <span className={cn(
                 "text-[11px] font-medium",
-                isSimulation ? "text-purple-400" : "text-green-400"
+                isSimulation ? "text-purple-400" : "text-blue-400"
               )}>{isSimulation ? "Simulación" : "Real"}</span>
             </button>
             <div className={cn(
               "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border",
               connected
-                ? "bg-green-500/10 border-green-500/20"
+                ? "bg-blue-500/10 border-blue-500/20"
                 : "bg-red-500/10 border-red-500/20"
             )}>
               <div className={cn(
                 "w-1.5 h-1.5 rounded-full",
-                connected ? "bg-green-500 animate-pulse" : "bg-red-500"
+                connected ? "bg-blue-500 animate-pulse" : "bg-red-500"
               )} aria-hidden="true" />
               <span className={cn(
                 "text-[11px] font-medium",
-                connected ? "text-green-400" : "text-red-400"
+                connected ? "text-blue-400" : "text-red-400"
               )}>{connected ? 'Conectado' : 'Desconectado'}</span>
             </div>
           </div>

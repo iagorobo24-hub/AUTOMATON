@@ -16,12 +16,12 @@ const eventIcons = {
 const ActivityEventCard = ({ event, onClick }) => {
   const Icon = eventIcons[event.type] || eventIcons.default;
   const colorMap = {
-    agent_created: "text-cyan-400 bg-cyan-500/10", agent_replicated: "text-green-400 bg-green-500/10",
+    agent_created: "text-cyan-400 bg-cyan-500/10", agent_replicated: "text-blue-400 bg-blue-500/10",
     agent_dying: "text-red-400 bg-red-500/10", agent_dead: "text-red-400 bg-red-500/10",
-    trade_opened: "text-cyan-400 bg-cyan-500/10", trade_win: "text-green-400 bg-green-500/10", trade_loss: "text-red-400 bg-red-500/10",
-    payment_received: "text-green-400 bg-green-500/10", alert_low_balance: "text-yellow-400 bg-yellow-500/10",
+    trade_opened: "text-cyan-400 bg-cyan-500/10", trade_win: "text-blue-400 bg-blue-500/10", trade_loss: "text-red-400 bg-red-500/10",
+    payment_received: "text-blue-400 bg-blue-500/10", alert_low_balance: "text-yellow-400 bg-yellow-500/10",
     alert_replication_ready: "text-cyan-400 bg-cyan-500/10", opportunity_detected: "text-yellow-400 bg-yellow-500/10",
-    simulation_started: "text-green-400 bg-green-500/10", simulation_stopped: "text-yellow-400 bg-yellow-500/10",
+    simulation_started: "text-blue-400 bg-blue-500/10", simulation_stopped: "text-yellow-400 bg-yellow-500/10",
     default: "text-cyan-400 bg-cyan-500/10"
   };
   const colorClass = colorMap[event.type] || colorMap.default;
@@ -46,7 +46,7 @@ const ActivityEventCard = ({ event, onClick }) => {
             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{event.description}</p>
           </div>
           {event.amount != null && (
-            <span className={`text-sm font-semibold shrink-0 font-mono ${event.amount >= 0 ? "text-green-400" : "text-red-400"}`}>
+            <span className={`text-sm font-semibold shrink-0 font-mono ${event.amount >= 0 ? "text-blue-400" : "text-red-400"}`}>
               {event.amount >= 0 ? "+" : "-"}${Math.abs(event.amount).toFixed(2)}
             </span>
           )}
@@ -72,8 +72,8 @@ const ActivityStats = ({ events }) => {
       {[
         { label: "Hoy", value: todayEvents.length, color: "text-cyan-400" },
         { label: "Operaciones", value: trades.length, color: "text-foreground" },
-        { label: "Ganancias", value: wins.length, color: "text-green-400" },
-        { label: "Replicaciones", value: replications.length, color: "text-green-400" }
+        { label: "Ganancias", value: wins.length, color: "text-blue-400" },
+        { label: "Replicaciones", value: replications.length, color: "text-blue-400" }
       ].map((stat) => (
         <div key={stat.label} className="glass-card rounded-xl p-5">
           <p className="evo-section-title">{stat.label}</p>

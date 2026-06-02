@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getTrades } from '../services/api.js';
+import { TrendingUp, TrendingDown, Minus, Receipt } from 'lucide-react';
+
+import Layout from '../components/layout/Layout';
+import EmptyState from '../components/shared/EmptyState';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 function Trades() {
   const [trades, setTrades] = useState([]);
@@ -10,7 +15,7 @@ function Trades() {
     try {
       setError(null);
       const data = await getTrades();
-      // Tomar últimos 50
+      // Take last 50
       setTrades(data.slice(0, 50));
     } catch (err) {
       setError(err.message);
@@ -28,155 +33,129 @@ function Trades() {
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return '-';
     const date = new Date(timestamp);
-    return date.toLocaleString('es-ES', {
+    return date.toLocaleString('en-US', {
       day: '2-digit',
-      month: '2-digit',
+      month: 'short',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
     });
   };
 
-  if (loading) return <div style={styles.loading}>Cargando...</div>;
+  // Loading state
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-[var(--text-muted)]">Loading trades...</div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Layout>
+        <EmptyState 
+          icon={Receipt}
+          title="Error loading trades"
+          subtitle={error}
+        />
+        <button onClick={fetchTrades} className="btn-primary mt-4">
+          Retry
+        </button>
+      </Layout>
+    );
+  }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Trades</h1>
-
-      {error && (
-        <div style={styles.error}>
-          {error}
-          <button onClick={() => setError(null)} style={styles.closeError}>×</button>
+    <Layout>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="app-card text-center">
+          <p className="text-xs text-[var(--text-muted)] uppercase">Total Trades</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-[var(--text-primary)]">
+            {trades.length}
+          </p>
         </div>
-      )}
-
-      <div style={styles.list}>
-        {trades.map((trade) => {
-          const isWin = trade.resultado > 0;
-          const isLoss = trade.resultado < 0;
-          const resultado = trade.resultado !== null && trade.resultado !== undefined
-            ? `${trade.resultado >= 0 ? '+' : ''}${trade.resultado.toFixed(2)}`
-            : 'Abierto';
-
-          return (
-            <div key={trade.id} style={styles.item}>
-              <div style={styles.row}>
-                <span style={styles.agente}>Agente #{trade.agente_id}</span>
-                <span style={styles.tipo}>{trade.tipo}</span>
-              </div>
-              <div style={styles.row}>
-                <span style={styles.precio}>
-                  Entrada: ${trade.precio_entrada?.toFixed(2)}
-                  {trade.precio_salida && ` → ${trade.precio_salida.toFixed(2)}`}
-                </span>
-                <span style={{
-                  ...styles.resultado,
-                  color: isWin ? '#00ff88' : isLoss ? '#ff4444' : '#888',
-                }}>
-                  {resultado}
-                </span>
-              </div>
-              <div style={styles.timestamp}>
-                {formatTimestamp(trade.timestamp)}
-              </div>
-            </div>
-          );
-        })}
+        <div className="app-card text-center">
+          <p className="text-xs text-[var(--text-muted)] uppercase">Winning</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-[var(--accent)]">
+            {trades.filter(t => t.resultado > 0).length}
+          </p>
+        </div>
+        <div className="app-card text-center">
+          <p className="text-xs text-[var(--text-muted)] uppercase">Losing</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-[var(--destructive)]">
+            {trades.filter(t => t.resultado < 0).length}
+          </p>
+        </div>
       </div>
 
-      {trades.length === 0 && (
-        <div style={styles.empty}>No hay trades registrados.</div>
-      )}
-    </div>
+      {/* Trades List */}
+      <ScrollArea className="h-[calc(100vh-280px)]">
+        <div className="space-y-2">
+          {trades.map((trade) => {
+            const isWin = trade.resultado > 0;
+            const isLoss = trade.resultado < 0;
+            const isOpen = trade.resultado === null || trade.resultado === undefined;
+            
+            const resultado = isOpen
+              ? 'Open'
+              : `${trade.resultado >= 0 ? '+' : ''}${trade.resultado.toFixed(2)}`;
+
+            const ResultIcon = isWin ? TrendingUp : isLoss ? TrendingDown : Minus;
+            const resultColor = isWin ? 'text-[var(--accent)]' : isLoss ? 'text-[var(--destructive)]' : 'text-[var(--text-muted)]';
+            const resultBg = isWin ? 'bg-[var(--accent-dim)]' : isLoss ? 'bg-red-500/10' : 'bg-[var(--bg-elevated)]';
+
+            return (
+              <div 
+                key={trade.id} 
+                className="app-card app-card-hover flex items-center justify-between py-3"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`h-10 w-10 rounded-lg ${resultBg} flex items-center justify-center`}>
+                    <ResultIcon className={`h-5 w-5 ${resultColor}`} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium text-[var(--text-primary)]">
+                        Agent #{trade.agente_id}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-secondary)] uppercase">
+                        {trade.tipo}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[var(--text-muted)]">
+                      Entry: ${trade.precio_entrada?.toFixed(2)}
+                      {trade.precio_salida && ` → $${trade.precio_salida.toFixed(2)}`}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <p className={`font-mono font-semibold ${resultColor}`}>
+                    {resultado}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {formatTimestamp(trade.timestamp)}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {trades.length === 0 && (
+          <EmptyState
+            icon={Receipt}
+            title="No trades recorded"
+            subtitle="Trades will appear here when agents execute them"
+          />
+        )}
+      </ScrollArea>
+    </Layout>
   );
 }
-
-const styles = {
-  container: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    minHeight: '100vh',
-    color: '#ffffff',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '600',
-    color: '#00ff88',
-    marginBottom: '24px',
-  },
-  list: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  item: {
-    backgroundColor: '#0a0a0a',
-    border: '1px solid #222',
-    borderRadius: '6px',
-    padding: '16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-  },
-  row: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  agente: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  tipo: {
-    fontSize: '12px',
-    color: '#888',
-    backgroundColor: '#222',
-    padding: '4px 8px',
-    borderRadius: '4px',
-  },
-  precio: {
-    fontSize: '13px',
-    color: '#aaa',
-  },
-  resultado: {
-    fontSize: '16px',
-    fontWeight: '700',
-  },
-  timestamp: {
-    fontSize: '11px',
-    color: '#666',
-  },
-  loading: {
-    padding: '24px',
-    fontFamily: 'JetBrains Mono, monospace',
-    backgroundColor: '#050505',
-    color: '#00ff88',
-    minHeight: '100vh',
-  },
-  error: {
-    backgroundColor: '#ff444422',
-    color: '#ff4444',
-    padding: '12px 16px',
-    borderRadius: '6px',
-    marginBottom: '16px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  closeError: {
-    background: 'none',
-    border: 'none',
-    color: '#ff4444',
-    fontSize: '20px',
-    cursor: 'pointer',
-  },
-  empty: {
-    textAlign: 'center',
-    padding: '48px',
-    color: '#666',
-  },
-};
 
 export default Trades;

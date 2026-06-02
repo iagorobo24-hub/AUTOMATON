@@ -27,7 +27,7 @@ const MessageBubble = ({ message, isUser }) => {
           </span>
           {!isUser && (
             <button onClick={handleCopy} className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/5" aria-label="Copiar mensaje">
-              {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
+              {copied ? <Check className="w-3.5 h-3.5 text-blue-400" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
             </button>
           )}
         </div>
@@ -94,7 +94,7 @@ export default function ChatPage() {
               <div>
                 <h2 className="text-base font-semibold text-foreground">Orquestador IA</h2>
                 <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> En línea
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" /> En línea
                 </p>
               </div>
             </div>

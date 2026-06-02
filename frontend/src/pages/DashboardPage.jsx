@@ -53,7 +53,7 @@ const Confetti = ({ active }) => {
 const MetricCard = ({ title, value, change, icon: Icon, color = "cyan", subtitle, sparkline, size = "default" }) => {
   const colorMap = {
     cyan: { text: CYAN, bg: "rgba(0,243,255,0.1)", border: "rgba(0,243,255,0.15)" },
-    green: { text: GREEN, bg: "rgba(0,255,136,0.1)", border: "rgba(0,255,136,0.15)" },
+    blue-500: { text: GREEN, bg: "rgba(0,255,136,0.1)", border: "rgba(0,255,136,0.15)" },
     red: { text: RED, bg: "rgba(255,0,60,0.1)", border: "rgba(255,0,60,0.15)" },
     gray: { text: GRAY, bg: "rgba(107,114,128,0.1)", border: "rgba(107,114,128,0.15)" },
     yellow: { text: YELLOW, bg: "rgba(255,214,0,0.1)", border: "rgba(255,214,0,0.15)" },
@@ -109,7 +109,7 @@ const MetricCard = ({ title, value, change, icon: Icon, color = "cyan", subtitle
 /* ═══════════════ AGENT BADGE ═══════════════ */
 const AgentStatusBadge = ({ status }) => {
   const config = {
-    active: { bg: "bg-green-500/15", text: "text-green-400", ring: "ring-green-500/30", label: "Activo" },
+    active: { bg: "bg-blue-500-500/15", text: "text-blue-500-400", ring: "ring-blue-500-500/30", label: "Activo" },
     paused: { bg: "bg-yellow-500/15", text: "text-yellow-400", ring: "ring-yellow-500/30", label: "Pausado" },
     replicating: { bg: "bg-cyan-500/15", text: "text-cyan-400", ring: "ring-cyan-500/30", label: "Replicando" },
     dying: { bg: "bg-red-500/15", text: "text-red-400", ring: "ring-red-500/30", label: "En riesgo" },
@@ -435,7 +435,7 @@ export default function DashboardPage() {
             <motion.div
               animate={{ opacity: [1, 0.4, 1], scale: [1, 0.7, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              className="w-2 h-2 rounded-full bg-green-500"
+              className="w-2 h-2 rounded-full bg-blue-500-500"
             />
             En vivo
           </div>
@@ -444,10 +444,10 @@ export default function DashboardPage() {
         {/* Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <MetricCard title="Agentes Activos" value={stats?.agents?.active || 0} change={12.5} icon={Bot} color="cyan" subtitle={`${stats?.agents?.total || 0} en total`} sparkline={generateSparkline(3, 2, 0.1)} />
-          <MetricCard title="Balance Total" value={`€${(stats?.finances?.total_balance || 0).toFixed(0)}`} change={stats?.finances?.avg_roi || 0} icon={Wallet} color="green" sparkline={generateSparkline(200, 50, 5)} />
+          <MetricCard title="Balance Total" value={`€${(stats?.finances?.total_balance || 0).toFixed(0)}`} change={stats?.finances?.avg_roi || 0} icon={Wallet} color="blue-500" sparkline={generateSparkline(200, 50, 5)} />
           <MetricCard title="Tasa de Éxito" value={`${((stats?.trading?.win_rate || 0) * 100).toFixed(0)}%`} icon={Target} color="cyan" size="small" />
           <MetricCard title="Total Trades" value={stats?.trading?.total_trades || 0} icon={Hash} color="gray" size="small" />
-          <MetricCard title="PnL 24h" value={`€${(stats?.trading?.pnl_24h || 0).toFixed(0)}`} change={(stats?.trading?.pnl_24h || 0) > 0 ? 5.2 : -3.1} icon={(stats?.trading?.pnl_24h || 0) >= 0 ? TrendingUp : TrendingDown} color={(stats?.trading?.pnl_24h || 0) >= 0 ? "green" : "red"} size="small" />
+          <MetricCard title="PnL 24h" value={`€${(stats?.trading?.pnl_24h || 0).toFixed(0)}`} change={(stats?.trading?.pnl_24h || 0) > 0 ? 5.2 : -3.1} icon={(stats?.trading?.pnl_24h || 0) >= 0 ? TrendingUp : TrendingDown} color={(stats?.trading?.pnl_24h || 0) >= 0 ? "blue-500" : "red"} size="small" />
           <MetricCard title="Tokens Usados" value={`${((stats?.llm?.total_tokens || 0) / 1000).toFixed(1)}K`} icon={Cpu} color="yellow" size="small" subtitle={`~€${(stats?.llm?.cost_estimate || 0).toFixed(3)}`} />
         </div>
 
@@ -499,7 +499,7 @@ export default function DashboardPage() {
               <SystemHealthGauge health={systemHealth} />
               <div className="grid grid-cols-2 gap-4 w-full mt-4">
                 <div className="text-center">
-                  <p className="text-xl font-bold text-green-500">{stats?.agents?.replicating || 0}</p>
+                  <p className="text-xl font-bold text-blue-500-500">{stats?.agents?.replicating || 0}</p>
                   <p className="evo-section-title mt-0.5">Replicando</p>
                 </div>
                 <div className="text-center">
@@ -594,7 +594,7 @@ export default function DashboardPage() {
                 <Zap size={18} aria-hidden="true" /> <span className="ml-1">Desplegar Agente</span>
               </button>
               {hasPausedAgents ? (
-                <button onClick={handleResumeAll} disabled={actionLoading === 'resume'} className="evo-button w-full py-3 text-sm bg-green-600 text-white hover:bg-green-500 disabled:opacity-50">
+                <button onClick={handleResumeAll} disabled={actionLoading === 'resume'} className="evo-button w-full py-3 text-sm bg-blue-500-600 text-white hover:bg-blue-500-500 disabled:opacity-50">
                   <Pause size={18} aria-hidden="true" className="rotate-180" /> <span className="ml-1">Reanudar Todos</span>
                 </button>
               ) : (

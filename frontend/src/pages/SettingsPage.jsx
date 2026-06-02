@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { systemAPI, tradingAPI } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 /* ── Reusable UI primitives ── */
 const ToggleSwitch = ({ checked, onChange, disabled, "aria-label": ariaLabel }) => (
