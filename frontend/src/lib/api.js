@@ -1,7 +1,5 @@
 /**
- * Centralized API client for AUTOMATON Orchestrator
- *
- * Single source of truth for backend communication used by the Dark Pro frontend.
+ * Centralized API client for the active AUTOMATON SQLModel runtime.
  */
 import axios from 'axios';
 
@@ -47,11 +45,6 @@ export const agentsAPI = {
   simulateTrade: (id, profit) => api.post(`/agents/${id}/simulate-trade`, null, { params: { profit } }),
 };
 
-export const dashboardAPI = {
-  stats: () => api.get('/dashboard/stats'),
-  portfolioHistory: (period = '7d') => api.get('/dashboard/portfolio-history', { params: { period } }),
-};
-
 export const cryptoAPI = {
   topCoins: () => api.get('/crypto/top-coins'),
   trending: () => api.get('/crypto/trending'),
@@ -59,68 +52,18 @@ export const cryptoAPI = {
   history: (coinId, days = 7) => api.get(`/crypto/history/${coinId}`, { params: { days } }),
 };
 
-export const paperTradingAPI = {
-  setup: () => api.post('/paper-trading/setup'),
-  status: () => api.get('/paper-trading/status'),
-  positions: () => api.get('/paper-trading/positions'),
-  reset: () => api.post('/paper-trading/reset'),
-};
-
-export const notificationsAPI = {
-  list: (unreadOnly = false, limit = 50) => api.get('/notifications/', { params: { unread_only: unreadOnly, limit } }),
-  count: () => api.get('/notifications/count'),
-  markRead: (id) => api.post(`/notifications/${id}/read`),
-  markAllRead: () => api.post('/notifications/read-all'),
-  dismiss: (id) => api.delete(`/notifications/${id}`),
-  dismissAll: () => api.delete('/notifications/'),
-  activity: (agentId, typeFilter, limit = 100) => api.get('/notifications/activity', { params: { agent_id: agentId, type_filter: typeFilter, limit } }),
-};
-
-export const chatAPI = {
-  send: (message, sessionId = 'default') => api.post('/chat/', null, { params: { message, session_id: sessionId }, timeout: 30000 }),
-};
-
-export const strategiesAPI = {
-  list: () => api.get('/strategies/'),
-  create: (data) => api.post('/strategies/', null, { params: data }),
-  get: (id) => api.get(`/strategies/${id}`),
-};
-
-export const riskAPI = {
-  list: () => api.get('/risk/'),
-  create: (data) => api.post('/risk/', null, { params: data }),
-};
-
-export const auditAPI = {
-  logs: (agentId, eventType, limit = 100) => api.get('/audit/', { params: { agent_id: agentId, event_type: eventType, limit } }),
-  llmUsage: () => api.get('/audit/llm-usage'),
-};
-
-export const signalsAPI = {
-  list: (symbol) => api.get('/signals/', { params: symbol ? { symbol } : {} }),
-};
-
 export const tradesAPI = {
-  list: () => api.get('/trades/'),
-  create: (data) => api.post('/trades/', data),
+  list: (params = {}) => api.get('/trades/', { params }),
+  stats: () => api.get('/trades/stats'),
+};
+
+export const stateAPI = {
+  status: () => api.get('/estado'),
 };
 
 export const healthAPI = {
   health: () => axios.get(`${BACKEND_BASE}/health`, { timeout: 15000 }),
   root: () => axios.get(`${BACKEND_BASE}/`, { timeout: 15000 }),
-};
-
-export const paymentsAPI = {
-  createSession: (amount, packageType) => api.post('/payments/create-session', null, { params: { amount, package_type: packageType } }),
-  status: (sessionId) => api.get(`/payments/status/${sessionId}`),
-  transactions: () => api.get('/payments/transactions'),
-};
-
-export const simulationAPI = {
-  status: () => api.get('/simulation/status'),
-  start: (capital = 1000, agents = 3) => api.post('/simulation/start', null, { params: { capital, agents } }),
-  stop: () => api.post('/simulation/stop'),
-  reset: (capital = 1000, agents = 3) => api.post('/simulation/reset', null, { params: { capital, agents } }),
 };
 
 export default api;

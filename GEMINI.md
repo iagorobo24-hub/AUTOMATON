@@ -1,101 +1,75 @@
-# GEMINI.md - Project Context & Instructions
+# GEMINI.md — Current Project Context
 
-## Project Overview
-**AUTOMATON v2** is an autonomous cryptocurrency trading framework designed for self-replicating AI agents. The system enables agents to execute various trading strategies (Momentum, Mean Reversion, Breakout) and "replicate" (spawn new agents) when profit thresholds are met.
+## Runtime source of truth
 
-### Core Technologies
-- **Desktop Shell**: Electron (v31+)
-- **Frontend**: React (v18+) with Vite, TailwindCSS, and shadcn/ui.
-- **Backend**: FastAPI (Python 3.11+)
-- **Database**: Transitioning from **MongoDB** (legacy) to **SQLite** using **SQLModel** (ORM).
-- **Trading Engine**: Custom `AgentEngine` with support for Paper and Live trading (Binance API).
+Before changing AUTOMATON, inspect `backend/app/main.py` and `frontend/src/App.jsx`. Do not infer active functionality from historical routers, old pages or planning documents.
 
----
+Current runtime:
 
-## Architecture & Structure
-The project is organized as a monorepo with three main components:
+- Backend: FastAPI + SQLModel + SQLite.
+- Engine: `backend/app/services/agent_engine.py`.
+- Active routers mounted by `app.main`: `agents`, `trades`, `crypto`.
+- Active extra endpoints: `/api/estado`, `/health`, `/`.
+- Frontend: React 19 + Vite.
+- Active HTTP client: `frontend/src/lib/api.js`.
+- Active pages: `DashboardPro`, `CryptoPro`, `OpsMonitorPro`, `AgentsPage`, `SettingsPage`.
 
-- `backend/`: FastAPI application.
-  - `app/main.py`: Entry point and API definition.
-  - `app/routers/`: API endpoints grouped by resource (agents, trades, auth).
-  - `app/models/`: SQLModel (SQLite) and Pydantic (API) models.
-  - `app/services/`: Core business logic (AgentEngine, Strategy definitions).
-  - `app/database.py`: Database connection and session management.
-- `frontend/`: React single-page application.
-  - `src/services/api.js`: Unified service for all backend communication.
-  - `src/pages/`: Main application views (Dashboard, Agents, Simulation).
-  - `src/components/ui/`: Reusable UI components (shadcn/ui).
-- `electron/`: Desktop integration layer.
-  - `main.js`: Main process orchestration.
-  - `preload.js`: Secure context bridge.
+## Important architectural boundary
 
----
+The repository still contains a legacy MongoDB architecture (`DatabaseService`, rich Pydantic agent models, TradingEngine, PaperTradingEngine, MockEngine, registry, auth/payments/notifications/system/trading routers). It is preserved but **not mounted by `app.main`**.
 
-## Building and Running
+Do not mount legacy routers merely to satisfy a missing frontend endpoint. First determine whether the required behavior belongs to the SQLModel runtime or requires an explicit migration/reactivation decision.
 
-### Prerequisites
-- Node.js >= 18.0.0
-- Python >= 3.11
-- Docker Desktop (Required for legacy MongoDB container)
+## Agent contract
 
-### Setup
+The active SQLModel agent uses:
+
+- `nombre`
+- `estrategia`: S1/S2/S3/S4
+- `presupuesto_inicial`
+- `presupuesto_actual`
+- `estado`: ACTIVO/MUERTO/REPLICADO
+- `padre_id`
+- `umbral_replica`
+
+Manual and automatic replication share `app/services/agent_replication.py`.
+
+## Frontend data rules
+
+- All active API calls go through `frontend/src/lib/api.js`.
+- Dashboard metrics must come from active agents/trades/health endpoints; do not hard-code demo KPIs as live data.
+- Ops Monitor uses REST polling on `/api/trades/`; there is no active `/ws/trading` WebSocket.
+- Settings is informational until the SQLModel runtime exposes persisted global settings.
+- Do not reintroduce `frontend/src/services/api.js` or a second API client.
+
+## Running
+
 ```bash
-# Automated setup for all components
 npm run setup
-```
-
-### Development
-```bash
-# Recommended: Run full stack (Backend + Frontend + Electron)
 npm run dev
-
-# Alternative: Use Makefile for specific components
-make run-backend
-make run-frontend
 ```
 
-### Windows Launcher
-For a native experience on Windows, use the provided batch script:
-- `AUTOMATON.bat`: Checks prerequisites (Docker) and launches the PowerShell `launcher.ps1`.
+Ports:
 
----
+- Backend: `127.0.0.1:8000`
+- Frontend: `localhost:5173`
+
+Docker/MongoDB is not required by the active SQLModel runtime.
 
 ## Testing
-Comprehensive testing is implemented for both layers:
 
-- **Backend**: Uses `pytest`.
-  ```bash
-  make test-backend
-  # or
-  cd backend && pytest tests/ -v
-  ```
-- **Frontend**: Uses `jest` or `vitest`.
-  ```bash
-  make test-frontend
-  ```
+```bash
+cd backend && pytest tests/ -v
+cd frontend && npm test
+cd frontend && npm run build
+```
 
----
+Never report these as passing without a fresh execution on the current HEAD.
 
-## Development Conventions
+## Change discipline
 
-### Backend (Python/FastAPI)
-- **Routing**: Always use `APIRouter` in `app/routers/` and include them in `app/api/api.py`.
-- **Database**: For new features, strictly use **SQLModel** with SQLite. Avoid direct MongoDB calls unless maintaining legacy code.
-- **Dependency Injection**: Use `app/api/deps_sql.py` for database sessions.
-- **Logic**: Keep routers lean; encapsulate complex logic within `app/services/`.
-
-### Frontend (React)
-- **Styling**: Use **TailwindCSS** utility classes. Avoid custom CSS files where possible.
-- **Paths**: Use the `@/` alias to reference the `src/` directory.
-- **State**: Prefer React Hooks and Context API for global state.
-- **Communication**: All API calls must pass through `src/services/api.js`.
-
----
-
-## Key Files for Reference
-- `ARCHITECTURE.md`: Detailed architectural design and data flow.
-- `IMPLEMENTATION_PLAN.md`: Project roadmap and current status.
-- `backend/app/main.py`: API entry point.
-- `backend/app/services/agent_engine.py`: Core trading logic.
-- `frontend/src/App.jsx`: Frontend routing and root component.
-- `package.json` (root): Orchestration scripts for the entire project.
+- Prefer minimal changes in the responsible layer.
+- Preserve legacy code unless deletion is proven safe and in scope.
+- Do not add new Paper/Live trading behavior during stabilization.
+- Review the real diff and current branch before publishing.
+- Treat `ARCHITECTURE.md` as the canonical architecture summary.

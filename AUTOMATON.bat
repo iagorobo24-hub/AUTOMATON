@@ -1,33 +1,18 @@
 @echo off
-TITLE AUTOMATON OpenCode Launcher
+TITLE AUTOMATON Launcher
+chcp 65001 >nul 2>&1
+
 echo.
 echo ============================================
-echo   AUTOMATON // OpenCode Launcher
+echo   AUTOMATON // SQLModel Runtime
 echo ============================================
 echo.
-echo Starting AUTOMATON...
-echo.
-echo Checking prerequisites...
-echo.
 
-REM Check if Docker is running
-docker ps >nul 2>&1
-if %errorlevel% neq 0 (
-    echo ERROR: Docker is not running! Please start Docker Desktop first.
-    pause
-    exit /b 1
-)
-
-REM Set execution policy for this session and run PowerShell
-echo Launching PowerShell script...
-powershell.exe -ExecutionPolicy Bypass -NoProfile -Command "& {Set-Location '%~dp0'; & '%~dp0launcher.ps1'}"
+powershell.exe -NoProfile -File "%~dp0launcher.ps1"
 
 if %errorlevel% neq 0 (
     echo.
-    echo ERROR: Failed to launch AUTOMATON. Check the logs above.
+    echo ERROR: AUTOMATON no se pudo iniciar.
     pause
+    exit /b %errorlevel%
 )
-
-echo.
-echo AUTOMATON session ended.
-pause

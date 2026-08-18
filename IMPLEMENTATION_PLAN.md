@@ -1,92 +1,45 @@
-# AUTOMATON Implementation Plan
+# AUTOMATON Implementation Status
 
-## Project Overview
+This file replaces the obsolete Mongo-first implementation plan. It describes current stabilization status rather than promising unimplemented architecture.
 
-AUTOMATON - Self-replicating AI agent framework for automated crypto trading.
+## Current baseline
 
-## Architecture
+- [x] FastAPI runtime starts from `backend/app/main.py`.
+- [x] SQLModel + SQLite are the active persistence layer.
+- [x] Agents domain reconciled with the active frontend.
+- [x] Agents creation, replication, deposit, simulated PnL and termination use one SQLModel contract.
+- [x] Dashboard reads real SQLModel metrics instead of hard-coded demo KPIs.
+- [x] Crypto page uses the mounted crypto router.
+- [x] Ops Monitor reads persisted trades through REST polling.
+- [x] Settings reflects the actual runtime instead of legacy Mongo/Live controls.
+- [x] Frontend has one active API client: `frontend/src/lib/api.js`.
+- [x] Legacy system/trading routers remain isolated from `app.main`.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Frontend (React)                     │
-│   Dashboard │ Agents │ Strategies │ Analytics │ Settings│
-└─────────────────────────────────────────────────────────┘
-                            │
-                     REST API (FastAPI)
-                            │
-┌─────────────────────────────────────────────────────────┐
-│                   Backend Services                       │
-│  Auth │ Agents │ Trading │ Strategies │ Replication    │
-└─────────────────────────────────────────────────────────┘
-                            │
-         ┌──────────────────┼──────────────────┐
-         │                  │                  │
-    ┌────▼────┐       ┌────▼────┐        ┌────▼────┐
-    │  Mongo  │       │ Binance │        │  Redis  │
-    │   DB    │       │   API   │        │  Cache  │
-    └─────────┘       └─────────┘        └─────────┘
-```
+## Preserved legacy
 
-## Tech Stack
+The following are intentionally not classified as active and are not deleted automatically:
 
-- **Frontend**: React, Vite, Ant Design
-- **Backend**: FastAPI, Python 3.11
-- **Database**: MongoDB
-- **Trading**: Binance API (Paper + Live)
-- **Auth**: JWT + bcrypt
+- Mongo `DatabaseService` and dependencies.
+- TradingEngine / PaperTradingEngine / MockEngine / registry.
+- auth, payments, notifications and other historical routers.
+- rich Pydantic models from the Mongo architecture.
+- frontend pages not registered by `App.jsx`.
+- historical launch/infrastructure helpers that may still be useful for reference.
 
-## Current Status
+Removing or reviving those pieces requires a separate decision because they form a different architecture, not simple dead-code fragments.
 
-- [x] Project structure established
-- [x] FastAPI backend with routers
-- [x] MongoDB integration
-- [x] JWT authentication
-- [x] Paper trading engine
-- [x] Electron desktop app
-- [x] Test suite (200+ tests)
-- [x] CI/CD pipeline
-- [x] Git hooks
+## Validation gate
 
-## Remaining Work
-
-### Phase 1: Core Features
-- [ ] Complete strategy implementations
-- [ ] Real trading integration
-- [ ] WebSocket for real-time updates
-- [ ] Advanced analytics dashboard
-
-### Phase 2: AI Integration
-- [ ] OpenAI integration for strategy generation
-- [ ] Claude integration for analysis
-- [ ] Neural network predictors
-
-### Phase 3: Scaling
-- [ ] Multi-agent coordination
-- [ ] Distributed execution
-- [ ] Advanced risk management
-
-## Getting Started
+The repository contains backend and frontend regression tests for the stabilized contracts. A phase is only execution-verified after these commands run successfully on the same HEAD:
 
 ```bash
-# Install dependencies
-make install-all
-
-# Run development
-make dev
-
-# Run tests
-make test
-
-# Build
-make build
+cd backend && pytest tests/ -v
+cd frontend && npm test
+cd frontend && npm run build
 ```
 
-## Environment Variables
+GitHub Actions availability is environmental and must not be confused with code correctness.
 
-See `.env.example` for configuration.
+## Next work
 
-## Testing
-
-- Backend: `pytest tests/ -v`
-- Frontend: `npm test`
-- Coverage: `npm run coverage`
+Future product development should begin from the active SQLModel architecture. Before implementing Live trading, authentication, notifications or payment flows, decide explicitly whether to migrate the corresponding legacy subsystem to SQLModel or redesign it as a separate service. Do not reactivate the old router aggregator wholesale.

@@ -1,168 +1,104 @@
 # AUTOMATON Architecture
 
-## Estructura del Proyecto
+## Fuente de verdad actual
 
-```
-AUTOMATON/
-├── electron/               # Proceso main de Electron (PURO)
-│   ├── main.js            # Entry point de Electron
-│   ├── preload.js         # Context bridge seguro
-│   └── package.json       # Deps de Electron
-├── frontend/               # React + Vite
-│   ├── src/
-│   │   ├── App.jsx        # Componente raíz con routing
-│   │   ├── main.jsx       # Entry point Vite
-│   │   ├── pages/         # Páginas de la aplicación
-│   │   │   ├── DashboardPage.jsx
-│   │   │   ├── AgentsPage.jsx
-│   │   │   ├── SimulationPage.jsx
-│   │   │   └── ...
-│   │   ├── components/    # Componentes reutilizables
-│   │   ├── hooks/         # Custom React hooks
-│   │   ├── services/      # Servicios de API
-│   │   │   └── api.js     # Único punto de contacto con backend
-│   │   └── lib/           # Utilidades
-│   ├── index.html         # HTML entry point (Vite)
-│   ├── vite.config.js     # Configuración Vite
-│   └── package.json       # Deps de frontend
-├── backend/               # FastAPI + SQLModel
-│   ├── app/
-│   │   ├── main.py        # Entry point FastAPI
-│   │   ├── database.py    # Configuración SQLModel + SQLite
-│   │   ├── core/
-│   │   │   └── config.py  # Settings de la aplicación
-│   │   ├── models/
-│   │   │   ├── sql_models.py  # Modelos SQLModel (NUEVO)
-│   │   │   ├── agent.py   # Modelos Pydantic legacy
-│   │   │   ├── trading.py
-│   │   │   └── ...
-│   │   ├── api/
-│   │   │   ├── deps.py    # Deps MongoDB (legacy)
-│   │   │   ├── deps_sql.py # Deps SQLModel (NUEVO)
-│   │   │   └── api.py     # Router aggregation
-│   │   └── routers/       # API endpoints
-│   ├── requirements.txt   # Python dependencies
-│   └── automaton.db       # SQLite database (auto-generado)
-├── package.json           # ROOT: orquesta todo (workspaces)
-└── ARCHITECTURE.md        # Este documento
+El runtime que arranca `backend/app/main.py` utiliza FastAPI, SQLModel, SQLite, `AgentEngine` y los routers `agents`, `trades` y `crypto`. No monta el agregador histórico `backend/app/api/api.py` ni los routers Mongo de system/trading/auth/payments/notifications/paper-trading.
+
+## Flujo activo
+
+```text
+Electron (opcional)
+  -> Vite / React
+     -> frontend/src/lib/api.js
+        -> FastAPI app.main
+           -> agents router -> SQLModel Agent
+           -> trades router -> SQLModel Trade
+           -> crypto router -> datos de mercado
+           -> /api/estado -> AgentEngine
+           -> /health -> estado del runtime
+              -> SQLite
 ```
 
-## Flujo de Datos
+### Frontend activo
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ELECTRON (Desktop Shell)                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │   main.js    │  │  preload.js  │  │   Tray/UI    │       │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘       │
-└─────────┼─────────────────┼─────────────────┼───────────────┘
-          │                 │                 │
-          └─────────────────┴─────────────────┘
-                            │
-┌───────────────────────────▼───────────────────────────────┐
-│                    FRONTEND (React + Vite)                 │
-│  ┌──────────────────────────────────────────────────┐     │
-│  │  services/api.js  ←  ÚNICO punto de contacto     │     │
-│  └────────────────────────┬───────────────────────────┘     │
-│                           │                               │
-│  ┌────────────────────────▼───────────────────────────┐   │
-│  │  React Components  →  React Router  →  Pages        │   │
-│  └──────────────────────────────────────────────────────┘   │
-└───────────────────────────┬───────────────────────────────┘
-                            │ HTTP/REST
-┌───────────────────────────▼───────────────────────────────┐
-│                    BACKEND (FastAPI)                       │
-│  ┌──────────────────────────────────────────────────┐     │
-│  │  API Routers  →  Services  →  SQLModel ORM       │     │
-│  └────────────────────────┬───────────────────────────┘     │
-│                           │                               │
-│  ┌────────────────────────▼───────────────────────────┐   │
-│  │  SQLite  +  (Legacy MongoDB support)               │   │
-│  └──────────────────────────────────────────────────────┘   │
-└───────────────────────────────────────────────────────────┘
-```
+`frontend/src/App.jsx` registra exclusivamente:
 
-## Tecnologías
+| Ruta | Vista | Fuente de datos |
+|---|---|---|
+| `/` | `DashboardPro` | agents/trades/health |
+| `/crypto` | `CryptoPro` | crypto + agents Quick Deploy |
+| `/monitor` | `OpsMonitorPro` | trades REST polling |
+| `/agents` | `AgentsPage` | agents |
+| `/settings` | `SettingsPage` | health |
 
-| Capa | Tecnología | Rol |
-|------|-----------|-----|
-| Desktop | Electron | Shell nativo, tray, shortcuts |
-| Frontend | React 19 + Vite | UI interactiva, SPA |
-| Backend | FastAPI | API REST, WebSocket opcional |
-| ORM | SQLModel | Type-safe models, migrations |
-| Database | SQLite (aiosqlite) | Embeddable, file-based |
-| Styling | TailwindCSS | Utility-first CSS |
-| Components | Radix UI + shadcn | Accessible headless UI |
+`frontend/src/lib/api.js` es el único cliente HTTP del frontend activo. No existe un WebSocket `/ws/trading` en `app.main`; el monitor utiliza polling REST.
 
-## Scripts de Desarrollo
+## Dominio Agents
 
-```bash
-# Instalar todas las dependencias
-npm run install:all
+La fuente de verdad es `backend/app/models/sql_models.py` y `backend/app/routers/agents.py`.
 
-# Desarrollo completo (backend + frontend + electron)
-npm run dev
+Estados válidos: `ACTIVO`, `MUERTO`, `REPLICADO`.
 
-# Individual
-npm run dev:backend    # FastAPI en localhost:8000
-npm run dev:frontend   # Vite en localhost:3001
-npm run dev:electron   # Electron (espera a que suban los otros)
+Estrategias válidas: `S1`, `S2`, `S3`, `S4`.
 
-# Construcción
-npm run build          # Build frontend + electron
-npm run build:all      # Build completo para distribución
+La replicación manual y automática comparten `backend/app/services/agent_replication.py`.
 
-# Testing
-npm run test           # Test frontend + backend
-npm run test:frontend
-npm run test:backend
+## Trading actual
 
-# Database
-npm run db:migrate     # Run migrations
-npm run db:reset       # Reset SQLite database
-```
+`AgentEngine` realiza una simulación local sobre BTC y persiste `Trade` en SQLite. No debe confundirse con los servicios históricos `TradingEngine` o `PaperTradingEngine`.
 
-## Convenciones de Código
+El dashboard usa `/api/trades/stats`, `/api/agents/` y `/health`. El monitor usa `/api/trades/`.
 
-### Frontend (React)
-- **Componentes**: PascalCase, un componente por archivo
-- **Hooks**: use[NombreDescriptivo]
-- **Servicios**: api.js es el único punto de contacto con backend
-- **Estilos**: Tailwind classes, evitar CSS modules
-- **Imports**: Usar `@/` alias para rutas absolutas
+## Arquitectura legacy preservada
 
-### Backend (FastAPI)
-- **Routers**: Agrupar por recurso (agents, trades, etc.)
-- **Models**: SQLModel para DB, Pydantic para API schemas
-- **Servicios**: Lógica de negocio, no en routers
-- **Deps**: Inyección de dependencias para DB y auth
+El repositorio conserva una arquitectura anterior basada en MongoDB y modelos Pydantic ricos. Incluye, entre otros:
 
-## Migración MongoDB → SQLModel
+- `backend/app/services/database.py` (`DatabaseService`)
+- `backend/app/services/trading_engine.py`
+- `backend/app/services/paper_engine.py`
+- `backend/app/services/mock_engine.py`
+- `backend/app/services/registry.py`
+- routers `system.py`, `trading.py`, `paper_trading.py`, `payments.py`, `auth.py`, `notifications.py` y otros
+- modelos Pydantic ricos de `backend/app/models/`
+- páginas frontend históricas no registradas por `App.jsx`
+- infraestructura Mongo histórica como `.devops/docker-compose.yml` e `install-mongodb.ps1`
 
-El proyecto está en transición de MongoDB a SQLModel+SQLite:
+Estas piezas están **conservadas, no activas**. No deben añadirse a `app.main` para resolver un 404 o satisfacer una pantalla. Cualquier reactivación requiere decidir primero si se migra a SQLModel o se recupera explícitamente esa arquitectura como subsistema independiente.
 
-| MongoDB (Legacy) | SQLModel (Nuevo) |
-|-----------------|------------------|
-| `motor` async | `aiosqlite` async |
-| Documentos JSON | Tablas relacionales + JSON columns |
-| `deps.py` | `deps_sql.py` |
-| Schemaless | Type-safe con migrations |
+## Legado y duplicados retirados
 
-Para nuevas features, usar SQLModel. MongoDB permanece para compatibilidad durante la migración.
+La consolidación elimina piezas inequívocamente incompatibles con el runtime actual:
 
-## Escalabilidad Futura
+- `frontend/src/services/api.js`: segundo cliente HTTP.
+- `frontend/src/shared/lib/api-client.js`: tercer cliente HTTP sin consumidores.
+- `frontend/src/shared/hooks/useTradingSocket.js`: cliente de `/ws/trading`, endpoint inexistente.
+- `frontend/jest.config.js` y `frontend/setupTests.js`: configuración Jest/CRA mientras el proyecto usa Vitest.
+- `frontend/plugins/health-check/*`: plugin webpack no utilizado por Vite.
+- tests placeholder que solo comprobaban constantes/estructura y no comportamiento real.
+- logs y reportes de tests generados de ejecuciones históricas.
+- launchers `_FIXED` duplicados; el launcher Windows canónico delega ahora en `npm run dev`.
 
-La arquitectura soporta:
+## Tooling actual
 
-1. **Multi-user**: Tablas User en SQLModel permiten auth multiusuario
-2. **Cloud deployment**: Cambiar SQLite por PostgreSQL (misma SQLModel API)
-3. **Microservices**: Separar routers en servicios independientes
-4. **Real-time**: WebSocket support nativo en FastAPI
-5. **Plugins**: Sistema de plugins en services/ con entry points definidos
+- Vite en `localhost:5173`.
+- Vitest para frontend.
+- Uvicorn/FastAPI en `127.0.0.1:8000`.
+- `npm run dev` es el orquestador principal y también es usado por `AUTOMATON.bat`/`launcher.ps1`.
+- `Makefile` delega en los scripts existentes y no referencia comandos frontend inexistentes.
 
-## Seguridad
+## Persistencia
 
-- **CORS**: Configurado en backend para localhost:dev ports
-- **Auth**: JWT tokens, almacenados en localStorage (frontend)
-- **Context Isolation**: Electron preload.js expone solo API necesaria
-- **Rate Limiting**: SlowAPI en endpoints sensibles
+`backend/app/database.py` configura SQLite en `./automaton.db` con `check_same_thread=False`. Bases locales, logs, coverage y reportes de test son artefactos de ejecución ignorados por Git.
+
+## Validación
+
+Tests relevantes:
+
+- `backend/tests/test_agents_sqlmodel.py`
+- `backend/tests/test_api_integration.py`
+- `frontend/src/lib/api.test.js`
+- `frontend/src/lib/agentContract.test.js`
+- `frontend/src/pages/SettingsPage.test.jsx`
+- tests de normalización de dashboard y monitor
+
+La existencia de tests no equivale a ejecución verde; el resultado solo se considera verificado cuando una suite se ejecuta sobre el HEAD correspondiente.

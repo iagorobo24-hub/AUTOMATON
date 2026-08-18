@@ -32,8 +32,10 @@ class TestAPI:
         assert "/api/agents/{agent_id}/simulate-trade" in routes
         assert "/api/agents/crear" not in routes
         assert "/api/trades/" in routes
+        assert "/api/trades/stats" in routes
         assert "/api/crypto/top-coins" in routes
         assert "/api/crypto/trending" in routes
+        assert "/api/estado" in routes
 
     def test_legacy_system_and_trading_routers_stay_out_of_sqlmodel_runtime(self):
         from app.main import app
@@ -45,6 +47,7 @@ class TestAPI:
         assert "/api/trading/engine/status" not in routes
         assert "/api/trading/engine/start" not in routes
         assert "/api/trading/mode" not in routes
+        assert "/ws/trading" not in routes
 
     def test_cors_middleware_is_configured(self):
         from app.main import app
