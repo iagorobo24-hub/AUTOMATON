@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.models import Agent, Trade, AgentStatus, StrategyEnum, TradeType
 from app.services.agent_engine import AgentEngine
-from app.routers import agents, trades
+from app.routers import agents, trades, crypto
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -21,22 +21,22 @@ agent_engine: AgentEngine = None
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown"""
     global agent_engine
-    
+
     # Startup
     logger.info("[MAIN] Starting up...")
-    
+
     # Initialize database
     init_db()
     logger.info("[MAIN] Database initialized")
-    
+
     # Start agent engine
     agent_engine = AgentEngine()
     await agent_engine.start()
     app.state.agent_engine = agent_engine
     logger.info("[MAIN] AgentEngine started")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("[MAIN] Shutting down...")
     if agent_engine:
@@ -60,9 +60,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include the routers backed by the active SQLModel stack.
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
 app.include_router(trades.router, prefix="/api/trades", tags=["trades"])
+app.include_router(crypto.router, prefix="/api/crypto", tags=["crypto"])
 
 
 @app.get("/")
@@ -94,7 +95,7 @@ def crear_agente_api(
     """Convenience endpoint to create agent via engine"""
     if not agent_engine:
         return {"error": "AgentEngine not running"}, 503
-    
+
     agente = agent_engine.crear_agente(nombre, estrategia, presupuesto, umbral)
     return {
         "id": agente.id,
@@ -108,10 +109,11 @@ def get_estado():
     """Get global system state"""
     if not agent_engine:
         return {"error": "AgentEngine not running"}, 503
-    
+
     return agent_engine.get_estado()
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

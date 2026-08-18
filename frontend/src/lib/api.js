@@ -1,12 +1,17 @@
 /**
  * Centralized API client for AUTOMATON Orchestrator
- * 
- * Single source of truth for all backend communication.
- * Handles base URL, error handling, timeouts, and request deduplication.
+ *
+ * Single source of truth for backend communication used by the Dark Pro frontend.
  */
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';//localhost:8002/api';
+export function normalizeApiBase(value) {
+  const raw = (value || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+  return raw.endsWith('/api') ? raw : `${raw}/api`;
+}
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+const BACKEND_BASE = API_BASE.replace(/\/api$/, '');
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -133,8 +138,8 @@ export const tradesAPI = {
 };
 
 export const healthAPI = {
-  health: () => api.get('/health', { baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8002' }),
-  root: () => api.get('/', { baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8002' }),
+  health: () => axios.get(`${BACKEND_BASE}/health`, { timeout: 15000 }),
+  root: () => axios.get(`${BACKEND_BASE}/`, { timeout: 15000 }),
 };
 
 export const paymentsAPI = {

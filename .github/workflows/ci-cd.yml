@@ -11,77 +11,77 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: Install dependencies
         run: |
           cd backend
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
-          
+
       - name: Run tests
         run: |
           cd backend
           pytest tests/ -v
-          
+
   frontend-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: |
           cd frontend
           npm install
-          
+
       - name: Run tests
         run: |
           cd frontend
-          npm test -- --coverage
-          
+          npm test
+
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: Install linters
         run: pip install ruff black isort
-        
+
       - name: Check formatting
         run: |
           ruff check backend/
           black --check backend/
           isort --check backend/
-          
+
   build:
     runs-on: ubuntu-latest
     needs: [backend-test, frontend-test]
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build backend
         run: echo "Building backend..."
-        
+
       - name: Build frontend
         run: |
           cd frontend
           npm run build
-          
+
   deploy:
     runs-on: ubuntu-latest
     needs: build

@@ -2,28 +2,23 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from "@/lib/api";
 
 /**
- * Hook to perform an instantaneous agent deployment
+ * Hook to perform an instantaneous S1 (Alpha/Momentum) agent deployment.
  */
 export function useQuickDeploy() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (symbol) => {
-      const payload = {
-        name: `${symbol}-AUTODEPLOY-${Date.now().toString().slice(-4)}`,
-        agent_type: 'crypto_trader',
-        initial_capital: 1000.0,
-        specialization: [symbol],
-        config: {
-          mode: 'test',
-          quick_deploy: true
-        }
+      const params = {
+        nombre: `${symbol}-AUTODEPLOY-${Date.now().toString().slice(-4)}`,
+        estrategia: 'S1',
+        presupuesto: 1000.0,
+        umbral: 0.15,
       };
 
-      return api.post('/agents/', payload);
+      return api.post('/agents/', null, { params });
     },
     onSuccess: () => {
-      // Invalidate agents list to show the new one
       queryClient.invalidateQueries({ queryKey: ['agents'] });
       queryClient.invalidateQueries({ queryKey: ['market-data'] });
       console.log('[QUICK DEPLOY] Success: Agent spawned');
