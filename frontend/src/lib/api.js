@@ -59,15 +59,6 @@ export const cryptoAPI = {
   history: (coinId, days = 7) => api.get(`/crypto/history/${coinId}`, { params: { days } }),
 };
 
-export const tradingAPI = {
-  engineStatus: () => api.get('/trading/engine/status'),
-  start: () => api.post('/trading/engine/start'),
-  stop: () => api.post('/trading/engine/stop'),
-  regime: () => api.get('/trading/regime'),
-  risk: () => api.get('/trading/risk'),
-  positions: () => api.get('/trading/positions'),
-};
-
 export const paperTradingAPI = {
   setup: () => api.post('/paper-trading/setup'),
   status: () => api.get('/paper-trading/status'),
@@ -83,12 +74,6 @@ export const notificationsAPI = {
   dismiss: (id) => api.delete(`/notifications/${id}`),
   dismissAll: () => api.delete('/notifications/'),
   activity: (agentId, typeFilter, limit = 100) => api.get('/notifications/activity', { params: { agent_id: agentId, type_filter: typeFilter, limit } }),
-};
-
-export const systemAPI = {
-  mode: () => api.get('/system/mode'),
-  setMode: (mode) => api.post('/system/mode', { mode }),
-  resetAgents: (initialCapital = 1000) => api.post('/system/reset-agents', null, { params: { initial_capital: initialCapital } }),
 };
 
 export const chatAPI = {
