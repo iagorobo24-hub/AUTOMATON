@@ -16,12 +16,9 @@ const BACKEND_BASE = API_BASE.replace(/\/api$/, '');
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// ── Response interceptor for unified error handling ──
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -40,23 +37,14 @@ api.interceptors.response.use(
   }
 );
 
-// ── Typed resource methods ──
 export const agentsAPI = {
-  list: (params = {}) => api.get('/agents/', { params }),
-  statusSummary: () => api.get('/agents/status-summary'),
-  create: (data) => api.post('/agents/', data),
+  list: () => api.get('/agents/'),
+  create: (data) => api.post('/agents/', null, { params: data }),
   get: (id) => api.get(`/agents/${id}`),
-  updateStatus: (id, status) => api.patch(`/agents/${id}/status`, { status }),
-  replicate: (id, data) => api.post(`/agents/${id}/replicate`, data),
+  replicate: (id) => api.post(`/agents/${id}/replicate`),
   delete: (id) => api.delete(`/agents/${id}`),
   deposit: (id, amount) => api.post(`/agents/${id}/deposit`, null, { params: { amount } }),
   simulateTrade: (id, profit) => api.post(`/agents/${id}/simulate-trade`, null, { params: { profit } }),
-  getTrades: (id) => api.get(`/agents/${id}/trades`),
-  getWallet: (id) => api.get(`/agents/${id}/wallet`),
-  getLineage: (id) => api.get(`/agents/${id}/lineage`),
-  pauseAll: () => api.post('/agents/pause-all'),
-  resumeAll: () => api.post('/agents/resume-all'),
-  emergencyStop: () => api.post('/agents/emergency-stop', null, { params: { confirm: true } }),
 };
 
 export const dashboardAPI = {
@@ -88,27 +76,23 @@ export const paperTradingAPI = {
 };
 
 export const notificationsAPI = {
-  list: (unreadOnly = false, limit = 50) =>
-    api.get('/notifications/', { params: { unread_only: unreadOnly, limit } }),
+  list: (unreadOnly = false, limit = 50) => api.get('/notifications/', { params: { unread_only: unreadOnly, limit } }),
   count: () => api.get('/notifications/count'),
   markRead: (id) => api.post(`/notifications/${id}/read`),
   markAllRead: () => api.post('/notifications/read-all'),
   dismiss: (id) => api.delete(`/notifications/${id}`),
   dismissAll: () => api.delete('/notifications/'),
-  activity: (agentId, typeFilter, limit = 100) =>
-    api.get('/notifications/activity', { params: { agent_id: agentId, type_filter: typeFilter, limit } }),
+  activity: (agentId, typeFilter, limit = 100) => api.get('/notifications/activity', { params: { agent_id: agentId, type_filter: typeFilter, limit } }),
 };
 
 export const systemAPI = {
   mode: () => api.get('/system/mode'),
   setMode: (mode) => api.post('/system/mode', { mode }),
-  resetAgents: (initialCapital = 1000) =>
-    api.post('/system/reset-agents', null, { params: { initial_capital: initialCapital } }),
+  resetAgents: (initialCapital = 1000) => api.post('/system/reset-agents', null, { params: { initial_capital: initialCapital } }),
 };
 
 export const chatAPI = {
-  send: (message, sessionId = 'default') =>
-    api.post('/chat/', null, { params: { message, session_id: sessionId }, timeout: 30000 }),
+  send: (message, sessionId = 'default') => api.post('/chat/', null, { params: { message, session_id: sessionId }, timeout: 30000 }),
 };
 
 export const strategiesAPI = {
@@ -123,8 +107,7 @@ export const riskAPI = {
 };
 
 export const auditAPI = {
-  logs: (agentId, eventType, limit = 100) =>
-    api.get('/audit/', { params: { agent_id: agentId, event_type: eventType, limit } }),
+  logs: (agentId, eventType, limit = 100) => api.get('/audit/', { params: { agent_id: agentId, event_type: eventType, limit } }),
   llmUsage: () => api.get('/audit/llm-usage'),
 };
 
@@ -143,19 +126,16 @@ export const healthAPI = {
 };
 
 export const paymentsAPI = {
-  createSession: (amount, packageType) =>
-    api.post('/payments/create-session', null, { params: { amount, package_type: packageType } }),
+  createSession: (amount, packageType) => api.post('/payments/create-session', null, { params: { amount, package_type: packageType } }),
   status: (sessionId) => api.get(`/payments/status/${sessionId}`),
   transactions: () => api.get('/payments/transactions'),
 };
 
 export const simulationAPI = {
   status: () => api.get('/simulation/status'),
-  start: (capital = 1000, agents = 3) =>
-    api.post('/simulation/start', null, { params: { capital, agents } }),
+  start: (capital = 1000, agents = 3) => api.post('/simulation/start', null, { params: { capital, agents } }),
   stop: () => api.post('/simulation/stop'),
-  reset: (capital = 1000, agents = 3) =>
-    api.post('/simulation/reset', null, { params: { capital, agents } }),
+  reset: (capital = 1000, agents = 3) => api.post('/simulation/reset', null, { params: { capital, agents } }),
 };
 
 export default api;
