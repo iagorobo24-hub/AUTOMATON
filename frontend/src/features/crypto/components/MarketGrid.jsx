@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useMarketData } from '../hooks/useMarketData';
 import { useQuickDeploy } from '../hooks/useQuickDeploy';
 
@@ -34,9 +34,7 @@ export function MarketGrid() {
             <tr key={coin.id} className="hover:bg-[#242c27] transition-colors group">
               <td className="px-4 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#3c4a42] flex items-center justify-center font-bold text-[10px] text-white">
-                    {coin.symbol[0]}
-                  </div>
+                  <div className="w-8 h-8 rounded-full bg-[#3c4a42] flex items-center justify-center font-bold text-[10px] text-white">{coin.symbol[0]}</div>
                   <div>
                     <div className="font-bold text-text-blue-500 leading-none">{coin.symbol}</div>
                     <div className="text-[10px] text-[#86948a] uppercase mt-1">{coin.name}</div>
@@ -50,24 +48,17 @@ export function MarketGrid() {
                 {coin.change24h >= 0 ? '+' : ''}{coin.change24h.toFixed(2)}%
               </td>
               <td className="px-4 py-4 text-center">
-                <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase ${
-                  coin.rsi > 70 ? 'bg-red-400/10 text-red-400' : 
-                  coin.rsi < 30 ? 'bg-text-blue-500/10 text-text-blue-500' : 
-                  'bg-[#3c4a42]/20 text-[#86948a]'
-                }`}>
-                  {coin.rsi} {coin.rsi > 70 ? 'OVERBOUGHT' : coin.rsi < 30 ? 'OVERSOLD' : 'NEUTRAL'}
-                </span>
+                {coin.rsi == null ? (
+                  <span className="px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-[#3c4a42]/20 text-[#86948a]">N/D</span>
+                ) : (
+                  <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase ${coin.rsi > 70 ? 'bg-red-400/10 text-red-400' : coin.rsi < 30 ? 'bg-text-blue-500/10 text-text-blue-500' : 'bg-[#3c4a42]/20 text-[#86948a]'}`}>
+                    {coin.rsi} {coin.rsi > 70 ? 'OVERBOUGHT' : coin.rsi < 30 ? 'OVERSOLD' : 'NEUTRAL'}
+                  </span>
+                )}
               </td>
-              <td className="px-4 py-4 text-center font-mono text-sm">
-                {coin.activeAgents}
-              </td>
+              <td className="px-4 py-4 text-center font-mono text-sm">{coin.activeAgents}</td>
               <td className="px-4 py-4 text-center">
-                <Button 
-                  variant="blue" 
-                  className="text-[10px] py-1 px-3 h-auto"
-                  onClick={() => deploy(coin.symbol)}
-                  disabled={isDeploying}
-                >
+                <Button variant="blue" className="text-[10px] py-1 px-3 h-auto" onClick={() => deploy(coin.symbol)} disabled={isDeploying}>
                   {isDeploying ? 'DEPLOYING...' : 'QUICK DEPLOY'}
                 </Button>
               </td>

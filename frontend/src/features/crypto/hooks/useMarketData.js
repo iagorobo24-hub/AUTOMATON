@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { cryptoAPI } from "@/lib/api";
+import { cryptoAPI } from '@/lib/api';
 
 export function normalizeMarketData(trending = [], top = []) {
   const coins = [...trending, ...top];
@@ -11,14 +11,11 @@ export function normalizeMarketData(trending = [], top = []) {
     name: coin.name || coin.symbol,
     price: coin.price ?? coin.current_price ?? 0,
     change24h: coin.change24h ?? coin.price_change_24h ?? coin.price_change_percentage_24h ?? 0,
-    rsi: coin.rsi ?? Number((Math.random() * 40 + 30).toFixed(1)),
+    rsi: Number.isFinite(coin.rsi) ? coin.rsi : null,
     activeAgents: coin.agents_count ?? 0,
   }));
 }
 
-/**
- * Hook to fetch market data for the tactical terminal.
- */
 export function useMarketData() {
   return useQuery({
     queryKey: ['market-data'],

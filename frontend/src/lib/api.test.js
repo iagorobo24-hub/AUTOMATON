@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { normalizeApiBase } from './api';
 import { normalizeMarketData } from '../features/crypto/hooks/useMarketData';
 
-describe('Dark Pro API integration helpers', () => {
+describe('active API integration helpers', () => {
   it('normalizes backend URLs to the /api prefix exactly once', () => {
     expect(normalizeApiBase()).toBe('http://127.0.0.1:8000/api');
     expect(normalizeApiBase('http://localhost:8000/')).toBe('http://localhost:8000/api');
     expect(normalizeApiBase('http://localhost:8000/api')).toBe('http://localhost:8000/api');
   });
 
-  it('normalizes CoinGecko router responses for MarketGrid', () => {
+  it('normalizes CoinGecko responses without inventing missing RSI values', () => {
     const result = normalizeMarketData(
       [{ id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' }],
       [{
@@ -28,6 +28,7 @@ describe('Dark Pro API integration helpers', () => {
       name: 'Bitcoin',
       price: 65000,
       change24h: 2.5,
+      rsi: null,
     });
   });
 });
