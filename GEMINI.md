@@ -1,62 +1,51 @@
-# GEMINI.md — Current Project Context
+# GEMINI.md — AUTOMATON Project Contract
 
-## Runtime source of truth
+## Read first
 
-Before changing AUTOMATON, inspect `backend/app/main.py` and `frontend/src/App.jsx`. Do not infer active functionality from historical routers, old pages or planning documents.
+Canonical product direction is defined by `docs/PRODUCT_CONTRACT.md`, `ARCHITECTURE.md` and `docs/ROADMAP.md`. Inspect `backend/app/main.py` and `frontend/src/App.jsx` before claiming current implementation status.
 
-Current runtime:
+## Product objective
 
-- Backend: FastAPI + SQLModel + SQLite.
-- Engine: `backend/app/services/agent_engine.py`.
-- Active routers mounted by `app.main`: `agents`, `trades`, `crypto`.
-- Active extra endpoints: `/api/estado`, `/health`, `/`.
-- Frontend: React 19 + Vite.
+Build a trustworthy autonomous-agent trading platform whose immediate target is **Paper Trading on real market data with virtual capital**.
+
+Modes are distinct:
+
+- Synthetic/Test: synthetic + virtual; technical tests only.
+- Backtest: historical real data + virtual execution.
+- Paper: current real data + virtual capital.
+- Live: real data + real capital; future and gated.
+
+Never present synthetic/random/mock results as Paper, Backtest or Live evidence.
+
+## Current transition runtime
+
+- FastAPI + SQLModel + SQLite.
+- React 19 + Vite; Electron optional.
+- `app.main` mounts agents/trades/crypto and starts `AgentEngine`.
+- Current `AgentEngine` still contains synthetic price generation; treat it as transition/test infrastructure, not valid Paper.
 - Active HTTP client: `frontend/src/lib/api.js`.
-- Active pages: `DashboardPro`, `CryptoPro`, `OpsMonitorPro`, `AgentsPage`, `SettingsPage`.
 
-## Important architectural boundary
+## Architecture boundaries
 
-The repository still contains a legacy MongoDB architecture (`DatabaseService`, rich Pydantic agent models, TradingEngine, PaperTradingEngine, MockEngine, registry, auth/payments/notifications/system/trading routers). It is preserved but **not mounted by `app.main`**.
+New trading work follows:
 
-Do not mount legacy routers merely to satisfy a missing frontend endpoint. First determine whether the required behavior belongs to the SQLModel runtime or requires an explicit migration/reactivation decision.
+`Market Data -> Strategy -> Risk -> Execution -> Portfolio/Accounting -> Metrics/Evidence`.
 
-## Agent contract
+Agent lifecycle consumes these contracts; UI observes them. Strategy code must not directly mutate balances or place real orders. Risk must be able to reject execution. Paper must be structurally isolated from any future Live adapter.
 
-The active SQLModel agent uses:
+## Legacy
 
-- `nombre`
-- `estrategia`: S1/S2/S3/S4
-- `presupuesto_inicial`
-- `presupuesto_actual`
-- `estado`: ACTIVO/MUERTO/REPLICADO
-- `padre_id`
-- `umbral_replica`
+Mongo `DatabaseService`, old Trading/Paper engines, registry, auth/payments/chat/notifications and unmounted pages are legacy. Do not reactivate them wholesale. Audit useful concepts and migrate only what fits the new contracts. `docs/LEGACY_AUDIT.md` remains transitional until pruning.
 
-Manual and automatic replication share `app/services/agent_replication.py`.
+## Strategy/evidence rules
 
-## Frontend data rules
+- S1-S4 are baseline implementations, not proven profitable strategies.
+- Historical Alpha/Beta/Gamma ideas are research hypotheses only.
+- No `optimized`, `validated`, `profitable` or `safe` claim without reproducible evidence.
+- Unknown strategy IDs must fail explicitly.
+- Financial telemetry must carry mode/provenance; missing data stays missing.
 
-- All active API calls go through `frontend/src/lib/api.js`.
-- Dashboard metrics must come from active agents/trades/health endpoints; do not hard-code demo KPIs as live data.
-- Ops Monitor uses REST polling on `/api/trades/`; there is no active `/ws/trading` WebSocket.
-- Settings is informational until the SQLModel runtime exposes persisted global settings.
-- Do not reintroduce `frontend/src/services/api.js` or a second API client.
-
-## Running
-
-```bash
-npm run setup
-npm run dev
-```
-
-Ports:
-
-- Backend: `127.0.0.1:8000`
-- Frontend: `localhost:5173`
-
-Docker/MongoDB is not required by the active SQLModel runtime.
-
-## Testing
+## Validation
 
 ```bash
 cd backend && pytest tests/ -v
@@ -64,12 +53,8 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Never report these as passing without a fresh execution on the current HEAD.
+Never report green status without fresh output for the exact HEAD.
 
 ## Change discipline
 
-- Prefer minimal changes in the responsible layer.
-- Preserve legacy code unless deletion is proven safe and in scope.
-- Do not add new Paper/Live trading behavior during stabilization.
-- Review the real diff and current branch before publishing.
-- Treat `ARCHITECTURE.md` as the canonical architecture summary.
+Follow the roadmap dependency order. Do not implement Live early, weaken accounting/risk for a test, fabricate UI activity or introduce a second active persistence/API stack.

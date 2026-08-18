@@ -1,48 +1,99 @@
-# AUTOMATON Implementation Status
+# AUTOMATON Implementation Plan
 
-This file replaces the obsolete Mongo-first implementation plan. It describes current stabilization status rather than promising unimplemented architecture.
+## Current program objective
 
-## Current baseline
+Replace the transition simulator with a verifiable Paper Trading platform: **real market data, virtual capital, deterministic accounting, explicit risk and reproducible evidence**.
 
-- [x] FastAPI runtime starts from `backend/app/main.py`.
-- [x] SQLModel + SQLite are the active persistence layer.
-- [x] Agents domain reconciled with the active frontend.
-- [x] Agents creation, replication, deposit, simulated PnL and termination use one SQLModel contract.
-- [x] Dashboard reads real SQLModel metrics instead of hard-coded demo KPIs.
-- [x] Crypto page uses the mounted crypto router and does not fabricate RSI values.
-- [x] Ops Monitor reads persisted trades through REST polling.
-- [x] Settings reflects the actual runtime instead of legacy Mongo/Live controls.
-- [x] Frontend has one active API client: `frontend/src/lib/api.js`.
-- [x] Legacy system/trading routers remain isolated from `app.main`.
-- [x] Repository legacy inventory classified in `docs/LEGACY_AUDIT.md`.
-- [x] STRATEGY-04 resolved: S4 has an explicit deterministic hybrid implementation and unknown strategy ids no longer silently alias S1.
+This file tracks implementation order. Domain requirements live in the linked documents under `docs/`.
 
-## Strategy contract
+## Current verified baseline
 
-The active strategy ids are S1-S4.
+- FastAPI + SQLModel + SQLite are the active backend/persistence baseline.
+- React/Vite frontend uses the active agents/trades/crypto APIs.
+- Agent strategies S1-S4 exist as baseline strategy code; this does not prove profitability.
+- Historical Mongo/Paper/TradingEngine code is not mounted by `app.main`.
+- The current `AgentEngine` still uses synthetic market movement and therefore is not valid Paper Trading.
+- Fresh full test/build execution is still required on an available execution environment for the current HEAD.
 
-- **S1:** simple momentum.
-- **S2:** 20-sample mean reversion.
-- **S3:** 10-sample breakout.
-- **S4:** deterministic hybrid of S1-S3. BUY requires at least two component BUY signals. The S2 SELL signal is accepted only when S1 and S3 are not signalling BUY; otherwise S4 returns HOLD.
+## Ordered implementation program
 
-`backend/tests/test_strategies_active.py` provides regression coverage for S4 confirmation, SELL behavior, HOLD behavior and rejection of unknown strategy ids.
+### 0. Transition safety
+- [x] Stabilize active SQLModel contracts and remove fake UI telemetry.
+- [x] Define S4 explicitly and prevent silent strategy fallback.
+- [x] Rebuild documentation around real-data Paper Trading.
+- [ ] Obtain fresh backend/frontend/build execution evidence on the exact current HEAD.
+- [ ] Mark synthetic engine paths explicitly test-only before Paper replacement work lands.
 
-## Preserved legacy
+### 1. Market Data
+See `docs/MARKET_DATA.md`.
+- [ ] Define provider-neutral market observation types.
+- [ ] Implement real candle/current-price provider adapter.
+- [ ] Add UTC, stale, gap, retry and parsing tests.
+- [ ] Remove synthetic fallback from every Paper-capable path.
 
-The remaining legacy implementation has been classified in `docs/LEGACY_AUDIT.md`.
+### 2. Portfolio & Accounting
+See `docs/PORTFOLIO_ACCOUNTING.md`.
+- [ ] Specify SQLModel order/fill/position/account records.
+- [ ] Implement cash/equity/PnL/fees invariants.
+- [ ] Add reconciliation and restart tests.
+- [ ] Make financial metrics consume this single source of truth.
 
-High-level decisions:
+### 3. Paper Execution
+See `docs/PAPER_TRADING.md`.
+- [ ] Implement virtual order lifecycle against real observations.
+- [ ] Define deterministic fill, fee, slippage and timeout rules.
+- [ ] Persist open state and restore/reconcile after restart.
+- [ ] Remove random trade-closing behavior from Paper.
 
-- **KEEP:** current SQLModel/SQLite runtime, AgentEngine, active agents/trades/crypto routes, active frontend and tooling.
-- **MIGRATE / REDESIGN:** paper trading, live-trading boundary, advanced strategies, risk controls, portfolio metrics and notifications/activity where product value remains.
-- **DELETE after dependency migration:** Mongo `DatabaseService`, legacy router aggregator, system/dashboard/strategy CRUD contracts, mock/registry layer, old replication implementation, current auth/payments/chat/memory implementations and replaced frontend pages.
+### 4. Risk
+See `docs/RISK_MANAGEMENT.md`.
+- [ ] Add independent risk approval before execution.
+- [ ] Add position/exposure/loss/drawdown controls.
+- [ ] Add stale-data/accounting-error circuit breakers.
+- [ ] Persist risk profile/version with evidence.
 
-No DELETE item should be removed until any selected MIGRATE capability has been detached from it.
+### 5. Backtesting & Evidence
+See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
+- [ ] Build reproducible historical runner using real datasets.
+- [ ] Add fees/slippage and bias controls.
+- [ ] Evaluate S1-S4 baselines.
+- [ ] Produce machine-readable run metadata and comparable reports.
+
+### 6. Agent Lifecycle
+See `docs/AGENT_LIFECYCLE.md`.
+- [ ] Define evidence-aware fitness/replication criteria.
+- [ ] Define child capital allocation without money duplication.
+- [ ] Persist lineage/configuration versions.
+- [ ] Add retirement/death reasons and lifecycle tests.
+
+### 7. 24/7 Paper
+- [ ] Add session/run identity and operational health.
+- [ ] Add recovery and reconciliation procedures.
+- [ ] Add monitoring for stale provider, engine errors and open financial state.
+- [ ] Run sustained forward Paper experiments.
+
+### 8. Strategy research
+See `docs/STRATEGIES.md`.
+- [ ] Audit legacy Alpha/Beta/Gamma code against the new contracts.
+- [ ] Re-implement only useful deterministic concepts.
+- [ ] Validate richer strategies by backtest then Paper.
+- [ ] Reject unsupported historical performance claims.
+
+### 9. Legacy pruning
+See `docs/LEGACY_AUDIT.md`.
+- [ ] Delete legacy services only after selected concepts have been migrated.
+- [ ] Remove obsolete Mongo/config/dependencies/pages.
+- [ ] Re-audit references, docs and dependencies.
+
+### 10. Live readiness
+See `docs/LIVE_TRADING_GATE.md`.
+- [ ] Design separate Live execution adapter only after prior gates.
+- [ ] Verify secrets, limits, emergency stop, reconciliation and staged rollout.
+- [ ] Require explicit authorization before any real-capital activation.
 
 ## Validation gate
 
-The repository contains backend and frontend regression tests for the stabilized contracts. A phase is only execution-verified after these commands run successfully on the same HEAD:
+For code phases, closure requires relevant targeted tests plus the repository gate on the same HEAD:
 
 ```bash
 cd backend && pytest tests/ -v
@@ -50,15 +101,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Current status: **not execution-verified**. GitHub Actions has no usable run for the audited HEAD, and the external execution environment used during the 2026-08-18 audit could not resolve `github.com`, so a fresh checkout could not be created. This is an evidence limitation, not a green or red test result.
-
-## Ordered next work
-
-1. Run the full executable validation gate on the exact resulting HEAD when an execution environment is available.
-2. Specify the SQLModel-compatible Paper Trading / Risk migration boundary before porting legacy engine logic.
-3. Review Alpha/Beta/Gamma legacy strategy logic against the active S1-S4 implementations and migrate only validated logic with deterministic tests/backtests.
-4. Migrate notifications/activity only if retained as a product capability.
-5. Perform the destructive legacy pruning defined in `docs/LEGACY_AUDIT.md`, followed by dependency/config cleanup.
-6. Re-run a fresh repository audit and executable gate after pruning.
-
-Future Live trading, authentication, notifications or payment flows must start from explicit product requirements and the active architecture. Do not reactivate the old router aggregator wholesale.
+A checker or historical report is not a substitute for fresh evidence.

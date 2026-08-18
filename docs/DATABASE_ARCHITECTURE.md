@@ -1,26 +1,45 @@
-# Base de datos efectiva
+# Database Architecture
 
-## Fuente de verdad activa
+## Active baseline
 
-El runtime iniciado por `backend/app/main.py` usa `backend/app/database.py`, SQLModel y un fichero SQLite local (`automaton.db`, ignorado por Git).
+The current runtime uses SQLModel + SQLite through `backend/app/database.py`. MongoDB is legacy and is not a source of truth for new product work.
 
-Tablas activas principales:
+## Design goal
 
-- `Agent`: identidad, nombre, estrategia S1-S4, estado, capital inicial/actual, padre y umbral de réplica.
-- `Trade`: agente, precios de entrada/salida, cantidad, tipo, resultado y timestamp.
+Persistence must support trustworthy Paper/Backtest accounting and evidence. The database should model financial facts explicitly instead of recreating the historical Mongo schema.
 
-Los routers `/api/agents` y `/api/trades` operan sobre esta sesión SQLModel. `AgentEngine` usa la misma base de datos mediante `SessionLocal`.
+## Current active records
 
-## Replicación
+- `Agent`: identity, strategy, state, initial/current budget, parent and replication threshold.
+- `Trade`: current transition record used by active agents/trades APIs.
 
-La replicación manual y automática comparten `backend/app/services/agent_replication.py`, evitando dos implementaciones distintas del mismo cambio de estado y creación de descendientes.
+These tables are a baseline, not the final financial model.
 
-## MongoDB legacy
+## Target records
 
-El árbol conserva modelos Pydantic ricos, `DatabaseService`, colecciones Mongo y servicios que fueron parte de una arquitectura anterior. `backend/app/main.py` no inicializa MongoDB ni inyecta `DatabaseService`, y sus routers no forman parte del API activo.
+Implementation phases should introduce only the entities required by their contracts, expected to include:
 
-La infraestructura `.devops/docker-compose.yml` se conserva únicamente como soporte histórico mientras se decide si esa arquitectura se elimina o migra. Docker/Mongo no son requisitos de desarrollo del runtime efectivo.
+- **Order**: requested action and lifecycle state.
+- **Fill**: simulated/exchange execution fact with price, quantity, fee and timestamp.
+- **Position**: open quantity/cost basis and lifecycle.
+- **Account/Ledger event**: capital movements and adjustments where needed for reconciliation.
+- **Equity snapshot**: derived historical observation for analysis, linked to mode/session.
+- **Strategy configuration/version**: exact configuration associated with decisions.
+- **Risk event/decision**: approvals, rejections and circuit-breaker events.
+- **Run/Session**: mode, provider, timestamps and evidence provenance.
+- **Agent lineage**: parent/generation/config inheritance as the lifecycle evolves.
 
-## Regla para cambios nuevos
+Exact table names/schema are decided in implementation plans; accounting invariants in `PORTFOLIO_ACCOUNTING.md` are mandatory.
 
-Cualquier cambio del producto activo debe usar SQLModel/SQLite y el contrato montado por `app.main`. No se debe añadir una segunda fuente de verdad Mongo para completar una feature.
+## Rules
+
+- One authoritative financial calculation path.
+- Virtual deposits/adjustments are explicit and never counted as PnL.
+- Mode/session provenance is preserved.
+- Open financial state survives restart.
+- Schema migrations preserve or explicitly migrate existing active data.
+- No new Mongo collection is introduced for active functionality.
+
+## Legacy
+
+Historical Mongo models may contain ideas worth migrating, but no field/collection is retained merely because it existed before. Migration is driven by the new domain contracts.

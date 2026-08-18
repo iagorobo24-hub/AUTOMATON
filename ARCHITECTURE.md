@@ -1,104 +1,85 @@
 # AUTOMATON Architecture
 
-## Fuente de verdad actual
+## Objective
 
-El runtime que arranca `backend/app/main.py` utiliza FastAPI, SQLModel, SQLite, `AgentEngine` y los routers `agents`, `trades` y `crypto`. No monta el agregador histórico `backend/app/api/api.py` ni los routers Mongo de system/trading/auth/payments/notifications/paper-trading.
+AUTOMATON is being rebuilt around one core path: autonomous agents trading with **real market data and virtual capital** until the system has enough evidence and safeguards to consider any Live mode.
 
-## Flujo activo
+## Non-negotiable boundaries
+
+1. Synthetic data is test-only and must be labelled synthetic.
+2. Backtest and Paper use real market data.
+3. Paper uses virtual funds only.
+4. Live execution is a separate future adapter and cannot be enabled by toggling a Paper flag.
+5. Every financial metric must identify its evidence mode: synthetic, backtest, paper or live.
+6. SQLModel/SQLite remains the active persistence baseline unless a later architecture decision deliberately changes it.
+7. Historical Mongo services are not reactivated as shortcuts.
+
+## Target domains
+
+### Market Data
+Owns provider access, timestamps, candles, quotes, symbol normalization, gaps, retries and data quality. It produces immutable market observations; it never decides trades.
+
+### Strategy / Signals
+Consumes market observations and produces deterministic, inspectable intents or signals. Strategy logic must not mutate portfolio balances or call an exchange directly.
+
+### Risk
+Receives a proposed order plus account/portfolio state and decides whether it is allowed and at what size. It owns exposure limits, drawdown controls, position sizing, stop requirements and circuit breakers.
+
+### Execution
+Paper execution converts approved orders into simulated fills against real market observations. Fees, slippage, order state and fill assumptions must be explicit and reproducible where possible.
+
+### Portfolio & Accounting
+Single source of truth for cash, positions, cost basis, realized PnL, unrealized PnL, equity, exposure and fees. Strategies and UI do not calculate competing balances.
+
+### Agent Lifecycle
+Owns agent identity, assigned strategy/configuration, status, death, replication, lineage and future mutation. Replication must eventually depend on evidence quality, not a single short-term balance threshold.
+
+### Metrics & Evidence
+Computes comparable performance from persisted trades/equity observations. It records provenance and never mixes results from different modes.
+
+### API / UI / Monitoring
+Observes and controls the domains through explicit contracts. UI must show missing data as missing rather than fabricate substitutes.
+
+## Data flow
 
 ```text
-Electron (opcional)
-  -> Vite / React
-     -> frontend/src/lib/api.js
-        -> FastAPI app.main
-           -> agents router -> SQLModel Agent
-           -> trades router -> SQLModel Trade
-           -> crypto router -> datos de mercado
-           -> /api/estado -> AgentEngine
-           -> /health -> estado del runtime
-              -> SQLite
+Provider -> Market Data -> Strategy -> Risk -> Paper Execution
+                                      |             |
+                                      v             v
+                                  Portfolio <--- Fills
+                                      |
+                                      v
+                               Metrics / Evidence
+                                      |
+                                      v
+                              Agent Lifecycle + UI
 ```
 
-### Frontend activo
+## Current runtime versus target
 
-`frontend/src/App.jsx` registra exclusivamente:
+Today `backend/app/main.py` mounts SQLModel agents/trades/crypto and starts `AgentEngine`. That engine still generates synthetic prices and contains random trade closing behavior from the earlier simulator. It is not compliant with target Paper semantics and must be isolated or replaced during the Paper migration.
 
-| Ruta | Vista | Fuente de datos |
-|---|---|---|
-| `/` | `DashboardPro` | agents/trades/health |
-| `/crypto` | `CryptoPro` | crypto + agents Quick Deploy |
-| `/monitor` | `OpsMonitorPro` | trades REST polling |
-| `/agents` | `AgentsPage` | agents |
-| `/settings` | `SettingsPage` | health |
+`frontend/src/App.jsx` currently exposes Dashboard, Crypto, Ops Monitor, Agents and Settings. These pages may evolve, but their data must continue to come from active APIs and preserve provenance.
 
-`frontend/src/lib/api.js` es el único cliente HTTP del frontend activo. No existe un WebSocket `/ws/trading` en `app.main`; el monitor utiliza polling REST.
+## Persistence target
 
-## Dominio Agents
+SQLModel should evolve from current `Agent` and `Trade` tables toward explicit entities for at least:
 
-La fuente de verdad es `backend/app/models/sql_models.py` y `backend/app/routers/agents.py`.
+- market observations/cache metadata where persistence is needed;
+- orders;
+- fills;
+- positions;
+- account/equity snapshots;
+- strategy configuration/version;
+- risk decisions/events;
+- agent lineage/evidence summaries.
 
-Estados válidos: `ACTIVO`, `MUERTO`, `REPLICADO`.
+Exact schemas are implementation decisions made phase by phase. The accounting invariant is more important than mirroring the historical Mongo schema.
 
-Estrategias válidas: `S1`, `S2`, `S3`, `S4`.
+## Live boundary
 
-La replicación manual y automática comparten `backend/app/services/agent_replication.py`.
+Future Live trading uses the same upstream strategy/risk concepts but a different execution adapter and additional authorization/safety controls. No Paper test, UI control or environment default may implicitly activate Live.
 
-## Trading actual
+## Verification
 
-`AgentEngine` realiza una simulación local sobre BTC y persiste `Trade` en SQLite. No debe confundirse con los servicios históricos `TradingEngine` o `PaperTradingEngine`.
-
-El dashboard usa `/api/trades/stats`, `/api/agents/` y `/health`. El monitor usa `/api/trades/`.
-
-## Arquitectura legacy preservada
-
-El repositorio conserva una arquitectura anterior basada en MongoDB y modelos Pydantic ricos. Incluye, entre otros:
-
-- `backend/app/services/database.py` (`DatabaseService`)
-- `backend/app/services/trading_engine.py`
-- `backend/app/services/paper_engine.py`
-- `backend/app/services/mock_engine.py`
-- `backend/app/services/registry.py`
-- routers `system.py`, `trading.py`, `paper_trading.py`, `payments.py`, `auth.py`, `notifications.py` y otros
-- modelos Pydantic ricos de `backend/app/models/`
-- páginas frontend históricas no registradas por `App.jsx`
-- infraestructura Mongo histórica como `.devops/docker-compose.yml` e `install-mongodb.ps1`
-
-Estas piezas están **conservadas, no activas**. No deben añadirse a `app.main` para resolver un 404 o satisfacer una pantalla. Cualquier reactivación requiere decidir primero si se migra a SQLModel o se recupera explícitamente esa arquitectura como subsistema independiente.
-
-## Legado y duplicados retirados
-
-La consolidación elimina piezas inequívocamente incompatibles con el runtime actual:
-
-- `frontend/src/services/api.js`: segundo cliente HTTP.
-- `frontend/src/shared/lib/api-client.js`: tercer cliente HTTP sin consumidores.
-- `frontend/src/shared/hooks/useTradingSocket.js`: cliente de `/ws/trading`, endpoint inexistente.
-- `frontend/jest.config.js` y `frontend/setupTests.js`: configuración Jest/CRA mientras el proyecto usa Vitest.
-- `frontend/plugins/health-check/*`: plugin webpack no utilizado por Vite.
-- tests placeholder que solo comprobaban constantes/estructura y no comportamiento real.
-- logs y reportes de tests generados de ejecuciones históricas.
-- launchers `_FIXED` duplicados; el launcher Windows canónico delega ahora en `npm run dev`.
-
-## Tooling actual
-
-- Vite en `localhost:5173`.
-- Vitest para frontend.
-- Uvicorn/FastAPI en `127.0.0.1:8000`.
-- `npm run dev` es el orquestador principal y también es usado por `AUTOMATON.bat`/`launcher.ps1`.
-- `Makefile` delega en los scripts existentes y no referencia comandos frontend inexistentes.
-
-## Persistencia
-
-`backend/app/database.py` configura SQLite en `./automaton.db` con `check_same_thread=False`. Bases locales, logs, coverage y reportes de test son artefactos de ejecución ignorados por Git.
-
-## Validación
-
-Tests relevantes:
-
-- `backend/tests/test_agents_sqlmodel.py`
-- `backend/tests/test_api_integration.py`
-- `frontend/src/lib/api.test.js`
-- `frontend/src/lib/agentContract.test.js`
-- `frontend/src/pages/SettingsPage.test.jsx`
-- tests de normalización de dashboard y monitor
-
-La existencia de tests no equivale a ejecución verde; el resultado solo se considera verificado cuando una suite se ejecuta sobre el HEAD correspondiente.
+Architecture claims are considered implemented only when code, tests and fresh execution evidence agree. Documentation describes target state and must label current gaps explicitly.
