@@ -3,7 +3,7 @@ import { normalizeAgents } from './agentContract';
 
 
 describe('SQLModel agent contract adapter', () => {
-  it('maps backend fields and statuses into the Dark Pro view model', () => {
+  it('maps backend fields, statuses, lineage and trade counters into Dark Pro', () => {
     const agents = normalizeAgents([
       {
         id: 1,
@@ -14,6 +14,8 @@ describe('SQLModel agent contract adapter', () => {
         presupuesto_actual: 1100,
         padre_id: null,
         umbral_replica: 0.15,
+        trades_count: 3,
+        successful_trades: 2,
         creado_en: '2026-08-18T00:00:00+00:00',
       },
       {
@@ -25,6 +27,8 @@ describe('SQLModel agent contract adapter', () => {
         presupuesto_actual: 1000,
         padre_id: 1,
         umbral_replica: 0.15,
+        trades_count: 0,
+        successful_trades: 0,
         creado_en: '2026-08-18T00:01:00+00:00',
       },
     ]);
@@ -35,6 +39,7 @@ describe('SQLModel agent contract adapter', () => {
       status: 'active',
       finances: { initial_capital: 1000, current_balance: 1100 },
       performance: { roi_percent: 10 },
+      trading_stats: { total_trades: 3, winning_trades: 2 },
       lineage: { children_ids: [2] },
     });
     expect(agents[1].status).toBe('replicated');

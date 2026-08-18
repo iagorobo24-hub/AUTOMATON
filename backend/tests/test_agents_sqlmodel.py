@@ -52,6 +52,8 @@ async def test_agents_active_contract_end_to_end(sqlite_engine):
         assert listed.status_code == 200
         assert listed.json()[0]["nombre"] == "ADAN"
         assert listed.json()[0]["estado"] == "ACTIVO"
+        assert listed.json()[0]["trades_count"] == 0
+        assert listed.json()[0]["successful_trades"] == 0
 
         deposited = await client.post(
             f"/api/agents/{agent_id}/deposit", params={"amount": 100}
@@ -88,9 +90,15 @@ async def test_agents_active_contract_end_to_end(sqlite_engine):
 
 
 @pytest.mark.asyncio
-async def test_agents_reject_invalid_creation_and_deposit():
+async def test_agents_reject_invalid_creation_values():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        whitespace_name = await client.post(
+            "/api/agents/",
+            params={"nombre": "   ", "estrategia": "S1", "presupuesto": 100},
+        )
+        assert whitespace_name.status_code == 422
+
         invalid_budget = await client.post(
             "/api/agents/",
             params={"nombre": "BAD", "estrategia": "S1", "presupuesto": 0},
@@ -150,3 +158,29 @@ async def test_agent_engine_does_not_double_count_long_pnl(sqlite_engine, monkey
         assert agent.presupuesto_actual == pytest.approx(1010)
         closed_trade = session.exec(select(Trade).where(Trade.id == trade.id)).one()
         assert closed_trade.resultado == pytest.approx(10)
+
+
+@pytest.mark.asyncio
+async def test_agents_list_reports_real_trade_counters(sqlite_engine):
+    with Session(sqlite_engine) as session:
+        agent = Agent(
+            nombre="COUNTER",
+            presupuesto_inicial=1000,
+            presupuesto_actual=1000,
+            estrategia=StrategyEnum.S1,
+        )
+        session.add(agent)
+        session.commit()
+        session.refresh(agent)
+        session.add(Trade(agente_id=agent.id, precio_entrada=100, precio_salida=110, cantidad=1, tipo=TradeType.LONG, resultado=10))
+        session.add(Trade(agente_id=agent.id, precio_entrada=100, precio_salida=90, cantidad=1, tipo=TradeType.LONG, resultado=-10))
+        session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get("/api/agents/")
+
+    assert response.status_code == 200
+    payload = response.json()[0]
+    assert payload["trades_count"] == 2
+    assert payload["successful_trades"] == 1

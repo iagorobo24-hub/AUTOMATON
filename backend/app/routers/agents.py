@@ -2,16 +2,25 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
 from sqlmodel import Session, select
 
-from app.models import Agent, AgentStatus, StrategyEnum
+from app.models import Agent, AgentStatus, StrategyEnum, Trade
 from app.database import get_session
 from app.services.agent_replication import replicate_agent as create_replica
 
 router = APIRouter()
 
 
-def _serialize_agent(agent: Agent) -> dict:
+def _serialize_agent(agent: Agent, session: Session | None = None) -> dict:
     initial = agent.presupuesto_inicial
     current = agent.presupuesto_actual
+    trades_count = 0
+    successful_trades = 0
+    if session is not None and agent.id is not None:
+        trades = session.exec(select(Trade).where(Trade.agente_id == agent.id)).all()
+        trades_count = len(trades)
+        successful_trades = sum(
+            1 for trade in trades if trade.resultado is not None and trade.resultado > 0
+        )
+
     return {
         "id": agent.id,
         "nombre": agent.nombre,
@@ -23,6 +32,8 @@ def _serialize_agent(agent: Agent) -> dict:
         "umbral_replica": agent.umbral_replica,
         "profit": current - initial,
         "profit_percent": ((current - initial) / initial) if initial > 0 else 0,
+        "trades_count": trades_count,
+        "successful_trades": successful_trades,
         "creado_en": agent.creado_en.isoformat(),
     }
 
@@ -38,8 +49,11 @@ def _get_active_agent(session: Session, agent_id: int) -> Agent:
 
 @router.get("/")
 def get_agents(session: Session = Depends(get_session)) -> List[dict]:
-    """List all SQLModel agents."""
-    return [_serialize_agent(agent) for agent in session.exec(select(Agent)).all()]
+    """List all SQLModel agents with their real trade counters."""
+    return [
+        _serialize_agent(agent, session)
+        for agent in session.exec(select(Agent)).all()
+    ]
 
 
 @router.post("/")
@@ -51,8 +65,12 @@ def create_agent(
     session: Session = Depends(get_session),
 ) -> dict:
     """Create an active trading agent with validated capital and threshold."""
+    normalized_name = nombre.strip()
+    if not normalized_name:
+        raise HTTPException(status_code=422, detail="El nombre es obligatorio")
+
     agent = Agent(
-        nombre=nombre.strip(),
+        nombre=normalized_name,
         presupuesto_inicial=presupuesto,
         presupuesto_actual=presupuesto,
         estrategia=estrategia,
@@ -62,7 +80,7 @@ def create_agent(
     session.add(agent)
     session.commit()
     session.refresh(agent)
-    return _serialize_agent(agent)
+    return _serialize_agent(agent, session)
 
 
 @router.get("/{agent_id}")
@@ -70,7 +88,7 @@ def get_agent(agent_id: int, session: Session = Depends(get_session)) -> dict:
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agente no encontrado")
-    return _serialize_agent(agent)
+    return _serialize_agent(agent, session)
 
 
 @router.post("/{agent_id}/replicate")
@@ -81,7 +99,10 @@ def replicate_agent(agent_id: int, session: Session = Depends(get_session)) -> d
     session.commit()
     session.refresh(parent)
     session.refresh(replica)
-    return {"parent": _serialize_agent(parent), "replica": _serialize_agent(replica)}
+    return {
+        "parent": _serialize_agent(parent, session),
+        "replica": _serialize_agent(replica, session),
+    }
 
 
 @router.post("/{agent_id}/deposit")
@@ -96,7 +117,7 @@ def deposit_agent(
     session.add(agent)
     session.commit()
     session.refresh(agent)
-    return _serialize_agent(agent)
+    return _serialize_agent(agent, session)
 
 
 @router.post("/{agent_id}/simulate-trade")
@@ -113,7 +134,7 @@ def simulate_trade_result(
     session.add(agent)
     session.commit()
     session.refresh(agent)
-    return _serialize_agent(agent)
+    return _serialize_agent(agent, session)
 
 
 @router.delete("/{agent_id}")
@@ -130,4 +151,4 @@ def kill_agent(agent_id: int, session: Session = Depends(get_session)) -> dict:
     session.add(agent)
     session.commit()
     session.refresh(agent)
-    return _serialize_agent(agent)
+    return _serialize_agent(agent, session)

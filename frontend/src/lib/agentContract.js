@@ -29,7 +29,10 @@ export function normalizeAgents(rawAgents = []) {
         current_balance: current,
       },
       performance: { roi_percent: roi },
-      trading_stats: { total_trades: 0, winning_trades: 0 },
+      trading_stats: {
+        total_trades: Number(agent.trades_count ?? 0),
+        winning_trades: Number(agent.successful_trades ?? 0),
+      },
       lineage: {
         parent_id: agent.padre_id ?? null,
         children_ids: childrenByParent.get(agent.id) || [],
