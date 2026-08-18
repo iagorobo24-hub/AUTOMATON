@@ -52,6 +52,15 @@ export default function SettingsPage() {
 
   const apiOperational = runtime?.status === "ok";
   const engineRunning = runtime?.agent_engine === "running";
+  const engineLabel = loading
+    ? "Consultando…"
+    : !runtime
+      ? "Desconocido"
+      : engineRunning
+        ? "En ejecución"
+        : runtime.agent_engine === "stopped"
+          ? "Detenido"
+          : "Desconocido";
 
   return (
     <div className="min-h-screen bg-background" data-testid="settings-page">
@@ -82,7 +91,7 @@ export default function SettingsPage() {
           />
           <StatusCard
             label="AgentEngine"
-            value={loading ? "Consultando…" : engineRunning ? "En ejecución" : "Detenido"}
+            value={engineLabel}
             description="Motor SQLModel utilizado por los agentes activos"
             active={!loading && engineRunning}
           />
