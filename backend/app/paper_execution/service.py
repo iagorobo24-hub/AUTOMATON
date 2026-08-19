@@ -299,32 +299,41 @@ class PaperExecutionService:
         return {"filled": recovered_filled, "cancelled": cancelled}
 
     def recover_requests(self) -> dict[str, int]:
-        """Recover idempotency reservations left PROCESSING across a restart."""
+        """Recover idempotency reservations left PROCESSING across a restart.
+
+        A PROCESSING request with no execution linkage is intentionally ambiguous:
+        the process may have crashed immediately after a persistent Order was created.
+        It therefore fails closed instead of being made automatically retryable.
+        """
         now = self._now_utc()
         completed = 0
-        retryable = 0
+        recovery_required = 0
         requests = self.session.exec(
             select(PaperRequest).where(PaperRequest.status == "PROCESSING")
         ).all()
 
         for request in requests:
             if request.execution_id is None:
-                request.status = "RETRYABLE"
-                request.http_status = 503
-                request.error_detail = "request interrupted before financial execution"
+                request.status = "RECOVERY_REQUIRED"
+                request.http_status = 409
+                request.error_detail = (
+                    "request interrupted before execution linkage; automatic retry blocked"
+                )
                 request.updated_at = now
                 self.session.add(request)
-                retryable += 1
+                recovery_required += 1
                 continue
 
             execution = self.session.get(PaperExecution, request.execution_id)
             if execution is None:
-                request.status = "RETRYABLE"
-                request.http_status = 503
-                request.error_detail = "request execution record missing after restart"
+                request.status = "RECOVERY_REQUIRED"
+                request.http_status = 409
+                request.error_detail = (
+                    "request execution record missing after restart; automatic retry blocked"
+                )
                 request.updated_at = now
                 self.session.add(request)
-                retryable += 1
+                recovery_required += 1
                 continue
 
             request.status = "COMPLETED"
@@ -342,4 +351,4 @@ class PaperExecutionService:
             completed += 1
 
         self.session.commit()
-        return {"completed": completed, "retryable": retryable}
+        return {"completed": completed, "recovery_required": recovery_required}
