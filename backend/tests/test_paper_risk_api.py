@@ -10,9 +10,11 @@ from app.accounting.service import AccountingService
 from app.database import get_session
 from app.main import app
 from app.market_data.contracts import Quote
+from app.market_data.quality import MarketDataUnavailable
 from app.market_data.router import get_market_data_service
 from app.models import Agent, StrategyEnum
 from app.models.accounting import Fill, Order
+from app.models.paper_execution import PaperRequest
 from app.models.risk import RiskDecision, RiskProfile
 from app.risk.bootstrap import ensure_active_risk_profile
 
@@ -32,6 +34,18 @@ class RealFixtureMarketData:
             provider_symbol=canonical.replace("/", ""),
             timestamp_source="provider",
         )
+
+
+class BtcOnlyMarketData(RealFixtureMarketData):
+    def __init__(self):
+        self.symbols = []
+
+    async def get_quote(self, symbol: str) -> Quote:
+        canonical = symbol.replace("-", "/").upper()
+        self.symbols.append(canonical)
+        if canonical != "BTC/USDT":
+            raise MarketDataUnavailable("unrelated mark unavailable")
+        return await super().get_quote(canonical)
 
 
 @pytest.fixture
@@ -108,3 +122,66 @@ async def test_paused_risk_profile_blocks_paper_execution(setup_app):
         })
     assert response.status_code == 409
     assert "RISK_PAUSED" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_risk_reducing_sell_does_not_require_unrelated_position_mark(setup_app):
+    engine, account_id = setup_app
+    with Session(engine) as session:
+        accounting = AccountingService(session)
+        for symbol in ("BTC/USDT", "ETH/USDT"):
+            order = accounting.create_order(account_id, symbol, "BUY", Decimal("1"))
+            accounting.apply_fill(
+                order.id,
+                quantity=Decimal("1"),
+                price=Decimal("100"),
+                fee=Decimal("0"),
+                observed_at=datetime.now(timezone.utc),
+            )
+
+    provider = BtcOnlyMarketData()
+    app.dependency_overrides[get_market_data_service] = lambda: provider
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post("/api/paper/orders/market", params={
+            "request_id": "risk-reducing-sell",
+            "account_id": account_id,
+            "symbol": "BTC-USDT",
+            "side": "SELL",
+            "quantity": "1",
+        })
+
+    assert response.status_code == 200
+    assert provider.symbols == ["BTC/USDT"]
+    with Session(engine) as session:
+        decision = session.exec(
+            select(RiskDecision).where(RiskDecision.side == "SELL")
+        ).one()
+        assert decision.decision == "ALLOW"
+
+
+@pytest.mark.asyncio
+async def test_missing_account_returns_404_and_request_is_completed_idempotently(setup_app):
+    engine, _account_id = setup_app
+    params = {
+        "request_id": "missing-account",
+        "account_id": 999999,
+        "symbol": "BTC-USDT",
+        "side": "BUY",
+        "quantity": "1",
+    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first = await client.post("/api/paper/orders/market", params=params)
+        second = await client.post("/api/paper/orders/market", params=params)
+
+    assert first.status_code == 404
+    assert second.status_code == 404
+    with Session(engine) as session:
+        request = session.exec(
+            select(PaperRequest).where(PaperRequest.request_id == "missing-account")
+        ).one()
+        assert request.status == "COMPLETED"
+        assert request.http_status == 404
+        assert session.exec(select(RiskDecision)).all() == []
+        assert session.exec(select(Order)).all() == []
