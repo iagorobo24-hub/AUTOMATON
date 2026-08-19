@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Database, RefreshCw, ShieldAlert } from "lucide-react";
-import { healthAPI } from "@/lib/api";
+import { healthAPI, riskAPI } from "@/lib/api";
 
 function StatusCard({ label, value, description, active }) {
   return (
@@ -29,6 +29,7 @@ function RuntimeRow({ label, value, description }) {
 
 export default function SettingsPage() {
   const [runtime, setRuntime] = useState(null);
+  const [riskProfile, setRiskProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -36,10 +37,15 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await healthAPI.health();
-      setRuntime(response.data);
+      const [healthResponse, riskResponse] = await Promise.all([
+        healthAPI.health(),
+        riskAPI.activeProfile(),
+      ]);
+      setRuntime(healthResponse.data);
+      setRiskProfile(riskResponse.data);
     } catch (err) {
       setRuntime(null);
+      setRiskProfile(null);
       setError(err?.message || "No se pudo consultar el runtime");
     } finally {
       setLoading(false);
@@ -66,7 +72,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1>
-            <p className="text-sm text-muted-foreground mt-1">Estado del runtime Paper de transición</p>
+            <p className="text-sm text-muted-foreground mt-1">Estado del runtime Paper con Risk obligatorio</p>
           </div>
           <button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar estado del runtime">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -81,18 +87,9 @@ export default function SettingsPage() {
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <StatusCard
-            label="API"
-            value={loading ? "Consultando…" : apiOperational ? "Operativa" : "No disponible"}
-            description="Endpoint /health del backend activo"
-            active={!loading && apiOperational}
-          />
-          <StatusCard
-            label="Synthetic/Test"
-            value={runtimeLabel}
-            description="El generador aleatorio no participa en el runtime normal ni produce evidencia financiera."
-            active={!loading && syntheticDisabled}
-          />
+          <StatusCard label="API" value={loading ? "Consultando…" : apiOperational ? "Operativa" : "No disponible"} description="Endpoint /health del backend activo" active={!loading && apiOperational} />
+          <StatusCard label="Risk" value={loading ? "Consultando…" : riskProfile?.paused ? "Pausado" : riskProfile?.version || "Desconocido"} description="Perfil persistido que autoriza o rechaza cada orden Paper activa." active={!loading && Boolean(riskProfile) && !riskProfile?.paused} />
+          <StatusCard label="Synthetic/Test" value={runtimeLabel} description="El generador aleatorio no participa en el runtime normal ni produce evidencia financiera." active={!loading && syntheticDisabled} />
         </div>
 
         <div className="glass-card rounded-xl overflow-hidden">
@@ -105,8 +102,9 @@ export default function SettingsPage() {
             <RuntimeRow label="Modo" value={runtime?.runtime_mode || "transition"} description="Runtime de transición sin motor autónomo de trading." />
             <RuntimeRow label="Market Data" value={runtime?.market_data || "unknown"} description="Quotes reales y fail-closed para la frontera Paper." />
             <RuntimeRow label="Accounting" value={runtime?.accounting || "unknown"} description="Cash, posiciones, fills, fees y reconciliación persistentes." />
-            <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "unknown"} description="Ejecución virtual sobre quote real disponible únicamente para órdenes explícitas de operador." />
-            <RuntimeRow label="Trading automático" value={runtime?.automated_trading || "blocked_until_risk"} description="Los agentes no pueden ejecutar automáticamente hasta que la Fase 4 Risk autorice cada orden." />
+            <RuntimeRow label="Risk Engine" value={runtime?.risk || "unknown"} description={`Perfil ${riskProfile?.version || "desconocido"}; circuit breaker ${riskProfile?.paused ? "PAUSADO" : "activo"}.`} />
+            <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "unknown"} description="Ejecución virtual manual sobre mercado real, siempre detrás de Risk." />
+            <RuntimeRow label="Trading automático" value={runtime?.automated_trading || "blocked_until_strategy_integration"} description="Risk ya existe, pero los agentes todavía no están conectados a ejecución automática." />
             <RuntimeRow label="Live" value={runtime?.live_execution || "disabled"} description="Sin adaptador Live ni ruta capaz de enviar órdenes reales." />
           </div>
         </div>
@@ -117,8 +115,9 @@ export default function SettingsPage() {
             <h2 className="evo-section-title">Controles disponibles</h2>
           </div>
           <div className="px-5 py-4 text-sm text-muted-foreground space-y-2">
-            <p>La página Agentes permite crear, fondear y retirar agentes del inventario técnico. La replicación permanece bloqueada hasta definir transferencia de capital y fitness en Agent Evolution.</p>
-            <p>La API Paper permite órdenes MARKET manuales de operador contra quotes reales. No existe automatización de estrategia, PnL simulado ni ejecución Live en la superficie activa.</p>
+            <p>La API Risk dispone de pause/resume como circuit breaker explícito. No activa trading automático.</p>
+            <p>La API Paper mantiene órdenes MARKET manuales de operador contra quotes reales; cada orden debe recibir ALLOW de Risk antes de crear estado financiero.</p>
+            <p>La replicación de agentes sigue bloqueada hasta definir transferencia de capital y fitness en Agent Evolution.</p>
           </div>
         </div>
 
@@ -127,9 +126,7 @@ export default function SettingsPage() {
             <ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-sm font-medium text-foreground">Legacy preservado, no operativo</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no se montan ni participan en Market Data, Accounting o Paper activos.
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no participan en Market Data, Accounting, Risk o Paper activos.</p>
             </div>
           </div>
         </div>
