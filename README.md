@@ -17,12 +17,12 @@ Active stack: FastAPI + SQLModel + SQLite with React/Vite.
 - Risk: persistent mandatory `risk-v1` authorization before every normal Paper execution.
 - Backtesting: immutable real historical datasets, deterministic `backtest-v1` and strategy-source SHA-256 evidence.
 - Agent Evolution: `evolution-v1` fitness, lineage/lifecycle evidence and manual non-duplicating replication.
-- Paper Runtime: persistent `runtime-v1` sessions that can execute S1-S4 autonomously on new real closed candles.
-- Strategy Research: `research-v1` studies with chronological TRAIN/VALIDATION/OOS evidence, forward Phase 7 Paper gates and manual candidate promotion.
+- Paper Runtime: persistent `runtime-v1` sessions that can execute S1-S4 autonomously on new real closed candles and now capture strategy/version/source SHA at first start.
+- Strategy Research: `research-v1` studies with chronological TRAIN/VALIDATION/OOS evidence, forward Phase 7 Paper provenance and manual candidate promotion.
 - Automated trading: enabled **only inside explicitly started Phase 7 Paper sessions**.
 - Live execution: disabled and structurally separate.
 
-Legacy pre-provenance `Trade` rows remain excluded from valid Paper/Backtest/fitness/research evidence.
+Legacy pre-provenance `Trade` rows remain excluded from valid Paper/Backtest/fitness/research evidence. Phase 7 sessions that ran before strategy-source capture existed remain readable but cannot be retroactively fingerprinted for Research promotion.
 
 ## Implemented core
 
@@ -37,7 +37,7 @@ Market Data, Accounting, deterministic Paper Execution, Risk, reproducible Backt
 ```text
 immutable Backtests -> TRAIN / VALIDATION / OOS
                               +
-                     stopped forward Paper
+              fingerprinted stopped forward Paper
                               ↓
                        research-v1
                               ↓
@@ -56,11 +56,12 @@ immutable Backtests -> TRAIN / VALIDATION / OOS
 - OOS profit factor >= 1.05 when defined;
 - no more than 50% relative return degradation from VALIDATION to OOS;
 - stopped Phase 7 Paper evidence on the same market/timeframe;
+- Phase 7 captured strategy ID/version/source SHA matching the frozen historical study identity;
 - at least 3 unique FILLED `strategy_runtime` closing SELL executions;
 - positive authoritative account-level realized PnL context;
 - no unresolved Paper recovery;
-- no FILLED manual/operator Paper execution contaminating the qualifying account PnL context;
-- current strategy source SHA still equal to the historical research SHA when promotion is requested.
+- no FILLED execution outside the exact Research-selected forward sessions contaminating qualifying account PnL;
+- current strategy source SHA still equal to the historical/forward SHA when promotion is requested.
 
 Each promotion attempt creates a fresh evaluation. A promoted candidate is an immutable evidence classification for one exact strategy version/source SHA; it does **not** mutate S1-S4, auto-deploy a session, replicate an agent or enable Live.
 
