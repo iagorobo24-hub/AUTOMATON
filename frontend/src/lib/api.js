@@ -75,6 +75,14 @@ export const paperAPI = {
   ),
 };
 
+export const riskAPI = {
+  status: () => api.get('/risk/status'),
+  activeProfile: () => api.get('/risk/profiles/active'),
+  decisions: (params = {}) => api.get('/risk/decisions', { params }),
+  pause: () => api.post('/risk/pause'),
+  resume: () => api.post('/risk/resume'),
+};
+
 export const stateAPI = {
   status: () => api.get('/estado'),
 };
