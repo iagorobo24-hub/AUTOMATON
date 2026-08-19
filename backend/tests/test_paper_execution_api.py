@@ -148,7 +148,7 @@ async def test_provider_failure_returns_503_and_creates_no_financial_or_risk_sta
 
 
 @pytest.mark.asyncio
-async def test_paper_api_is_risk_gated_operator_only_and_has_no_live_execution_surface(app_db):
+async def test_paper_api_reports_manual_and_session_controlled_runtime_origins_without_live_surface(app_db):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         status = await client.get("/api/paper/status")
@@ -159,7 +159,8 @@ async def test_paper_api_is_risk_gated_operator_only_and_has_no_live_execution_s
         "market_data": "real_only",
         "capital": "virtual_only",
         "order_type": "market_only",
-        "origin": "operator_only_phase_4",
+        "origins": ["operator", "strategy_runtime"],
+        "autonomous_runtime": "phase_7_session_controlled",
         "risk_gate": "required",
         "live_execution_capability": False,
         "synthetic_fallback": False,
@@ -172,5 +173,5 @@ async def test_paper_api_is_risk_gated_operator_only_and_has_no_live_execution_s
     routes = {route.path for route in app.routes}
     assert "/api/paper/orders/market" in routes
     assert "/api/paper/executions" in routes
+    assert "/api/runtime/sessions/{session_id}/start" in routes
     assert "/api/paper/live" not in routes
-    assert "/api/paper/automation/start" not in routes
