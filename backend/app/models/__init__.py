@@ -16,6 +16,12 @@ from app.models.agent_evolution import (
     AgentLineage,
     AgentLifecycleEvent,
 )
+from app.models.paper_runtime import (
+    PaperRuntimeSession,
+    PaperRuntimeAgent,
+    PaperRuntimeCycle,
+    PaperRuntimeEvent,
+)
 
 __all__ = [
     "Agent",
@@ -42,4 +48,8 @@ __all__ = [
     "AgentFitnessEvaluation",
     "AgentLineage",
     "AgentLifecycleEvent",
+    "PaperRuntimeSession",
+    "PaperRuntimeAgent",
+    "PaperRuntimeCycle",
+    "PaperRuntimeEvent",
 ]
