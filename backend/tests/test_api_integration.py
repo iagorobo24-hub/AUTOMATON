@@ -26,7 +26,9 @@ class TestAPI:
             "synthetic_engine": "disabled",
             "market_data": "real_contract_available",
             "accounting": "authoritative_phase_2",
-            "paper_trading": "not_implemented",
+            "paper_trading": "operator_only_phase_3",
+            "automated_trading": "blocked_until_risk",
+            "live_execution": "disabled",
         }
 
     @pytest.mark.asyncio
@@ -43,11 +45,13 @@ class TestAPI:
         assert payload["synthetic_engine"] == "disabled"
         assert payload["market_data_mode"] == "real_contract_available"
         assert payload["accounting_mode"] == "authoritative_phase_2"
-        assert payload["financial_evidence"] == "unavailable"
+        assert payload["paper_trading"] == "operator_only_phase_3"
+        assert payload["automated_trading"] == "blocked_until_risk"
+        assert payload["live_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_are_registered_without_execution_mutations(self):
+    def test_active_api_routes_include_operator_paper_but_not_live_or_automation(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -67,6 +71,11 @@ class TestAPI:
         assert "/api/accounting/agents/{agent_id}" in routes
         assert "/api/accounting/orders" not in routes
         assert "/api/accounting/fills" not in routes
+        assert "/api/paper/status" in routes
+        assert "/api/paper/orders/market" in routes
+        assert "/api/paper/executions" in routes
+        assert "/api/paper/automation/start" not in routes
+        assert "/api/paper/live" not in routes
         assert "/api/estado" in routes
 
     def test_legacy_system_and_trading_routers_stay_out_of_sqlmodel_runtime(self):
