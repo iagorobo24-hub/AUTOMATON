@@ -14,6 +14,7 @@ from app.database import SessionLocal, init_db
 from app.market_data.router import router as market_data_router
 from app.paper_execution.router import router as paper_execution_router
 from app.paper_execution.service import PaperExecutionService
+from app.paper_runtime.execution import reconcile_runtime_cycles
 from app.paper_runtime.router import router as paper_runtime_router
 from app.paper_runtime.scheduler import runtime_scheduler
 from app.paper_runtime.service import recover_interrupted_runtime_sessions
@@ -52,6 +53,7 @@ async def lifespan(app: FastAPI):
         paper_service = PaperExecutionService(session)
         recovered_paper = paper_service.recover_pending()
         recovered_requests = paper_service.recover_requests()
+        reconciled_runtime_cycles = reconcile_runtime_cycles(session)
         interrupted_runtime = recover_interrupted_runtime_sessions(session)
     logger.info("[MAIN] Accounting baseline ready (%s accounts bootstrapped)", bootstrapped_accounts)
     logger.info("[MAIN] Evolution policy ready (%s)", evolution_policy.version)
@@ -68,6 +70,7 @@ async def lifespan(app: FastAPI):
         recovered_requests["completed"],
         recovered_requests["recovery_required"],
     )
+    logger.info("[MAIN] Runtime cycle recovery reconciled %s interrupted intents without replay", reconciled_runtime_cycles)
     logger.info("[MAIN] Runtime recovery blocked %s interrupted sessions pending explicit operator recovery", interrupted_runtime)
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
