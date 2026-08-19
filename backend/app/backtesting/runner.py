@@ -1,3 +1,5 @@
+import hashlib
+import inspect
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -16,8 +18,10 @@ from app.models.backtesting import (
     BacktestDataset,
     BacktestEquityPoint,
     BacktestRun,
+    BacktestRunEvidence,
     BacktestTrade,
 )
+from app.services import strategies as strategies_module
 from app.services.strategies import get_strategy
 
 ZERO = Decimal("0")
@@ -25,6 +29,12 @@ ZERO = Decimal("0")
 
 class BacktestRunError(ValueError):
     pass
+
+
+def strategy_source_sha256() -> str:
+    """Fingerprint the active strategy source so run evidence detects code drift."""
+    source = inspect.getsource(strategies_module).replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -165,6 +175,13 @@ class BacktestRunner:
             initial_equity=initial,
         )
         self.session.add(run)
+        self.session.flush()
+        self.session.add(
+            BacktestRunEvidence(
+                run_id=run.id,
+                strategy_code_sha256=strategy_source_sha256(),
+            )
+        )
         self.session.commit()
         self.session.refresh(run)
 
