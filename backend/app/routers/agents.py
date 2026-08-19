@@ -4,7 +4,8 @@ from typing import List
 from sqlmodel import Session, select
 
 from app.accounting.service import AccountingError, AccountingService
-from app.models import Account, Agent, AgentStatus, StrategyEnum, Trade
+from app.agent_evolution.service import AgentEvolutionService, EvolutionError
+from app.models import Account, Agent, AgentLifecycleEvent, AgentStatus, StrategyEnum, Trade
 from app.database import get_session
 
 router = APIRouter()
@@ -88,6 +89,13 @@ def create_agent(
     )
     session.add(agent)
     session.flush()
+    session.add(
+        AgentLifecycleEvent(
+            agent_id=agent.id,
+            event_type="CREATED",
+            reason="operator_creation",
+        )
+    )
     AccountingService(session).create_account(agent.id, Decimal(str(presupuesto)))
     session.refresh(agent)
     return _serialize_agent(agent, session)
@@ -103,15 +111,30 @@ def get_agent(agent_id: int, session: Session = Depends(get_session)) -> dict:
 
 @router.post("/{agent_id}/replicate")
 def replicate_agent(agent_id: int, session: Session = Depends(get_session)) -> dict:
-    """Blocked until Agent Evolution defines a capital-transfer policy."""
-    _get_active_agent(session, agent_id)
-    raise HTTPException(
-        status_code=409,
-        detail=(
-            "Replication is blocked until an explicit capital allocation policy "
-            "is implemented; duplicating parent capital is forbidden"
-        ),
-    )
+    """Create a child only after a fresh Phase 6 fitness PASS and funded-capital transfer."""
+    try:
+        result = AgentEvolutionService(session).replicate(agent_id)
+    except EvolutionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {
+        "parent": _serialize_agent(result.parent, session),
+        "child": _serialize_agent(result.child, session),
+        "allocated_capital": format(result.allocated_capital, "f"),
+        "fitness": {
+            "id": result.fitness.id,
+            "decision": result.fitness.decision,
+            "policy_version": result.fitness.policy_version,
+            "backtest_run_id": result.fitness.backtest_run_id,
+            "strategy_code_sha256": result.fitness.strategy_code_sha256,
+        },
+        "lineage": {
+            "id": result.lineage.id,
+            "parent_agent_id": result.lineage.parent_agent_id,
+            "child_agent_id": result.lineage.child_agent_id,
+            "generation": result.lineage.generation,
+            "policy_version": result.lineage.policy_version,
+        },
+    }
 
 
 @router.post("/{agent_id}/deposit")
@@ -145,15 +168,29 @@ def deposit_agent(
 
 
 @router.delete("/{agent_id}")
-def kill_agent(agent_id: int, session: Session = Depends(get_session)) -> dict:
+def kill_agent(
+    agent_id: int,
+    reason: str = Query(default="operator_kill", min_length=1, max_length=128),
+    session: Session = Depends(get_session),
+) -> dict:
     agent = session.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agente no encontrado")
     if agent.estado == AgentStatus.MUERTO:
         raise HTTPException(status_code=409, detail="El agente ya está muerto")
+    normalized_reason = reason.strip()
+    if not normalized_reason:
+        raise HTTPException(status_code=422, detail="El motivo de lifecycle es obligatorio")
 
     agent.estado = AgentStatus.MUERTO
     session.add(agent)
+    session.add(
+        AgentLifecycleEvent(
+            agent_id=agent.id,
+            event_type="KILLED",
+            reason=normalized_reason,
+        )
+    )
     session.commit()
     session.refresh(agent)
     return _serialize_agent(agent, session)
