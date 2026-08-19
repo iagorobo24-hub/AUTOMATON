@@ -14,12 +14,15 @@ from app.market_data.quality import (
 )
 from app.market_data.router import get_market_data_service
 from app.market_data.service import MarketDataService
+from app.models.accounting import Position
 from app.models.paper_execution import PaperExecution, PaperRequest
 from app.paper_execution.service import (
     PaperExecutionError,
     PaperExecutionPolicy,
     PaperExecutionService,
 )
+from app.risk.bootstrap import ensure_active_risk_profile
+from app.risk.service import RiskService
 
 
 router = APIRouter()
@@ -55,12 +58,7 @@ def _serialize_execution(execution: PaperExecution) -> dict:
     }
 
 
-def _request_fingerprint(
-    account_id: int,
-    symbol: str,
-    side: str,
-    quantity: Decimal,
-) -> str:
+def _request_fingerprint(account_id: int, symbol: str, side: str, quantity: Decimal) -> str:
     normalized_quantity = format(Decimal(quantity).normalize(), "f")
     raw = f"{account_id}|{symbol}|{side}|{normalized_quantity}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -85,54 +83,25 @@ def _mark_request(
     session.commit()
 
 
-def _handle_existing_request(
-    session: Session,
-    request: PaperRequest,
-    fingerprint: str,
-) -> dict | None:
+def _handle_existing_request(session: Session, request: PaperRequest, fingerprint: str) -> dict | None:
     if request.request_fingerprint != fingerprint:
-        raise HTTPException(
-            status_code=409,
-            detail="request_id is already bound to a different Paper order payload",
-        )
-
+        raise HTTPException(status_code=409, detail="request_id is already bound to a different Paper order payload")
     if request.status == "COMPLETED":
         if request.http_status == 200 and request.execution_id is not None:
             execution = session.get(PaperExecution, request.execution_id)
             if execution is None:
-                raise HTTPException(
-                    status_code=409,
-                    detail="idempotent Paper request points to missing execution",
-                )
+                raise HTTPException(status_code=409, detail="idempotent Paper request points to missing execution")
             payload = _serialize_execution(execution)
             payload["request_id"] = request.request_id
             payload["idempotent_replay"] = True
             return payload
-        raise HTTPException(
-            status_code=request.http_status,
-            detail=request.error_detail or "Paper request previously failed",
-        )
-
+        raise HTTPException(status_code=request.http_status, detail=request.error_detail or "Paper request previously failed")
     if request.status == "PROCESSING":
-        raise HTTPException(
-            status_code=409,
-            detail="request_id is already processing",
-        )
-
+        raise HTTPException(status_code=409, detail="request_id is already processing")
     if request.status == "RETRYABLE":
-        _mark_request(
-            session,
-            request,
-            status="PROCESSING",
-            http_status=200,
-            error_detail=None,
-        )
+        _mark_request(session, request, status="PROCESSING", http_status=200, error_detail=None)
         return None
-
-    raise HTTPException(
-        status_code=request.http_status or 409,
-        detail=request.error_detail or "Paper request is not executable",
-    )
+    raise HTTPException(status_code=request.http_status or 409, detail=request.error_detail or "Paper request is not executable")
 
 
 def _reserve_request(
@@ -142,34 +111,20 @@ def _reserve_request(
     fingerprint: str,
     account_id: int,
 ) -> tuple[PaperRequest | None, dict | None]:
-    existing = session.exec(
-        select(PaperRequest).where(PaperRequest.request_id == request_id)
-    ).first()
+    existing = session.exec(select(PaperRequest).where(PaperRequest.request_id == request_id)).first()
     if existing is not None:
         replay = _handle_existing_request(session, existing, fingerprint)
         return existing if replay is None else None, replay
-
-    request = PaperRequest(
-        request_id=request_id,
-        request_fingerprint=fingerprint,
-        account_id=account_id,
-        status="PROCESSING",
-    )
+    request = PaperRequest(request_id=request_id, request_fingerprint=fingerprint, account_id=account_id, status="PROCESSING")
     session.add(request)
     try:
-        session.commit()
-        session.refresh(request)
+        session.commit(); session.refresh(request)
         return request, None
     except IntegrityError:
         session.rollback()
-        existing = session.exec(
-            select(PaperRequest).where(PaperRequest.request_id == request_id)
-        ).first()
+        existing = session.exec(select(PaperRequest).where(PaperRequest.request_id == request_id)).first()
         if existing is None:
-            raise HTTPException(
-                status_code=409,
-                detail="Paper request reservation conflict",
-            )
+            raise HTTPException(status_code=409, detail="Paper request reservation conflict")
         replay = _handle_existing_request(session, existing, fingerprint)
         return existing if replay is None else None, replay
 
@@ -181,7 +136,8 @@ def paper_status() -> dict:
         "market_data": "real_only",
         "capital": "virtual_only",
         "order_type": "market_only",
-        "origin": "operator_only_until_risk",
+        "origin": "operator_only_phase_4",
+        "risk_gate": "required",
         "live_execution_capability": False,
         "synthetic_fallback": False,
         "policy_version": POLICY.version,
@@ -204,19 +160,15 @@ async def execute_market_order(
     normalized_request_id = request_id.strip()
     if not normalized_request_id:
         raise HTTPException(status_code=422, detail="request_id cannot be blank")
-
     try:
         canonical_symbol = normalize_symbol(symbol)
     except MarketDataQualityError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
     normalized_side = side.strip().upper()
     if normalized_side not in {"BUY", "SELL"}:
         raise HTTPException(status_code=422, detail="side must be BUY or SELL")
 
-    fingerprint = _request_fingerprint(
-        account_id, canonical_symbol, normalized_side, quantity
-    )
+    fingerprint = _request_fingerprint(account_id, canonical_symbol, normalized_side, quantity)
     request, replay = _reserve_request(
         session,
         request_id=normalized_request_id,
@@ -229,26 +181,38 @@ async def execute_market_order(
 
     try:
         quote = await market_data.get_quote(canonical_symbol)
+        market_prices: dict[str, Decimal] = {quote.symbol: Decimal(quote.price)}
+        positions = session.exec(
+            select(Position).where(Position.account_id == account_id, Position.quantity > 0)
+        ).all()
+        for position in positions:
+            if position.symbol in market_prices:
+                continue
+            mark = await market_data.get_quote(position.symbol)
+            market_prices[mark.symbol] = Decimal(mark.price)
     except MarketDataUnavailable as exc:
         detail = "Real market-data provider unavailable; Paper order was not created"
-        _mark_request(
-            session,
-            request,
-            status="RETRYABLE",
-            http_status=503,
-            error_detail=detail,
-        )
+        _mark_request(session, request, status="RETRYABLE", http_status=503, error_detail=detail)
         raise HTTPException(status_code=503, detail=detail) from exc
     except MarketDataQualityError as exc:
         detail = "Real market-data quality validation failed; Paper order was not created"
-        _mark_request(
-            session,
-            request,
-            status="RETRYABLE",
-            http_status=502,
-            error_detail=detail,
-        )
+        _mark_request(session, request, status="RETRYABLE", http_status=502, error_detail=detail)
         raise HTTPException(status_code=502, detail=detail) from exc
+
+    profile = ensure_active_risk_profile(session)
+    risk_decision = RiskService(session).evaluate(
+        account_id=account_id,
+        symbol=quote.symbol,
+        side=normalized_side,
+        quantity=quantity,
+        quote=quote,
+        market_prices=market_prices,
+        profile=profile,
+    )
+    if risk_decision.decision != "ALLOW":
+        detail = f"Risk rejected order: {risk_decision.reason_code} - {risk_decision.reason}"
+        _mark_request(session, request, status="COMPLETED", http_status=409, error_detail=detail)
+        raise HTTPException(status_code=409, detail=detail)
 
     service = PaperExecutionService(session, policy=POLICY)
     try:
@@ -260,6 +224,7 @@ async def execute_market_order(
             quote=quote,
             origin="operator",
             request=request,
+            risk_decision=risk_decision,
         )
     except PaperExecutionError as exc:
         status_code = 404 if str(exc) == "account not found" else 409
@@ -273,24 +238,17 @@ async def execute_market_order(
         )
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
-    _mark_request(
-        session,
-        request,
-        status="COMPLETED",
-        http_status=200,
-        error_detail=None,
-        execution_id=result.execution_id,
-    )
+    _mark_request(session, request, status="COMPLETED", http_status=200, error_detail=None, execution_id=result.execution_id)
     execution = session.get(PaperExecution, result.execution_id)
     payload = _serialize_execution(execution)
-    payload.update(
-        {
-            "request_id": request.request_id,
-            "quantity": str(result.quantity),
-            "observed_at": result.observed_at.isoformat(),
-            "idempotent_replay": False,
-        }
-    )
+    payload.update({
+        "request_id": request.request_id,
+        "risk_decision_id": risk_decision.id,
+        "risk_profile_version": risk_decision.profile_version,
+        "quantity": str(result.quantity),
+        "observed_at": result.observed_at.isoformat(),
+        "idempotent_replay": False,
+    })
     return payload
 
 
