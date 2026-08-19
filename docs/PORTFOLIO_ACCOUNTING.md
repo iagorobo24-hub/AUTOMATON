@@ -4,50 +4,141 @@
 
 Maintain one reconciled financial source of truth for Backtest and Paper.
 
-## Core invariants
+## Implemented Phase 2 authority
 
-For each account/agent, the system must be able to explain:
+New financial work uses the SQLModel records in `backend/app/models/accounting.py`:
+
+- `Account` — funded capital, cash, reserve, realized PnL and fees;
+- `Order` — requested BUY/SELL quantity and fill lifecycle;
+- `Fill` — execution fact supplied by a future Paper/Backtest engine;
+- `Position` — long quantity, fee-inclusive average cost and realized PnL;
+- `LedgerEntry` — explicit funding events.
+
+`Agent.presupuesto_inicial` / `Agent.presupuesto_actual` remain compatibility fields during migration. They are not the authoritative calculation path for new trading work.
+
+The active runtime reports `accounting=authoritative_phase_2` and exposes a read-only inspection endpoint:
+
+`GET /api/accounting/agents/{agent_id}`
+
+Phase 2 does not expose order/fill mutation over HTTP. Future Paper Execution owns those mutations and must feed accepted fills through `AccountingService`.
+
+## Supported financial model
+
+Phase 2 is deliberately **long-only**. Margin, leverage and short positions are not defined yet and must not be inferred from SELL orders.
+
+Core identity:
 
 `equity = cash + market_value(open_positions)`
 
-and separate:
+Reconciliation also checks:
+
+`equity = funded_capital + realized_pnl + unrealized_pnl`
+
+with buy fees included in acquisition cost and sell fees deducted from realized proceeds.
+
+Tracked concepts:
 
 - initial capital;
+- total funded capital;
 - available cash;
-- reserved/committed cash where applicable;
-- open-position cost basis;
+- reserved cash field for future execution semantics;
+- open quantity;
+- average cost;
 - realized PnL;
 - unrealized PnL;
-- fees;
-- total equity;
+- fees paid;
+- equity;
 - exposure.
 
-No UI component or strategy should maintain a competing balance calculation.
+## Fill semantics
 
-## Required records
+### BUY
 
-The target model should persist explicit orders, fills and positions rather than infer all state from an ambiguous trade row. Equity snapshots may be persisted for analysis but must be derivable/reconcilable against source events.
+For quantity `q`, execution price `p` and fee `f`:
 
-## Realized and unrealized PnL
+`cash_change = -(q * p + f)`
 
-PnL definitions must be documented and tested for long and, if supported, short positions. Closing a position returns proceeds to cash exactly once. Fees must not disappear from accounting.
+The position book basis includes the acquisition fee:
 
-## Position lifecycle
+`new_average_cost = (old_basis + q * p + f) / new_quantity`
 
-A position must have clear state transitions and identity. Adding to, partially closing or fully closing a position must preserve cost basis and realized PnL consistently.
+A BUY is rejected before mutation if cash is insufficient.
 
-## Deposits and manual adjustments
+### SELL
 
-Virtual funding changes are explicit ledger events with reason and timestamp. They must not be reported as trading profit.
+A SELL is allowed only against an existing long position and cannot exceed its quantity.
 
-## Replication
+`net_proceeds = q * p - f`
 
-Agent replication creates a new financial account/allocation according to an explicit policy. It must not duplicate parent cash or turn unrealized profit into new money implicitly.
+`realized_pnl = net_proceeds - q * average_cost`
 
-## Recovery and reconciliation
+Closing a position returns proceeds to cash exactly once. A full close leaves quantity and average cost at zero. Partial closes preserve the remaining average cost.
 
-On restart, financial state is reconstructed or loaded from persisted authoritative records. The system should provide reconciliation checks that detect impossible balances, orphan fills, negative cash when forbidden, or positions inconsistent with fills.
+## Deposits
 
-## Completion gate
+Virtual funding is an explicit ledger event. A deposit increases funded capital and cash, never realized PnL.
 
-Accounting is ready for Paper only after deterministic unit tests cover open/close, fees, profit/loss, deposits, partial operations if supported, restart/reload and reconciliation invariants.
+New agents receive an `INITIAL_FUNDING` ledger entry. Operator deposits create `DEPOSIT` entries.
+
+## Existing-agent bootstrap
+
+Agents created before Phase 2 are migrated conservatively on startup.
+
+The bootstrap uses only legacy `presupuesto_inicial` as funded capital. It **does not** copy `presupuesto_actual`, because that value may include historical synthetic/unverified PnL.
+
+The baseline ledger entry is:
+
+- type: `BASELINE_FUNDING`;
+- reason: `phase_2_legacy_reset_excludes_unverified_pnl`.
+
+The migration is idempotent: an agent that already has an accounting account is not recreated.
+
+## Agent lifecycle boundary
+
+Killing/retiring an agent changes lifecycle state but does not erase its accounting cash or ledger.
+
+Manual replication is currently blocked. The former implementation created a child with copied parent capital without debiting the parent, which violated conservation of capital. Replication may return only after Phase 6 defines and tests an explicit capital-transfer/allocation policy.
+
+## Reconciliation
+
+`AccountingService.reconcile()` checks at least:
+
+- equity identity mismatch;
+- negative cash/reserved cash;
+- negative position quantity;
+- order filled quantity versus persisted fills;
+- overfilled orders;
+- orphan fills.
+
+A restart can rebuild snapshots directly from persisted Account/Position/Order/Fill records; financial truth does not depend on in-memory engine state.
+
+## Tests authored
+
+Phase 2 regression tests cover:
+
+1. initial funding and deposits;
+2. BUY accounting and fee-inclusive average cost;
+3. partial SELL and realized PnL;
+4. full close;
+5. unrealized PnL/equity/exposure;
+6. insufficient cash and oversell fail-closed behavior;
+7. reload/restart reconstruction;
+8. explicit reconciliation failure detection;
+9. legacy-agent safe bootstrap;
+10. agent creation/deposit integration;
+11. replication blocked until capital allocation exists;
+12. read-only accounting API boundaries.
+
+## Completion status
+
+**Source/contract gate:** implemented and statically reviewed.
+
+**Execution certification:** pending until the exact resulting HEAD passes:
+
+```bash
+cd backend && pytest tests/ -v
+cd frontend && npm test
+cd frontend && npm run build
+```
+
+No Phase 2 document should claim execution-green status without fresh output from those commands.
