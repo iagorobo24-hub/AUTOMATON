@@ -13,7 +13,7 @@ from app.market_data.contracts import Quote
 from app.market_data.router import get_market_data_service
 from app.models import Agent, StrategyEnum
 from app.models.accounting import Fill
-from app.models.paper_execution import PaperExecution
+from app.models.paper_execution import PaperExecution, PaperRequest
 
 
 class CountingMarketData:
@@ -125,3 +125,35 @@ async def test_request_id_cannot_be_reused_for_different_order_payload(setup_app
     with Session(engine) as session:
         assert len(session.exec(select(PaperExecution)).all()) == 1
         assert len(session.exec(select(Fill)).all()) == 1
+
+
+@pytest.mark.asyncio
+async def test_rejected_financial_request_is_idempotent_and_links_rejection(setup_app):
+    engine, provider, account_id = setup_app
+    transport = ASGITransport(app=app)
+    params = {
+        "request_id": "operator-rejected",
+        "account_id": account_id,
+        "symbol": "BTC-USDT",
+        "side": "BUY",
+        "quantity": "20",
+    }
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first = await client.post("/api/paper/orders/market", params=params)
+        second = await client.post("/api/paper/orders/market", params=params)
+
+    assert first.status_code == 409
+    assert second.status_code == 409
+    assert second.json()["detail"] == first.json()["detail"]
+    assert provider.calls == 1
+
+    with Session(engine) as session:
+        executions = session.exec(select(PaperExecution)).all()
+        requests = session.exec(select(PaperRequest)).all()
+        assert len(executions) == 1
+        assert executions[0].status == "REJECTED"
+        assert len(requests) == 1
+        assert requests[0].execution_id == executions[0].id
+        assert requests[0].status == "COMPLETED"
+        assert requests[0].http_status == 409
