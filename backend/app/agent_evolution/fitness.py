@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from sqlmodel import Session, select
 
+from app.accounting.integrity import AccountingIntegrityService
 from app.agent_evolution.policy import active_evolution_policy
 from app.models import (
     Account,
@@ -48,6 +49,7 @@ class FitnessService:
 
         paper_closed = 0
         paper_realized = ZERO
+        integrity_issues: tuple[str, ...] = ("account_not_found",)
         if account is not None:
             paper_closed = len(
                 self.session.exec(
@@ -59,6 +61,7 @@ class FitnessService:
                 ).all()
             )
             paper_realized = Decimal(account.realized_pnl)
+            integrity_issues = AccountingIntegrityService(self.session).issues(account.id)
 
         reasons: list[str] = []
         if run is None or run_evidence is None:
@@ -73,6 +76,8 @@ class FitnessService:
             if run.max_drawdown is None or Decimal(run.max_drawdown) > Decimal(policy.max_backtest_drawdown):
                 reasons.append("BACKTEST_DRAWDOWN_EXCEEDED")
 
+        if integrity_issues:
+            reasons.append("ACCOUNTING_INTEGRITY_FAILED")
         if paper_closed < policy.min_paper_closed_trades:
             reasons.append("PAPER_TRADES_INSUFFICIENT")
         if paper_realized <= Decimal(policy.min_paper_realized_pnl):
