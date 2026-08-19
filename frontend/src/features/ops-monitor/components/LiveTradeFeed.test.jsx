@@ -1,45 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeTradeFeed } from './LiveTradeFeed.jsx';
+import { normalizePaperExecutions } from './LiveTradeFeed.jsx';
 
-describe('operations monitor normalization', () => {
-  it('preserves legacy records while exposing their invalid evidence status', () => {
-    const result = normalizeTradeFeed([
+describe('paper execution monitor normalization', () => {
+  it('preserves Paper provenance, execution prices, fees and status', () => {
+    const result = normalizePaperExecutions([
       {
-        id: 4,
-        agente_id: 2,
-        precio_entrada: 65000,
-        precio_salida: 65500,
-        cantidad: 0.01,
-        tipo: 'LONG',
-        resultado: 5,
-        timestamp: '2026-08-18T10:00:00+00:00',
-        evidence_mode: 'legacy_unclassified',
-        evidence_valid: false,
-      },
-      {
-        id: 5,
-        agente_id: 2,
-        precio_entrada: 66000,
-        precio_salida: null,
-        cantidad: 0.01,
-        tipo: 'LONG',
-        resultado: null,
-        timestamp: '2026-08-18T10:01:00+00:00',
-        evidence_mode: 'legacy_unclassified',
-        evidence_valid: false,
+        id: 9,
+        agent_id: 2,
+        symbol: 'BTC/USDT',
+        side: 'BUY',
+        requested_quantity: '0.01',
+        provider: 'binance_public',
+        market_price: '65000',
+        fill_price: '65065',
+        fee: '0.65065',
+        status: 'FILLED',
+        evidence_mode: 'paper',
+        policy_version: 'paper-v1',
+        quote_observed_at: '2026-08-19T14:00:00+00:00',
       },
     ]);
 
-    expect(result[0]).toMatchObject({
-      id: 4,
+    expect(result[0]).toEqual({
+      id: 9,
       agentId: 2,
-      status: 'CLOSED',
-      pnl: 5,
-      evidenceMode: 'legacy_unclassified',
-      evidenceValid: false,
+      symbol: 'BTC/USDT',
+      side: 'BUY',
+      quantity: 0.01,
+      provider: 'binance_public',
+      marketPrice: 65000,
+      fillPrice: 65065,
+      fee: 0.65065,
+      status: 'FILLED',
+      evidenceMode: 'paper',
+      policyVersion: 'paper-v1',
+      observedAt: '2026-08-19T14:00:00+00:00',
     });
-    expect(result[1]).toMatchObject({ id: 5, status: 'OPEN', pnl: null, exit: null, evidenceValid: false });
-    expect(result[0]).not.toHaveProperty('pair');
-    expect(result[0]).not.toHaveProperty('current');
+  });
+
+  it('does not promote missing provenance into Paper evidence', () => {
+    const result = normalizePaperExecutions([{ id: 1, status: 'REJECTED' }]);
+    expect(result[0].evidenceMode).toBe('unknown');
+    expect(result[0].provider).toBe('unknown');
   });
 });
