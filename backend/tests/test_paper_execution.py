@@ -15,6 +15,8 @@ from app.paper_execution.service import (
     PaperExecutionPolicy,
     PaperExecutionService,
 )
+from app.risk.bootstrap import ensure_active_risk_profile
+from app.risk.service import RiskService
 
 
 NOW = datetime(2026, 8, 19, 14, 0, tzinfo=timezone.utc)
@@ -57,9 +59,26 @@ def _quote(price: str = "100", *, observed_at: datetime = NOW) -> Quote:
     )
 
 
+def _allow(session: Session, account_id: int, *, side="BUY", quantity="1", price="100"):
+    quote = _quote(price)
+    profile = ensure_active_risk_profile(session)
+    decision = RiskService(session, clock=lambda: NOW).evaluate(
+        account_id=account_id,
+        symbol="BTC/USDT",
+        side=side,
+        quantity=Decimal(quantity),
+        quote=quote,
+        market_prices={"BTC/USDT": Decimal(price)},
+        profile=profile,
+    )
+    assert decision.decision == "ALLOW"
+    return quote, decision
+
+
 def test_market_buy_uses_deterministic_slippage_fee_and_accounting(engine):
     with Session(engine) as session:
         account = _account(session)
+        quote, decision = _allow(session, account.id, quantity="2")
         service = PaperExecutionService(
             session,
             policy=PaperExecutionPolicy(slippage_bps=Decimal("10"), fee_bps=Decimal("10")),
@@ -71,8 +90,9 @@ def test_market_buy_uses_deterministic_slippage_fee_and_accounting(engine):
             symbol="BTC/USDT",
             side="BUY",
             quantity=Decimal("2"),
-            quote=_quote(),
+            quote=quote,
             origin="operator",
+            risk_decision=decision,
         )
 
         session.refresh(account)
@@ -109,6 +129,7 @@ def test_market_sell_uses_adverse_slippage_and_realizes_net_pnl(engine):
             fee=Decimal("0"),
             observed_at=NOW - timedelta(minutes=1),
         )
+        quote, decision = _allow(session, account.id, side="SELL", quantity="1", price="120")
         service = PaperExecutionService(
             session,
             policy=PaperExecutionPolicy(slippage_bps=Decimal("10"), fee_bps=Decimal("10")),
@@ -120,8 +141,9 @@ def test_market_sell_uses_adverse_slippage_and_realizes_net_pnl(engine):
             symbol="BTC/USDT",
             side="SELL",
             quantity=Decimal("1"),
-            quote=_quote("120"),
+            quote=quote,
             origin="operator",
+            risk_decision=decision,
         )
 
         session.refresh(account)
@@ -147,6 +169,7 @@ def test_execution_rejects_non_real_or_stale_quote_before_creating_financial_rec
                 quantity=Decimal("1"),
                 quote=stale,
                 origin="operator",
+                risk_decision=None,
             )
 
         assert session.exec(select(Order)).all() == []
@@ -167,22 +190,29 @@ def test_execution_rejects_quote_symbol_mismatch(engine):
                 quantity=Decimal("1"),
                 quote=_quote(),
                 origin="operator",
+                risk_decision=None,
             )
 
 
-def test_accounting_failure_is_persisted_as_rejected_without_fill(engine):
+def test_accounting_failure_after_risk_approval_is_persisted_as_rejected_without_fill(engine):
     with Session(engine) as session:
-        account = _account(session, Decimal("50"))
-        service = PaperExecutionService(session, clock=lambda: NOW)
+        account = _account(session)
+        quote, decision = _allow(session, account.id, quantity="1")
+        # Simulate account state changing after Risk approval but before execution.
+        account.cash = Decimal("50")
+        session.add(account)
+        session.commit()
 
+        service = PaperExecutionService(session, clock=lambda: NOW)
         with pytest.raises(PaperExecutionError, match="insufficient cash"):
             service.execute_market_order(
                 account_id=account.id,
                 symbol="BTC/USDT",
                 side="BUY",
                 quantity=Decimal("1"),
-                quote=_quote("100"),
+                quote=quote,
                 origin="operator",
+                risk_decision=decision,
             )
 
         executions = session.exec(select(PaperExecution)).all()
@@ -198,14 +228,16 @@ def test_accounting_failure_is_persisted_as_rejected_without_fill(engine):
 def test_persisted_execution_and_accounting_survive_session_reload(engine):
     with Session(engine) as session:
         account = _account(session)
+        quote, decision = _allow(session, account.id)
         service = PaperExecutionService(session, clock=lambda: NOW)
         result = service.execute_market_order(
             account_id=account.id,
             symbol="BTC/USDT",
             side="BUY",
             quantity=Decimal("1"),
-            quote=_quote(),
+            quote=quote,
             origin="operator",
+            risk_decision=decision,
         )
         account_id = account.id
         execution_id = result.execution_id
