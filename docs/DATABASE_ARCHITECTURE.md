@@ -9,87 +9,86 @@ The runtime uses SQLModel + SQLite through `backend/app/database.py`. MongoDB re
 ### Legacy/transition
 
 - `Agent`: identity, strategy and lifecycle state. Budget fields are compatibility mirrors only.
-- `Trade`: historical pre-provenance record. Existing rows remain `legacy_unclassified` and are outside authoritative Paper evidence.
+- `Trade`: historical pre-provenance record. Existing rows remain `legacy_unclassified` and are outside authoritative Paper/Backtest evidence.
 
 ### Phase 2 Accounting
 
-- `portfolio_accounts` (`Account`): funded capital, cash, reserve, realized PnL and fees.
-- `portfolio_orders` (`Order`): requested long-only BUY/SELL lifecycle.
-- `portfolio_fills` (`Fill`): persisted Paper/Backtest execution fact.
-- `portfolio_positions` (`Position`): long quantity, average cost and realized PnL.
-- `portfolio_ledger` (`LedgerEntry`): funding and migration baseline events.
+- `portfolio_accounts` (`Account`)
+- `portfolio_orders` (`Order`)
+- `portfolio_fills` (`Fill`)
+- `portfolio_positions` (`Position`)
+- `portfolio_ledger` (`LedgerEntry`)
 
-Accounting tables are the only financial source of truth.
+These tables are the only active Paper financial source of truth.
 
 ### Phase 3 Paper
 
-- `paper_executions` (`PaperExecution`): provider/quote/fill-policy provenance linked to Account, Order and optional Fill.
-- `paper_requests` (`PaperRequest`): persistent request-id idempotency and restart state.
-
-Paper records describe execution provenance/idempotency; they do not replace Accounting.
+- `paper_executions` (`PaperExecution`): real quote/fill-policy provenance linked to Accounting.
+- `paper_requests` (`PaperRequest`): request-id idempotency and recovery state.
 
 ### Phase 4 Risk
 
-- `risk_profiles` (`RiskProfile`): versioned persistent risk policy. Initial active profile is `risk-v1`.
-- `risk_decisions` (`RiskDecision`): persisted ALLOW/REJECT evidence for each evaluated order intent.
+- `risk_profiles` (`RiskProfile`): versioned risk policy.
+- `risk_decisions` (`RiskDecision`): persisted ALLOW/REJECT evidence and one-time Paper-consumption linkage.
 
-Each RiskDecision records account/agent, profile version, order payload, market provenance, requested notional, equity/exposure state, realized PnL, drawdown, decision/reason and one-time Paper-consumption linkage.
+### Phase 5 Backtesting
 
-Risk records do not mutate cash or positions. Their role is authorization and evidence.
+Backtesting uses dedicated evidence tables rather than active Paper portfolio rows:
+
+- `backtest_datasets` (`BacktestDataset`): immutable dataset metadata including symbol, interval, provider, requested/actual UTC window, candle count, SHA-256 and status.
+- `backtest_candles` (`BacktestCandle`): ordered OHLCV observations keyed by dataset + ordinal/open time.
+- `backtest_runs` (`BacktestRun`): strategy/configuration/execution assumptions, run status and aggregate metrics.
+- `backtest_trades` (`BacktestTrade`): chronological historical execution evidence, signal candle, next execution candle, quantity, prices, fee, realized PnL and exit reason.
+- `backtest_equity_points` (`BacktestEquityPoint`): chronological cash/market-value/equity/exposure/drawdown series.
+
+Backtest timestamps use a UTC-preserving SQLAlchemy type so SQLite reads restore explicit UTC semantics rather than silently returning ambiguous local-naive timestamps.
 
 ## Source-of-truth rules
 
-- Accounting owns balances, positions, PnL, fees and equity.
+- Accounting owns active Paper balances, positions, PnL, fees and equity.
 - PaperExecution owns Paper execution provenance.
 - PaperRequest owns Paper mutation idempotency/recovery state.
-- RiskProfile owns versioned risk limits.
-- RiskDecision owns risk authorization evidence.
-- `Agent.presupuesto_*` never becomes a competing accounting system.
+- RiskProfile owns versioned Paper risk limits.
+- RiskDecision owns Paper risk authorization evidence.
+- BacktestDataset/BacktestCandle own immutable historical input evidence.
+- BacktestRun/Trade/EquityPoint own historical experiment evidence only.
+- Backtest records never become a second Paper accounting system.
+- `Agent.presupuesto_*` never becomes a competing accounting source.
 
-## Accounting invariants
+## Backtest immutability and reproducibility
 
-`equity = cash + market_value(open_positions)`
+A dataset SHA-256 is computed over normalized candle content before persistence. Duplicate hashes are not overwritten as a different snapshot.
 
-and
+A BacktestRun references the dataset SHA and stores strategy version, execution policy, initial capital, fee/slippage/allocation and evidence status. Two identical deterministic runs may produce separate run rows but must produce identical trade/equity/metric content.
 
-`equity = funded_capital + realized_pnl + unrealized_pnl`
-
-Funding never counts as PnL. Buy fees enter acquisition basis; sell fees reduce realized proceeds.
+Interrupted `RUNNING` BacktestRun rows are invalidated at startup with `INTERRUPTED_RESTART`; they are not silently resumed or treated as completed evidence.
 
 ## Startup and recovery
 
 Normal startup:
 
 1. initializes SQLModel tables;
-2. bootstraps missing Phase 2 accounts from initial/funded capital only;
+2. bootstraps missing Phase 2 Paper accounts from initial/funded capital only;
 3. bootstraps `risk-v1` idempotently;
-4. reconciles pending Paper executions;
-5. reconciles Paper request reservations.
-
-A PROCESSING request with no safe execution linkage becomes `RECOVERY_REQUIRED`, never an automatic retry.
-
-Risk also rejects new active Paper orders when Accounting cannot reconcile, required real marks are incomplete, or Paper recovery remains unresolved.
+4. invalidates interrupted Backtest runs;
+5. reconciles pending Paper executions;
+6. reconciles Paper request reservations.
 
 ## Current scope limits
 
-- long-only;
+- Paper: long-only, operator-only MARKET execution, Risk mandatory;
+- Backtest: long-only `backtest-v1`, no pyramiding, deterministic next-candle execution;
+- Backtest state isolated from Paper Account/Order/Fill/Position tables;
 - no leverage/margin/shorts;
-- operator-only Paper MARKET execution;
-- Risk mandatory for the active Paper HTTP mutation path;
 - no automatic strategy execution yet;
-- no Live execution;
-- no broad strategy-performance claims without later evidence phases.
-
-## Future records
-
-Later phases may add persisted equity/high-water snapshots, strategy configuration/version, backtest/run identity, evidence bundles and richer lineage/allocation records.
+- no Backtest optimizer;
+- no Live execution.
 
 ## Rules
 
-- One authoritative financial calculation path.
-- Every active Paper order has real-market provenance.
-- Every successful active Paper API order is linked to a one-time Risk ALLOW decision.
-- Risk rejection cannot create Paper Order/Fill state.
-- Ambiguous recovery fails closed.
+- Never mix evidence modes silently.
+- Every Paper order has real current-market provenance and a Risk decision.
+- Every Backtest run references immutable real historical provenance.
+- Ambiguous/incomplete evidence fails closed.
 - Existing data is migrated or quarantined explicitly; never silently promoted.
 - No new active Mongo collection is introduced.
