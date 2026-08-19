@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlmodel import Session, select
 
+from app.backtesting.runner import BacktestRunError, strategy_source_sha256
 from app.models import (
     Account,
     Agent,
@@ -236,13 +237,34 @@ class ResearchEvaluator:
         self.session.commit(); self.session.refresh(evaluation)
         return evaluation
 
-    def evaluate(self, study_id: int) -> ResearchEvaluation:
+    def evaluate(self, study_id: int, *, require_current_source: bool = False) -> ResearchEvaluation:
         study = self._study(study_id)
         historical = self.historical_gate(study_id)
         if not historical.passed:
             return self._persist_evaluation(
                 study, "REJECT", historical.reason_code, historical.reason, historical, None
             )
+        if require_current_source:
+            try:
+                current_sha = strategy_source_sha256()
+            except BacktestRunError as exc:
+                return self._persist_evaluation(
+                    study,
+                    "REJECT",
+                    "CURRENT_SOURCE_UNAVAILABLE",
+                    str(exc),
+                    historical,
+                    None,
+                )
+            if not study.strategy_source_sha256 or current_sha != study.strategy_source_sha256:
+                return self._persist_evaluation(
+                    study,
+                    "REJECT",
+                    "CURRENT_SOURCE_DRIFT",
+                    "active strategy source no longer matches frozen research evidence",
+                    historical,
+                    None,
+                )
         forward = self.forward_gate(study_id)
         if not forward.passed:
             return self._persist_evaluation(
