@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 @pytest.mark.integration
 class TestAPI:
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_phase_4_risk_contract(self):
+    async def test_health_endpoint_reports_phase_5_backtesting_contract(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -26,6 +26,7 @@ class TestAPI:
             "accounting": "authoritative_phase_2",
             "risk": "authoritative_phase_4",
             "paper_trading": "operator_only_phase_4",
+            "backtesting": "evidence_phase_5",
             "automated_trading": "blocked_until_strategy_integration",
             "live_execution": "disabled",
         }
@@ -46,12 +47,13 @@ class TestAPI:
         assert payload["accounting_mode"] == "authoritative_phase_2"
         assert payload["risk_mode"] == "authoritative_phase_4"
         assert payload["paper_trading"] == "operator_only_phase_4"
+        assert payload["backtesting"] == "evidence_phase_5"
         assert payload["automated_trading"] == "blocked_until_strategy_integration"
         assert payload["live_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_include_risk_gated_operator_paper_but_not_live_or_automation(self):
+    def test_active_api_routes_include_backtesting_and_risk_gated_paper_but_not_live_or_automation(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -68,8 +70,14 @@ class TestAPI:
         assert "/api/paper/status" in routes
         assert "/api/paper/orders/market" in routes
         assert "/api/paper/executions" in routes
+        assert "/api/backtests/status" in routes
+        assert "/api/backtests/datasets" in routes
+        assert "/api/backtests/datasets/{dataset_id}" in routes
+        assert "/api/backtests/runs" in routes
+        assert "/api/backtests/runs/{run_id}" in routes
         assert "/api/paper/automation/start" not in routes
         assert "/api/paper/live" not in routes
+        assert "/api/backtests/optimize" not in routes
         assert "/api/estado" in routes
 
     def test_legacy_system_and_trading_routers_stay_out_of_sqlmodel_runtime(self):
