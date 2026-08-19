@@ -9,6 +9,7 @@ from app.market_data.contracts import Candle, Quote
 from app.market_data.quality import (
     MarketDataQualityError,
     MarketDataUnavailable,
+    interval_timedelta,
     normalize_symbol,
     provider_symbol,
     validate_candle_series,
@@ -49,6 +50,12 @@ class BinancePublicMarketDataProvider:
         self._max_attempts = max_attempts
         self._timeout_seconds = timeout_seconds
 
+    def _now_utc(self) -> datetime:
+        value = self._clock()
+        if value.tzinfo is None:
+            raise MarketDataQualityError("provider clock must be timezone-aware")
+        return value.astimezone(timezone.utc)
+
     async def _send(self, path: str, params: dict) -> httpx.Response:
         last_error: Exception | None = None
         for attempt in range(1, self._max_attempts + 1):
@@ -72,8 +79,8 @@ class BinancePublicMarketDataProvider:
                         f"Binance public API returned HTTP {response.status_code}"
                     )
                 elif response.is_error:
-                    raise MarketDataUnavailable(
-                        f"Binance public API returned HTTP {response.status_code}"
+                    raise MarketDataQualityError(
+                        f"Binance public API rejected request with HTTP {response.status_code}"
                     )
                 else:
                     return response
@@ -113,7 +120,7 @@ class BinancePublicMarketDataProvider:
         except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
             raise MarketDataQualityError("invalid aggTrade fields") from exc
 
-        received_at = self._clock().astimezone(timezone.utc)
+        received_at = self._now_utc()
         try:
             quote = Quote(
                 symbol=canonical,
@@ -138,11 +145,10 @@ class BinancePublicMarketDataProvider:
     ) -> list[Candle]:
         if not 1 <= limit <= 1000:
             raise MarketDataQualityError("candle limit must be between 1 and 1000")
+        interval_timedelta(interval)
 
         canonical = normalize_symbol(symbol)
         raw_symbol = provider_symbol(canonical)
-        # Ask for one extra row because Binance generally includes the current,
-        # still-open candle. The real-data contract exposes closed candles only.
         request_limit = min(limit + 1, 1000)
         payload = await self._json(
             "/api/v3/klines",
@@ -156,7 +162,7 @@ class BinancePublicMarketDataProvider:
         if not isinstance(payload, list):
             raise MarketDataQualityError("unexpected klines payload")
 
-        now = self._clock().astimezone(timezone.utc)
+        now = self._now_utc()
         parsed: list[Candle] = []
         for row in payload:
             try:
