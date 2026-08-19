@@ -123,6 +123,20 @@ class BacktestRun(SQLModel, table=True):
     completed_at: Optional[datetime] = Field(default=None, sa_column=utc_column(nullable=True))
 
 
+class BacktestRunEvidence(SQLModel, table=True):
+    """Additive evidence metadata kept outside BacktestRun for SQLite compatibility."""
+
+    __tablename__ = "backtest_run_evidence"
+    __table_args__ = (
+        UniqueConstraint("run_id", name="uq_backtest_run_evidence_run_id"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    run_id: int = Field(foreign_key="backtest_runs.id", index=True)
+    strategy_code_sha256: str = Field(index=True, max_length=64)
+    created_at: datetime = Field(default_factory=utcnow, sa_column=utc_column())
+
+
 class BacktestTrade(SQLModel, table=True):
     __tablename__ = "backtest_trades"
 
