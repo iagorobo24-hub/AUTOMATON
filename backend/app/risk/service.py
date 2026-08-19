@@ -14,7 +14,8 @@ from app.risk.bootstrap import ensure_active_risk_profile
 
 ZERO = Decimal("0")
 ONE = Decimal("1")
-PAPER_COST_RESERVE = Decimal("0.002")  # 10 bps slippage + 10 bps fee
+# paper-v1 BUY cost = market * 1.001 adverse slippage * 1.001 fee.
+PAPER_COST_RESERVE = Decimal("0.002001")
 
 
 class RiskError(ValueError):
@@ -127,8 +128,6 @@ class RiskService:
             else ZERO
         )
 
-        # Conservative placeholders keep every rejection inspectable even before
-        # a complete Accounting valuation is available.
         equity = account.cash + sum(
             (p.quantity * Decimal(market_prices[p.symbol]) for p in positions if p.symbol in market_prices),
             ZERO,
@@ -196,9 +195,6 @@ class RiskService:
         if unresolved is not None:
             return reject("PAPER_RECOVERY_REQUIRED", "Paper execution recovery is unresolved")
 
-        # A risk-reducing SELL must remain possible when an unrelated market mark
-        # is temporarily unavailable. Structural Accounting integrity is still
-        # mandatory, and the position being reduced is marked by the current real quote.
         if side == "SELL":
             issues = self.integrity.issues(account.id)
             if issues:
@@ -266,7 +262,7 @@ class RiskService:
         if drawdown > profile.max_drawdown_pct:
             return reject("MAX_DRAWDOWN", "drawdown limit has been reached")
         if account.cash < requested_notional * (ONE + PAPER_COST_RESERVE):
-            return reject("INSUFFICIENT_CASH_RESERVE", "cash cannot cover notional plus Paper cost reserve")
+            return reject("INSUFFICIENT_CASH_RESERVE", "cash cannot cover notional plus exact paper-v1 BUY cost reserve")
 
         return self._persist(
             account=account, agent=agent, profile=profile, symbol=symbol, side=side,
