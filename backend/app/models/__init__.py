@@ -2,6 +2,7 @@ from app.models.sql_models import Agent, Trade, AgentStatus, StrategyEnum, Trade
 from app.models.accounting import Account, Order, Fill, Position, LedgerEntry
 from app.models.paper_execution import PaperExecution, PaperRequest
 from app.models.risk import RiskProfile, RiskDecision
+from app.models.backtesting import BacktestDataset, BacktestCandle
 
 __all__ = [
     "Agent",
@@ -18,4 +19,6 @@ __all__ = [
     "PaperRequest",
     "RiskProfile",
     "RiskDecision",
+    "BacktestDataset",
+    "BacktestCandle",
 ]
