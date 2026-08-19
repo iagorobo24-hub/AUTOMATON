@@ -22,6 +22,13 @@ from app.models.paper_runtime import (
     PaperRuntimeCycle,
     PaperRuntimeEvent,
 )
+from app.models.strategy_research import (
+    ResearchPolicy,
+    ResearchStudy,
+    ResearchWindow,
+    ResearchEvaluation,
+    StrategyCandidate,
+)
 
 __all__ = [
     "Agent",
@@ -52,4 +59,9 @@ __all__ = [
     "PaperRuntimeAgent",
     "PaperRuntimeCycle",
     "PaperRuntimeEvent",
+    "ResearchPolicy",
+    "ResearchStudy",
+    "ResearchWindow",
+    "ResearchEvaluation",
+    "StrategyCandidate",
 ]
