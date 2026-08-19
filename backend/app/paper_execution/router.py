@@ -22,7 +22,7 @@ from app.paper_execution.service import (
     PaperExecutionService,
 )
 from app.risk.bootstrap import ensure_active_risk_profile
-from app.risk.service import RiskService
+from app.risk.service import RiskError, RiskService
 
 
 router = APIRouter()
@@ -118,7 +118,8 @@ def _reserve_request(
     request = PaperRequest(request_id=request_id, request_fingerprint=fingerprint, account_id=account_id, status="PROCESSING")
     session.add(request)
     try:
-        session.commit(); session.refresh(request)
+        session.commit()
+        session.refresh(request)
         return request, None
     except IntegrityError:
         session.rollback()
@@ -182,14 +183,15 @@ async def execute_market_order(
     try:
         quote = await market_data.get_quote(canonical_symbol)
         market_prices: dict[str, Decimal] = {quote.symbol: Decimal(quote.price)}
-        positions = session.exec(
-            select(Position).where(Position.account_id == account_id, Position.quantity > 0)
-        ).all()
-        for position in positions:
-            if position.symbol in market_prices:
-                continue
-            mark = await market_data.get_quote(position.symbol)
-            market_prices[mark.symbol] = Decimal(mark.price)
+        if normalized_side == "BUY":
+            positions = session.exec(
+                select(Position).where(Position.account_id == account_id, Position.quantity > 0)
+            ).all()
+            for position in positions:
+                if position.symbol in market_prices:
+                    continue
+                mark = await market_data.get_quote(position.symbol)
+                market_prices[mark.symbol] = Decimal(mark.price)
     except MarketDataUnavailable as exc:
         detail = "Real market-data provider unavailable; Paper order was not created"
         _mark_request(session, request, status="RETRYABLE", http_status=503, error_detail=detail)
@@ -200,15 +202,21 @@ async def execute_market_order(
         raise HTTPException(status_code=502, detail=detail) from exc
 
     profile = ensure_active_risk_profile(session)
-    risk_decision = RiskService(session).evaluate(
-        account_id=account_id,
-        symbol=quote.symbol,
-        side=normalized_side,
-        quantity=quantity,
-        quote=quote,
-        market_prices=market_prices,
-        profile=profile,
-    )
+    try:
+        risk_decision = RiskService(session).evaluate(
+            account_id=account_id,
+            symbol=quote.symbol,
+            side=normalized_side,
+            quantity=quantity,
+            quote=quote,
+            market_prices=market_prices,
+            profile=profile,
+        )
+    except RiskError as exc:
+        status_code = 404 if str(exc) in {"account not found", "account agent not found"} else 409
+        _mark_request(session, request, status="COMPLETED", http_status=status_code, error_detail=str(exc))
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
+
     if risk_decision.decision != "ALLOW":
         detail = f"Risk rejected order: {risk_decision.reason_code} - {risk_decision.reason}"
         _mark_request(session, request, status="COMPLETED", http_status=409, error_detail=detail)
