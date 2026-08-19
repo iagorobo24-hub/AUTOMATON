@@ -17,6 +17,9 @@ This file tracks implementation order. Domain requirements live in the linked do
 - Pre-provenance trade history is quarantined as `legacy_unclassified` and excluded from verified ROI/PnL/Win Rate/trade metrics.
 - Manual simulated-PnL mutation is removed from the active API/UI.
 - Agent funding increases funded and current capital together, so deposits do not manufacture profit.
+- A provider-neutral, real-only market-data boundary is mounted at `/api/market-data`.
+- `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials or execution capability.
+- Quotes/candles carry UTC timestamps and provider provenance; stale/gapped/malformed data fails closed with no synthetic fallback.
 - Fresh full test/build execution is still required on an available execution environment for the resulting HEAD.
 
 ## Ordered implementation program
@@ -36,11 +39,18 @@ This file tracks implementation order. Domain requirements live in the linked do
 
 ### 1. Market Data
 See `docs/MARKET_DATA.md`.
-- [ ] Define provider-neutral market observation types.
-- [ ] Implement real candle/current-price provider adapter.
-- [ ] Add UTC, stale, gap, retry and parsing tests.
-- [ ] Guarantee provider failure is fail-closed: no generated fallback in any Paper-capable path.
-- [ ] Keep legacy `BinanceService` unmounted unless its mock fallback behavior is removed behind the new contract.
+- [x] Define provider-neutral `Quote`, `Candle` and `MarketDataService` contracts.
+- [x] Implement a public, read-only Binance real quote/candle provider without trading credentials.
+- [x] Normalize BASE/USDT symbols and UTC timestamps at the boundary.
+- [x] Reject stale/future quotes, open candles, gaps and out-of-order candle series.
+- [x] Add bounded retry handling for transport errors, HTTP 429 and provider 5xx responses.
+- [x] Guarantee fail-closed behavior: no generated fallback in the new real-data path.
+- [x] Mount diagnostic/consumer endpoints under `/api/market-data`.
+- [x] Keep legacy `BinanceService` unmounted; its mock fallback is not part of the new contract.
+- [x] Author deterministic parsing, quality and API regression tests.
+- [ ] Execute the authored tests and repository gate on the exact Phase 1 HEAD.
+
+**Phase 1 source gate:** complete by static review. Phase 1 is not execution-certified until the validation gate below is observed green on the same HEAD.
 
 ### 2. Portfolio & Accounting
 See `docs/PORTFOLIO_ACCOUNTING.md`.
