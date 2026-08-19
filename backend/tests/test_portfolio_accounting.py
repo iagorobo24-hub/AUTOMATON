@@ -212,3 +212,30 @@ def test_reload_from_persisted_records_preserves_reconciliation(engine):
         assert snapshot.unrealized_pnl == Decimal("9")
         assert snapshot.equity == Decimal("509")
         assert snapshot.reconciliation_delta == Decimal("0")
+
+
+def test_reconcile_detects_tampered_cash_and_order_fill_mismatch(engine):
+    with Session(engine) as session:
+        agent = _agent(session)
+        service = AccountingService(session)
+        account = service.create_account(agent.id, Decimal("500"))
+        order = service.create_order(account.id, "SOL/USDT", "BUY", Decimal("2"))
+        service.apply_fill(
+            order.id,
+            quantity=Decimal("2"),
+            price=Decimal("50"),
+            fee=Decimal("1"),
+            observed_at=datetime(2026, 8, 19, 12, 0, tzinfo=timezone.utc),
+        )
+
+        account.cash += Decimal("10")
+        order.filled_quantity = Decimal("1")
+        session.add(account)
+        session.add(order)
+        session.commit()
+
+        report = service.reconcile(account.id, {"SOL/USDT": Decimal("55")})
+
+        assert report.ok is False
+        assert "equity_identity_mismatch" in report.issues
+        assert "order_fill_quantity_mismatch" in report.issues
