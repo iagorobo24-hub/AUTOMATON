@@ -231,7 +231,13 @@ class BacktestRunner:
                     mark_price=Decimal(final_candle.close),
                     high_water=high_water,
                 )
-                equity_samples.append(EquitySample(equity=point.equity, exposure=point.exposure))
+                equity_samples.append(
+                    EquitySample(
+                        equity=point.equity,
+                        exposure=point.exposure,
+                        counts_for_exposure=False,
+                    )
+                )
 
             final_equity = ledger.cash if ledger.position_quantity == ZERO else ledger.equity(Decimal(candles[-1].close))
             metrics = compute_metrics(
