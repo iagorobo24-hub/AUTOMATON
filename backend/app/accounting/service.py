@@ -122,6 +122,74 @@ class AccountingService:
         self.session.refresh(account)
         return account
 
+    def transfer_to_child(
+        self,
+        parent_account_id: int,
+        child_agent_id: int,
+        amount: Decimal,
+        *,
+        reason: str,
+    ) -> tuple[Account, Account]:
+        """Transfer funded liquid capital to a new child account without minting money."""
+        amount = self._positive(amount, "amount")
+        reason = reason.strip()
+        if not reason:
+            raise AccountingError("transfer reason is required")
+
+        parent = self._account(parent_account_id)
+        existing_child = self.session.exec(
+            select(Account).where(Account.agente_id == child_agent_id)
+        ).first()
+        if existing_child is not None:
+            raise AccountingError("child agent already has an accounting account")
+
+        available_cash = parent.cash - parent.reserved_cash
+        if available_cash < amount:
+            raise AccountingError("insufficient available cash for child transfer")
+        if parent.funded_capital < amount:
+            raise AccountingError("insufficient funded capital for child transfer")
+
+        now = datetime.now(timezone.utc)
+        parent.cash -= amount
+        parent.funded_capital -= amount
+        parent.updated_at = now
+
+        child = Account(
+            agente_id=child_agent_id,
+            currency=parent.currency,
+            initial_capital=amount,
+            funded_capital=amount,
+            cash=amount,
+            reserved_cash=ZERO,
+            realized_pnl=ZERO,
+            fees_paid=ZERO,
+            created_at=now,
+            updated_at=now,
+        )
+        self.session.add(parent)
+        self.session.add(child)
+        self.session.flush()
+        self.session.add(
+            LedgerEntry(
+                account_id=parent.id,
+                entry_type="CAPITAL_TRANSFER_OUT",
+                amount=-amount,
+                reason=reason,
+            )
+        )
+        self.session.add(
+            LedgerEntry(
+                account_id=child.id,
+                entry_type="CAPITAL_TRANSFER_IN",
+                amount=amount,
+                reason=reason,
+            )
+        )
+        self.session.commit()
+        self.session.refresh(parent)
+        self.session.refresh(child)
+        return parent, child
+
     def create_order(
         self,
         account_id: int,
