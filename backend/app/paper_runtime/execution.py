@@ -15,6 +15,7 @@ from app.models import (
     PaperRuntimeEvent,
     PaperRuntimeSession,
     Position,
+    RiskDecision,
 )
 from app.paper_execution.service import PaperExecutionError, PaperExecutionService
 from app.risk.bootstrap import ensure_active_risk_profile
@@ -72,22 +73,57 @@ def _mark_recovery_required(session: Session, cycle: PaperRuntimeCycle, reason: 
     return _touch_cycle(session, cycle, outcome="RECOVERY_REQUIRED", error=reason)
 
 
+def _link_execution_evidence(session: Session, cycle: PaperRuntimeCycle, execution: PaperExecution) -> None:
+    cycle.paper_execution_id = execution.id
+    decision = session.exec(
+        select(RiskDecision).where(RiskDecision.paper_execution_id == execution.id)
+    ).first()
+    if decision is not None:
+        cycle.risk_decision_id = decision.id
+
+
 def _completed_replay(session: Session, cycle: PaperRuntimeCycle, request: PaperRequest) -> PaperRuntimeCycle | None:
-    if request.status == "RECOVERY_REQUIRED" or request.status == "PROCESSING":
+    if request.status in {"RECOVERY_REQUIRED", "PROCESSING"}:
         return _mark_recovery_required(session, cycle, "runtime request has ambiguous Paper recovery state")
     if request.status != "COMPLETED":
         return None
     if request.execution_id is None:
-        return _touch_cycle(session, cycle, outcome="REJECTED_PAPER", error=request.error_detail or "Paper request failed")
+        outcome = "REJECTED_RISK" if (request.error_detail or "").startswith("Risk rejected runtime order") else "REJECTED_PAPER"
+        return _touch_cycle(session, cycle, outcome=outcome, error=request.error_detail or "Paper request failed")
     execution = session.get(PaperExecution, request.execution_id)
     if execution is None:
         return _mark_recovery_required(session, cycle, "runtime request points to missing Paper execution")
-    cycle.paper_execution_id = execution.id
+    _link_execution_evidence(session, cycle, execution)
     if execution.status == "FILLED":
         return _touch_cycle(session, cycle, outcome="FILLED")
     if execution.status == "RECOVERY_REQUIRED":
         return _mark_recovery_required(session, cycle, execution.rejection_reason or "Paper recovery required")
     return _touch_cycle(session, cycle, outcome="REJECTED_PAPER", error=execution.rejection_reason or execution.status)
+
+
+def reconcile_runtime_cycles(session: Session) -> int:
+    """Reconcile interrupted intents without ever submitting a new order."""
+    cycles = session.exec(
+        select(PaperRuntimeCycle).where(PaperRuntimeCycle.outcome.in_({"INTENT_BUY", "INTENT_SELL"}))
+    ).all()
+    changed = 0
+    for cycle in cycles:
+        if not cycle.request_id:
+            _touch_cycle(session, cycle, outcome="ABANDONED_RECOVERY", error="interrupted runtime intent had no request id")
+            changed += 1
+            continue
+        request = session.exec(select(PaperRequest).where(PaperRequest.request_id == cycle.request_id)).first()
+        if request is None:
+            _touch_cycle(session, cycle, outcome="ABANDONED_RECOVERY", error="interrupted runtime intent has no Paper request; automatic replay blocked")
+            changed += 1
+            continue
+        replay = _completed_replay(session, cycle, request)
+        if replay is not None:
+            changed += 1
+            continue
+        _touch_cycle(session, cycle, outcome="ABANDONED_RECOVERY", error="interrupted runtime request is not replayable")
+        changed += 1
+    return changed
 
 
 async def execute_runtime_cycle(
@@ -160,7 +196,7 @@ async def execute_runtime_cycle(
                 mark = await market_data.get_quote(position.symbol)
                 market_prices[mark.symbol] = Decimal(mark.price)
         except (MarketDataUnavailable, MarketDataQualityError):
-            request.status = "RETRYABLE"
+            request.status = "COMPLETED"
             request.http_status = 503
             request.error_detail = "real marks unavailable for runtime Risk evaluation"
             session.add(request); session.commit()
