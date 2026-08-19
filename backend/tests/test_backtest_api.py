@@ -71,6 +71,7 @@ async def test_backtest_status_is_real_historical_deterministic_and_has_no_live_
     assert response.json()["evidence_mode"] == "backtest"
     assert response.json()["historical_market_data"] == "real_only"
     assert response.json()["execution_policy"] == "backtest-v1"
+    assert response.json()["strategy_source_fingerprint"] == "sha256"
     assert response.json()["deterministic"] is True
     assert response.json()["live_execution_capability"] is False
     assert response.json()["optimizer"] == "not_implemented"
@@ -103,12 +104,14 @@ async def test_api_creates_immutable_dataset_then_runs_s1_and_returns_provenance
         assert run["dataset_sha256"] == dataset["content_sha256"]
         assert run["strategy_id"] == "S1"
         assert run["strategy_version"] == "baseline-v1"
+        assert len(run["strategy_code_sha256"]) == 64
         assert run["execution_policy"] == "backtest-v1"
         assert run["trade_count"] >= 2
         assert run["final_equity"] is not None
 
         detail = await client.get(f"/api/backtests/runs/{run['id']}")
         assert detail.status_code == 200
+        assert detail.json()["strategy_code_sha256"] == run["strategy_code_sha256"]
         assert detail.json()["metrics"]["net_return"] == run["net_return"]
         assert detail.json()["dataset"]["content_sha256"] == dataset["content_sha256"]
         assert detail.json()["trade_count"] == run["trade_count"]
