@@ -15,6 +15,7 @@ from app.market_data.router import get_market_data_service
 from app.models import Agent, StrategyEnum
 from app.models.accounting import Fill, Position
 from app.models.paper_execution import PaperExecution
+from app.models.risk import RiskDecision
 
 
 class RealFixtureMarketData:
@@ -81,13 +82,11 @@ def _account_id(engine) -> int:
         session.add(agent)
         session.commit()
         session.refresh(agent)
-        return AccountingService(session).create_account(
-            agent.id, Decimal("1000")
-        ).id
+        return AccountingService(session).create_account(agent.id, Decimal("1000")).id
 
 
 @pytest.mark.asyncio
-async def test_operator_market_order_fetches_real_quote_and_persists_virtual_fill(app_db):
+async def test_operator_market_order_fetches_real_quote_passes_risk_and_persists_virtual_fill(app_db):
     account_id = _account_id(app_db)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -110,16 +109,22 @@ async def test_operator_market_order_fetches_real_quote_and_persists_virtual_fil
     assert payload["symbol"] == "BTC/USDT"
     assert payload["market_price"] == "100"
     assert payload["policy_version"] == "paper-v1"
+    assert payload["risk_profile_version"] == "risk-v1"
+    assert payload["risk_decision_id"] is not None
     assert payload["idempotent_replay"] is False
 
     with Session(app_db) as session:
         assert len(session.exec(select(PaperExecution)).all()) == 1
+        decisions = session.exec(select(RiskDecision)).all()
+        assert len(decisions) == 1
+        assert decisions[0].decision == "ALLOW"
+        assert decisions[0].consumed_at is not None
         assert len(session.exec(select(Fill)).all()) == 1
         assert session.exec(select(Position)).one().quantity == Decimal("1")
 
 
 @pytest.mark.asyncio
-async def test_provider_failure_returns_503_and_creates_no_financial_state(app_db):
+async def test_provider_failure_returns_503_and_creates_no_financial_or_risk_state(app_db):
     account_id = _account_id(app_db)
     app.dependency_overrides[get_market_data_service] = lambda: UnavailableMarketData()
     transport = ASGITransport(app=app)
@@ -138,11 +143,12 @@ async def test_provider_failure_returns_503_and_creates_no_financial_state(app_d
     assert response.status_code == 503
     with Session(app_db) as session:
         assert session.exec(select(PaperExecution)).all() == []
+        assert session.exec(select(RiskDecision)).all() == []
         assert session.exec(select(Fill)).all() == []
 
 
 @pytest.mark.asyncio
-async def test_paper_api_is_operator_only_and_has_no_live_execution_surface(app_db):
+async def test_paper_api_is_risk_gated_operator_only_and_has_no_live_execution_surface(app_db):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         status = await client.get("/api/paper/status")
@@ -153,7 +159,8 @@ async def test_paper_api_is_operator_only_and_has_no_live_execution_surface(app_
         "market_data": "real_only",
         "capital": "virtual_only",
         "order_type": "market_only",
-        "origin": "operator_only_until_risk",
+        "origin": "operator_only_phase_4",
+        "risk_gate": "required",
         "live_execution_capability": False,
         "synthetic_fallback": False,
         "policy_version": "paper-v1",
