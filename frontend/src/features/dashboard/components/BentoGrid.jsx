@@ -24,6 +24,7 @@ export function normalizeDashboardData(agents = [], tradeStats = {}, health = {}
     evidenceMode: tradeStats.evidence_mode || 'unknown',
     runtimeMode: health.runtime_mode || 'unknown',
     syntheticDisabled: health.synthetic_engine === 'disabled',
+    riskMode: health.risk || 'unknown',
     paperTrading: health.paper_trading || 'unknown',
   };
 }
@@ -55,8 +56,8 @@ export function BentoGrid() {
     ? 'Consultando'
     : isError
       ? 'Desconocido'
-      : metrics.paperTrading === 'operator_only_phase_3'
-        ? 'Paper operador · automático bloqueado'
+      : metrics.paperTrading === 'operator_only_phase_4' && metrics.riskMode === 'authoritative_phase_4'
+        ? 'Paper operador · Risk activo'
         : metrics.syntheticDisabled
           ? 'Transición · sintético desactivado'
           : 'Revisar runtime';
@@ -72,7 +73,7 @@ export function BentoGrid() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Runtime Paper de transición</h3>
-            <p className="text-[10px] text-gray-500 font-mono mt-1">Paper manual sobre mercado real disponible · métricas legacy excluidas · automatización pendiente de Risk</p>
+            <p className="text-[10px] text-gray-500 font-mono mt-1">Paper manual con Risk obligatorio · métricas legacy excluidas · automatización de estrategias aún desactivada</p>
           </div>
           <span className="font-mono text-[#3b82f6] text-lg font-bold">{metrics.totalTrades == null ? 'N/D trades válidos' : `${metrics.totalTrades} trades`}</span>
         </div>
