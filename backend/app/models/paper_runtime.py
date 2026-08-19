@@ -53,6 +53,23 @@ class PaperRuntimeAgent(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow, sa_column=utc_column())
 
 
+class PaperRuntimeStrategyEvidence(SQLModel, table=True):
+    """Immutable strategy identity captured when a runtime session first starts."""
+
+    __tablename__ = "paper_runtime_strategy_evidence"
+    __table_args__ = (
+        UniqueConstraint("session_id", "agent_id", name="uq_runtime_strategy_evidence_session_agent"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="paper_runtime_sessions.id", index=True)
+    agent_id: int = Field(foreign_key="agents.id", index=True)
+    strategy_id: str = Field(index=True, max_length=8)
+    strategy_version: str = Field(default="baseline-v1", max_length=32)
+    strategy_source_sha256: str = Field(index=True, max_length=64)
+    captured_at: datetime = Field(default_factory=utcnow, sa_column=utc_column())
+
+
 class PaperRuntimeCycle(SQLModel, table=True):
     __tablename__ = "paper_runtime_cycles"
     __table_args__ = (
