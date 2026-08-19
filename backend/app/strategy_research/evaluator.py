@@ -51,7 +51,7 @@ class ResearchEvaluator:
 
     def historical_gate(self, study_id: int) -> ResearchGateResult:
         policy = bootstrap_research_policy(self.session)
-        study = self._study(study_id)
+        self._study(study_id)
         items = self._windows_with_runs(study_id)
         if len(items) < policy.min_historical_windows or len(items) % 3 != 0:
             return ResearchGateResult(False, "HISTORICAL_WINDOWS_INCOMPLETE", "complete TRAIN/VALIDATION/OOS folds are required")
@@ -105,7 +105,154 @@ class ResearchEvaluator:
         return ResearchGateResult(True, "HISTORICAL_PASS", "historical validation and OOS evidence satisfy research-v1", metrics)
 
     def forward_gate(self, study_id: int) -> ResearchGateResult:
-        raise NotImplementedError
+        policy = bootstrap_research_policy(self.session)
+        study = self._study(study_id)
+        stopped = self.session.exec(
+            select(PaperRuntimeSession).where(PaperRuntimeSession.status == "STOPPED")
+        ).all()
+        qualifying_session_ids: list[int] = []
+        qualifying_account_ids: set[int] = set()
+        closing_sells = 0
+
+        for runtime in stopped:
+            attachments = self.session.exec(
+                select(PaperRuntimeAgent).where(
+                    PaperRuntimeAgent.session_id == runtime.id,
+                    PaperRuntimeAgent.enabled == True,  # noqa: E712
+                )
+            ).all()
+            session_qualified = False
+            for attachment in attachments:
+                agent = self.session.get(Agent, attachment.agent_id)
+                if agent is None or agent.estrategia.value != study.strategy_id:
+                    continue
+                account = self.session.exec(select(Account).where(Account.agente_id == agent.id)).first()
+                if account is None:
+                    continue
+                cycles = self.session.exec(
+                    select(PaperRuntimeCycle).where(
+                        PaperRuntimeCycle.session_id == runtime.id,
+                        PaperRuntimeCycle.agent_id == agent.id,
+                    )
+                ).all()
+                if not cycles:
+                    continue
+                session_qualified = True
+                qualifying_account_ids.add(account.id)
+                for cycle in cycles:
+                    if cycle.paper_execution_id is None:
+                        continue
+                    execution = self.session.get(PaperExecution, cycle.paper_execution_id)
+                    if execution is None:
+                        continue
+                    if (
+                        execution.agent_id == agent.id
+                        and execution.account_id == account.id
+                        and execution.status == "FILLED"
+                        and execution.side == "SELL"
+                        and execution.origin == "strategy_runtime"
+                        and execution.fill_id is not None
+                    ):
+                        closing_sells += 1
+            if session_qualified:
+                qualifying_session_ids.append(runtime.id)
+
+        if not qualifying_session_ids:
+            return ResearchGateResult(False, "FORWARD_SESSION_REQUIRED", "a completed STOPPED Phase 7 session is required")
+
+        for account_id in qualifying_account_ids:
+            unresolved_request = self.session.exec(
+                select(PaperRequest).where(
+                    PaperRequest.account_id == account_id,
+                    PaperRequest.status == "RECOVERY_REQUIRED",
+                )
+            ).first()
+            unresolved_execution = self.session.exec(
+                select(PaperExecution).where(
+                    PaperExecution.account_id == account_id,
+                    PaperExecution.status == "RECOVERY_REQUIRED",
+                )
+            ).first()
+            if unresolved_request is not None or unresolved_execution is not None:
+                return ResearchGateResult(False, "FORWARD_RECOVERY_UNRESOLVED", "forward Paper recovery evidence is unresolved")
+
+        if closing_sells < policy.min_forward_closing_sells:
+            return ResearchGateResult(False, "FORWARD_CLOSE_SAMPLE_TOO_SMALL", "forward closing SELL sample is below research-v1")
+
+        realized_pnl = sum(
+            (Decimal(self.session.get(Account, account_id).realized_pnl) for account_id in qualifying_account_ids),
+            Decimal("0"),
+        )
+        if realized_pnl <= 0:
+            return ResearchGateResult(False, "FORWARD_PNL_NON_POSITIVE", "forward account-level realized PnL context must be positive")
+
+        return ResearchGateResult(
+            True,
+            "FORWARD_PASS",
+            "forward Phase 7 Paper evidence satisfies research-v1",
+            {
+                "forward_session_ids": qualifying_session_ids,
+                "forward_closing_sells": closing_sells,
+                "forward_realized_pnl": realized_pnl,
+            },
+        )
+
+    def _persist_evaluation(
+        self,
+        study: ResearchStudy,
+        decision: str,
+        reason_code: str,
+        reason: str,
+        historical: ResearchGateResult,
+        forward: ResearchGateResult | None,
+    ) -> ResearchEvaluation:
+        historical_ids = historical.metrics.get("historical_run_ids") or [
+            run.id for _, run in self._windows_with_runs(study.id)
+        ]
+        forward_ids = forward.metrics.get("forward_session_ids") if forward else None
+        evaluation = ResearchEvaluation(
+            study_id=study.id,
+            policy_version=study.policy_version,
+            decision=decision,
+            reason_code=reason_code,
+            reason=reason[:512],
+            strategy_id=study.strategy_id,
+            strategy_version=study.strategy_version or "unfrozen",
+            strategy_source_sha256=study.strategy_source_sha256 or "missing",
+            historical_run_ids=",".join(str(item) for item in historical_ids),
+            forward_session_ids=",".join(str(item) for item in forward_ids) if forward_ids else None,
+            validation_net_return=historical.metrics.get("validation_net_return"),
+            validation_expectancy=historical.metrics.get("validation_expectancy"),
+            oos_net_return=historical.metrics.get("oos_net_return"),
+            oos_expectancy=historical.metrics.get("oos_expectancy"),
+            oos_max_drawdown=historical.metrics.get("oos_max_drawdown"),
+            oos_profit_factor=historical.metrics.get("oos_profit_factor"),
+            forward_closing_sells=int(forward.metrics.get("forward_closing_sells", 0)) if forward else 0,
+            forward_realized_pnl=forward.metrics.get("forward_realized_pnl") if forward else None,
+        )
+        self.session.add(evaluation)
+        study.status = "EVALUATED" if decision == "PASS" else "REJECTED"
+        self.session.add(study)
+        self.session.commit(); self.session.refresh(evaluation)
+        return evaluation
 
     def evaluate(self, study_id: int) -> ResearchEvaluation:
-        raise NotImplementedError
+        study = self._study(study_id)
+        historical = self.historical_gate(study_id)
+        if not historical.passed:
+            return self._persist_evaluation(
+                study, "REJECT", historical.reason_code, historical.reason, historical, None
+            )
+        forward = self.forward_gate(study_id)
+        if not forward.passed:
+            return self._persist_evaluation(
+                study, "REJECT", forward.reason_code, forward.reason, historical, forward
+            )
+        return self._persist_evaluation(
+            study,
+            "PASS",
+            "RESEARCH_PASS",
+            "historical and forward evidence satisfy research-v1",
+            historical,
+            forward,
+        )
