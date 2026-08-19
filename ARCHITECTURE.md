@@ -15,7 +15,7 @@ AUTOMATON is built around autonomous-agent research using **real market data and
 7. Legacy Mongo/trading services are not reactivated as shortcuts.
 8. Accounting is the only active financial authority.
 9. Paper mutations are idempotent and fail closed on ambiguous recovery.
-10. Active Paper API orders require a persisted Phase 4 Risk decision before financial state is created.
+10. Every normal Paper execution requires a persisted Phase 4 Risk ALLOW decision before financial state is created.
 
 ## Active domains
 
@@ -46,11 +46,11 @@ No active automatic Strategy -> Risk integration exists yet.
 
 `RiskDecision` persists ALLOW/REJECT plus account/agent, profile version, real-market provenance, requested notional, equity/exposure state and reason code.
 
-Risk fails closed on paused/inactive profile, inactive agent, non-real/stale/future data, currency mismatch, missing marks, Accounting mismatch or unresolved Paper recovery.
+Risk fails closed on paused/inactive profile, inactive agent, non-real/stale/future data, currency mismatch, Accounting mismatch or unresolved Paper recovery. BUY additionally requires complete real marks for open positions.
 
 BUY orders are constrained by notional/equity/exposure/concentration/open-position/loss/drawdown/cash-reserve limits. A valid SELL reducing an existing long may bypass those size/loss caps but still requires integrity, data and recovery gates and cannot oversell.
 
-The active Paper API consumes ALLOW decisions once and binds them to the created `PaperExecution`.
+Every normal `PaperExecutionService.execute_market_order()` call requires a persisted current-profile ALLOW decision. Paper verifies that the decision exists in SQLite, is unconsumed, matches the payload and provider observation, and remains valid under an active/unpaused profile at consumption time.
 
 ### Paper Execution — Phase 3 + Phase 4 gate
 
@@ -67,7 +67,7 @@ The active Paper API consumes ALLOW decisions once and binds them to the created
 - conservative restart/recovery;
 - no exchange credentials or Live adapter.
 
-The public active path is now Risk-gated:
+The active path is Risk-gated:
 
 ```text
 request_id
@@ -79,7 +79,7 @@ request_id
                      -> AccountingService
 ```
 
-Direct low-level Paper service seams exist for tests/recovery construction, but no active HTTP path bypasses Risk.
+There is no normal Paper execution bypass without Risk. Recovery routines reconcile already-persisted Paper state but do not submit new orders.
 
 ### Portfolio & Accounting — Phase 2
 
@@ -94,6 +94,8 @@ and
 `equity = funded_capital + realized_pnl + unrealized_pnl`
 
 Funding never counts as PnL. Buy fees enter acquisition basis; sell fees reduce realized proceeds. Shorts, leverage and margin remain undefined/rejected.
+
+`AccountingIntegrityService` provides valuation-free structural checks needed by risk-reducing SELL when unrelated market marks are unavailable. BUY continues to require full `AccountingService.reconcile()` with real marks.
 
 ### Agent Lifecycle
 
@@ -145,7 +147,7 @@ Provider -> Market Data -> Strategy Intent -> Risk -> Paper Execution
                                                 +----> Evidence
 ```
 
-The Strategy Intent -> Risk integration is not active yet. Phase 4 deliberately builds the safety gate without silently enabling autonomous agents.
+The Strategy Intent -> Risk integration is not active yet. Phase 4 deliberately establishes the safety gate without silently enabling autonomous agents.
 
 ## Synthetic and Live isolation
 
@@ -155,4 +157,6 @@ Future Live trading must use a separate execution adapter behind `docs/LIVE_TRAD
 
 ## Verification
 
-Static source review can establish architectural coherence but cannot certify runtime correctness. Exact-HEAD verification requires fresh backend tests, frontend tests/build and relevant end-to-end smoke evidence.
+**Phase 4 static architecture audit:** complete for the current Phase 4 source gate.
+
+Static source review establishes contract coherence but cannot certify runtime correctness. Exact-HEAD execution certification still requires fresh backend tests, frontend tests/build and the relevant real-provider virtual-capital smoke run.
