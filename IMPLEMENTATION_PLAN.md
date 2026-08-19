@@ -8,8 +8,8 @@ Build a verifiable autonomous Paper Trading platform: **real market data, virtua
 
 - FastAPI + SQLModel + SQLite and React/Vite are active.
 - Synthetic `AgentEngine` and legacy Mongo/trading engines are outside normal runtime.
-- Phases 1–6 source/static contracts are present.
-- Phase 7 adds explicit persistent autonomous Paper sessions; no session starts or resumes merely because the process boots.
+- Phases 1–7 source/static contracts are present.
+- Phase 7 provides explicit persistent autonomous Paper sessions; no session starts or resumes merely because the process boots.
 - Live remains disabled.
 - Fresh exact-HEAD execution evidence remains required.
 
@@ -36,6 +36,7 @@ See `docs/superpowers/specs/2026-08-19-phase-7-paper-runtime-design.md`.
 - [x] Add additive `PaperRuntimeSession`, `PaperRuntimeAgent`, `PaperRuntimeCycle`, `PaperRuntimeEvent` persistence.
 - [x] Define `runtime-v1` session lifecycle: CREATED/RUNNING/PAUSED/DEGRADED/RECOVERY_REQUIRED/STOPPED.
 - [x] Enforce persistent session ownership for agent/symbol/interval, including recovery states.
+- [x] Validate session symbol/timeframe through the active Market Data normalization/interval contract before persistence.
 - [x] Evaluate each attached active agent at most once per new real closed candle.
 - [x] Consume unchanged S1-S4 close-price logic; no strategy mutation/tuning.
 - [x] Persist HOLD/position-guard no-actions without creating orders.
@@ -44,6 +45,7 @@ See `docs/superpowers/specs/2026-08-19-phase-7-paper-runtime-design.md`.
 - [x] Route autonomous actions through current real Market Data -> Risk -> `PaperExecution(origin=strategy_runtime)` -> Accounting.
 - [x] Keep Risk mandatory and reject unsupported Paper origins.
 - [x] Add in-process asyncio task ownership while SQLite remains authoritative.
+- [x] Run scheduler start/resume/pause/stop controls on an active asyncio event loop rather than FastAPI's sync threadpool.
 - [x] Track heartbeat, last cycle, outcomes, failures and structured runtime events.
 - [x] Degrade after configured consecutive operational failures without synthetic fallback.
 - [x] Block financial ambiguity in RECOVERY_REQUIRED.
@@ -53,10 +55,10 @@ See `docs/superpowers/specs/2026-08-19-phase-7-paper-runtime-design.md`.
 - [x] Mount `/api/runtime` create/read/cycles/start/pause/resume/recover/stop controls.
 - [x] Update Paper status, health/estado, client, Settings, Dashboard and Ops Monitor for session-controlled autonomous Paper.
 - [x] Keep automatic replication, optimizer and Live execution absent.
-- [ ] Complete final exact-HEAD static audit/documentation drift search.
+- [x] Complete final exact-HEAD static audit/documentation drift search.
 - [ ] Execute exact-HEAD backend tests, frontend tests/build and sustained real-provider Paper runtime smoke.
 
-**Phase 7 implementation/source contracts:** present. Formal source/static closure depends on the final exact-HEAD audit; execution certification requires fresh commands plus sustained real-provider operation.
+**Phase 7 source/contract/static gate:** complete. Execution certification remains pending because the current environment cannot resolve `github.com`; operational certification additionally requires a sustained real-provider Paper session including restart/recovery observation.
 
 ### 8. Strategy Research
 See `docs/STRATEGIES.md`.
