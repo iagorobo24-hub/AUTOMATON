@@ -27,6 +27,7 @@ Implemented in source:
 - additive persistent `PaperRuntimeSession`, `PaperRuntimeAgent`, `PaperRuntimeCycle`, `PaperRuntimeEvent`;
 - `runtime-v1` lifecycle: CREATED/RUNNING/PAUSED/DEGRADED/RECOVERY_REQUIRED/STOPPED;
 - explicit operator start/pause/resume/recover/stop controls;
+- Market Data contract validation for session symbol/timeframe before persistence;
 - persistent ownership preventing overlapping agent/symbol/interval sessions, including recovery states;
 - one evaluation per real closed candle per session/agent;
 - unchanged S1-S4 strategies;
@@ -36,6 +37,7 @@ Implemented in source:
 - autonomous path `Market Data -> Strategy -> Risk -> PaperExecution(strategy_runtime) -> Accounting`;
 - Risk remains mandatory and unsupported Paper origins fail closed;
 - in-process asyncio scheduler with SQLite as authority;
+- scheduler controls execute on an active event loop, not a FastAPI sync worker thread;
 - heartbeat, cycle outcome, failure counters and persistent events;
 - no synthetic fallback; repeated operational failures can mark DEGRADED;
 - financial ambiguity marks RECOVERY_REQUIRED;
@@ -54,7 +56,7 @@ Current runtime identifiers:
 
 **Exit condition:** an explicitly started Paper session can evaluate each new real closed candle once, route every actionable signal through Risk/Paper/Accounting, survive polling/retry ambiguity without double execution, and fail closed across restart/recovery.
 
-**Status:** source implementation present. Final exact-HEAD static audit is the remaining source closure gate. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification.
+**Status:** source/contract/static gate satisfied. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification; the current tool environment still fails before test execution because it cannot resolve `github.com`.
 
 ## Phase 8 — Strategy Research
 
