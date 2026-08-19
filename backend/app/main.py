@@ -20,6 +20,8 @@ from app.paper_runtime.scheduler import runtime_scheduler
 from app.paper_runtime.service import recover_interrupted_runtime_sessions
 from app.risk.bootstrap import ensure_active_risk_profile
 from app.risk.router import router as risk_router
+from app.strategy_research.policy import bootstrap_research_policy
+from app.strategy_research.router import router as research_router
 from app.routers import agents, trades, crypto
 
 logging.basicConfig(
@@ -35,6 +37,7 @@ RISK_MODE = "authoritative_phase_4"
 BACKTESTING_MODE = "evidence_phase_5"
 AGENT_EVOLUTION_MODE = "evidence_phase_6"
 PAPER_RUNTIME_MODE = "runtime_phase_7"
+STRATEGY_RESEARCH_MODE = "evidence_phase_8"
 AUTOMATED_TRADING_MODE = "paper_enabled_phase_7"
 LIVE_EXECUTION_MODE = "disabled"
 
@@ -49,6 +52,7 @@ async def lifespan(app: FastAPI):
         evolution_policy = bootstrap_evolution_policy(session)
         lifecycle_baselines = bootstrap_lifecycle_baselines(session)
         risk_profile = ensure_active_risk_profile(session)
+        research_policy = bootstrap_research_policy(session)
         interrupted_backtests = recover_interrupted_runs(session)
         paper_service = PaperExecutionService(session)
         recovered_paper = paper_service.recover_pending()
@@ -59,6 +63,7 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Evolution policy ready (%s)", evolution_policy.version)
     logger.info("[MAIN] Agent lifecycle baseline ready (%s agents classified)", lifecycle_baselines)
     logger.info("[MAIN] Risk profile ready (%s, paused=%s)", risk_profile.version, risk_profile.paused)
+    logger.info("[MAIN] Research policy ready (%s)", research_policy.version)
     logger.info("[MAIN] Backtest recovery invalidated %s interrupted runs", interrupted_backtests)
     logger.info(
         "[MAIN] Paper recovery complete (filled=%s cancelled=%s)",
@@ -80,6 +85,7 @@ async def lifespan(app: FastAPI):
     app.state.backtesting_mode = BACKTESTING_MODE
     app.state.agent_evolution_mode = AGENT_EVOLUTION_MODE
     app.state.paper_runtime_mode = PAPER_RUNTIME_MODE
+    app.state.strategy_research_mode = STRATEGY_RESEARCH_MODE
     logger.info("[MAIN] Synthetic AgentEngine is disabled in the normal runtime")
     logger.info("[MAIN] Real read-only market-data contract is available")
     logger.info("[MAIN] Authoritative portfolio accounting is available")
@@ -87,6 +93,7 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Phase 5 deterministic historical evidence boundary is available")
     logger.info("[MAIN] Phase 6 evidence-gated manual replication is available")
     logger.info("[MAIN] Phase 7 autonomous Paper sessions are available but never auto-resume after restart")
+    logger.info("[MAIN] Phase 8 strategy research is evidence-gated and never auto-deploys or mutates strategies")
     yield
     runtime_scheduler.cancel_all()
     logger.info("[MAIN] Shutdown complete")
@@ -94,7 +101,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.10.0",
+    version="2.11.0",
     description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
@@ -117,13 +124,14 @@ app.include_router(paper_execution_router, prefix="/api/paper", tags=["paper"])
 app.include_router(backtesting_router, prefix="/api/backtests", tags=["backtests"])
 app.include_router(evolution_router, prefix="/api/evolution", tags=["evolution"])
 app.include_router(paper_runtime_router, prefix="/api/runtime", tags=["runtime"])
+app.include_router(research_router, prefix="/api/research", tags=["research"])
 
 
 @app.get("/")
 def root():
     return {
         "message": "AUTOMATON v2 API",
-        "version": "2.10.0",
+        "version": "2.11.0",
         "status": "operational",
         "runtime_mode": RUNTIME_MODE,
         "market_data": MARKET_DATA_MODE,
@@ -133,6 +141,7 @@ def root():
         "backtesting": BACKTESTING_MODE,
         "agent_evolution": AGENT_EVOLUTION_MODE,
         "paper_runtime": PAPER_RUNTIME_MODE,
+        "strategy_research": STRATEGY_RESEARCH_MODE,
     }
 
 
@@ -149,6 +158,7 @@ def health():
         "backtesting": BACKTESTING_MODE,
         "agent_evolution": AGENT_EVOLUTION_MODE,
         "paper_runtime": PAPER_RUNTIME_MODE,
+        "strategy_research": STRATEGY_RESEARCH_MODE,
         "automated_trading": AUTOMATED_TRADING_MODE,
         "live_execution": LIVE_EXECUTION_MODE,
     }
@@ -166,9 +176,10 @@ def get_estado():
         "backtesting": BACKTESTING_MODE,
         "agent_evolution": AGENT_EVOLUTION_MODE,
         "paper_runtime": PAPER_RUNTIME_MODE,
+        "strategy_research": STRATEGY_RESEARCH_MODE,
         "automated_trading": AUTOMATED_TRADING_MODE,
         "live_execution": LIVE_EXECUTION_MODE,
-        "financial_evidence": "paper_backtest_evolution_and_runtime_records_separated_by_explicit_provenance",
+        "financial_evidence": "paper_backtest_evolution_runtime_and_research_records_separated_by_explicit_provenance",
     }
 
 
