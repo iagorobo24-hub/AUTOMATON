@@ -129,6 +129,7 @@ class AccountingService:
         amount: Decimal,
         *,
         reason: str,
+        commit: bool = True,
     ) -> tuple[Account, Account]:
         """Transfer funded liquid capital to a new child account without minting money."""
         amount = self._positive(amount, "amount")
@@ -185,9 +186,12 @@ class AccountingService:
                 reason=reason,
             )
         )
-        self.session.commit()
-        self.session.refresh(parent)
-        self.session.refresh(child)
+        if commit:
+            self.session.commit()
+            self.session.refresh(parent)
+            self.session.refresh(child)
+        else:
+            self.session.flush()
         return parent, child
 
     def create_order(
