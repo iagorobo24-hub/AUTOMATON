@@ -11,7 +11,10 @@ from app.backtesting.runner import recover_interrupted_runs
 from app.database import get_session
 from app.main import app
 from app.market_data.contracts import Candle
+from app.models.accounting import Account
 from app.models.backtesting import BacktestDataset, BacktestRun
+from app.models.paper_execution import PaperExecution
+from app.models.risk import RiskDecision
 
 UTC = timezone.utc
 START = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
@@ -109,6 +112,24 @@ async def test_api_creates_immutable_dataset_then_runs_s1_and_returns_provenance
         assert detail.json()["metrics"]["net_return"] == run["net_return"]
         assert detail.json()["dataset"]["content_sha256"] == dataset["content_sha256"]
         assert detail.json()["trade_count"] == run["trade_count"]
+
+
+@pytest.mark.asyncio
+async def test_backtest_run_does_not_create_paper_account_execution_or_risk_state(app_db):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        dataset_response = await client.post("/api/backtests/datasets", params={
+            "symbol": "BTC-USDT", "interval": "1m", "start": START.isoformat(), "end": END.isoformat(),
+        })
+        run_response = await client.post("/api/backtests/runs", params={
+            "dataset_id": dataset_response.json()["id"], "strategy_id": "S1",
+        })
+        assert run_response.status_code == 200
+
+    with Session(app_db) as session:
+        assert session.exec(select(Account)).all() == []
+        assert session.exec(select(PaperExecution)).all() == []
+        assert session.exec(select(RiskDecision)).all() == []
 
 
 @pytest.mark.asyncio
