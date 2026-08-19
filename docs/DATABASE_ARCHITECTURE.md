@@ -9,7 +9,7 @@ The current runtime uses SQLModel + SQLite through `backend/app/database.py`. Mo
 ### Legacy/transition records
 
 - `Agent`: identity, strategy and lifecycle state. Its budget fields remain compatibility mirrors during migration.
-- `Trade`: historical transition record. Pre-provenance rows remain `legacy_unclassified` and are not part of the authoritative accounting chain.
+- `Trade`: historical transition record. Pre-provenance rows remain `legacy_unclassified` and are not part of the authoritative accounting/Paper chain.
 
 ### Phase 2 accounting records
 
@@ -21,9 +21,18 @@ The current runtime uses SQLModel + SQLite through `backend/app/database.py`. Mo
 
 The Phase 2 models live in `backend/app/models/accounting.py` and are manipulated by `backend/app/accounting/service.py`.
 
+### Phase 3 Paper records
+
+- `paper_executions` (`PaperExecution`): provenance record for each operator Paper attempt linked to its account, `Order`, optional `Fill`, real quote metadata, deterministic fill policy, fee/slippage and final status.
+- `paper_requests` (`PaperRequest`): persistent idempotency reservation keyed by `request_id`, command fingerprint and optional linked `PaperExecution`.
+
+The Phase 3 models live in `backend/app/models/paper_execution.py`. The Paper domain does not replace accounting: all financial effects still enter through `AccountingService`.
+
 ## Source-of-truth rule
 
 For all new financial work, accounting tables are authoritative. `Agent.presupuesto_inicial` and `Agent.presupuesto_actual` must not become a second independent accounting system.
+
+`PaperExecution` is authoritative for Paper execution provenance, not for balances. `PaperRequest` is authoritative for command idempotency/recovery, not for trading PnL.
 
 During transition, agent API responses may mirror funded capital/cash from the accounting account for compatibility with the existing frontend.
 
@@ -49,18 +58,32 @@ The migration writes `BASELINE_FUNDING` with reason `phase_2_legacy_reset_exclud
 
 ## Persistence/recovery
 
-Account, orders, fills and positions are persisted so accounting can be reconstructed after restart without relying on in-memory execution state.
+Account, orders, fills, positions, Paper executions and Paper request reservations survive restart.
 
-`AccountingService.reconcile()` detects equity identity mismatches, negative financial state, order/fill quantity mismatch, overfills and orphan fills.
+Startup recovery is conservative:
+
+1. reconcile pending `PaperExecution` records;
+2. link an already-persisted full fill where unambiguous;
+3. cancel an unfilled pending execution rather than resubmitting it;
+4. mark ambiguous execution state `RECOVERY_REQUIRED`;
+5. reconcile `PaperRequest` reservations only after execution recovery;
+6. a `PROCESSING` request with no execution linkage becomes `RECOVERY_REQUIRED`, never automatically retryable, because a crash may have occurred after an `Order` was persisted;
+7. commands in unresolved recovery state fail closed.
+
+`AccountingService.reconcile()` separately detects equity identity mismatches, negative financial state, order/fill quantity mismatch, overfills and orphan fills.
 
 ## Current scope limits
 
 - long-only;
 - no leverage/margin;
 - no short positions;
-- no Paper execution endpoint yet;
+- operator-only Paper MARKET execution;
+- real market quote required;
+- deterministic `paper-v1` fee/slippage policy;
+- persistent `request_id` idempotency required for Paper mutations;
+- no automated strategy execution until Risk exists;
 - no Live execution;
-- no authoritative performance claim until Paper/Backtest produces valid evidence.
+- no broad strategy-performance claim until sufficient Paper/Backtest evidence exists.
 
 ## Future records
 
@@ -80,5 +103,6 @@ These should be added only when their owning phase requires them.
 - Virtual deposits/adjustments are explicit and never counted as PnL.
 - Mode/session provenance is preserved on execution facts.
 - Open financial state survives restart.
+- Idempotency/recovery uncertainty fails closed rather than creating duplicate Paper orders.
 - Existing data is explicitly migrated or quarantined; never silently promoted.
 - No new Mongo collection is introduced for active functionality.
