@@ -6,6 +6,7 @@ from app.models.backtesting import (
     BacktestDataset,
     BacktestCandle,
     BacktestRun,
+    BacktestRunEvidence,
     BacktestTrade,
     BacktestEquityPoint,
 )
@@ -28,6 +29,7 @@ __all__ = [
     "BacktestDataset",
     "BacktestCandle",
     "BacktestRun",
+    "BacktestRunEvidence",
     "BacktestTrade",
     "BacktestEquityPoint",
 ]
