@@ -8,6 +8,8 @@ from app.accounting.bootstrap import ensure_accounting_baseline
 from app.accounting.router import router as accounting_router
 from app.database import SessionLocal, init_db
 from app.market_data.router import router as market_data_router
+from app.paper_execution.router import router as paper_execution_router
+from app.paper_execution.service import PaperExecutionService
 from app.routers import agents, trades, crypto
 
 logging.basicConfig(
@@ -18,6 +20,9 @@ logger = logging.getLogger(__name__)
 RUNTIME_MODE = "transition"
 MARKET_DATA_MODE = "real_contract_available"
 ACCOUNTING_MODE = "authoritative_phase_2"
+PAPER_TRADING_MODE = "operator_only_phase_3"
+AUTOMATED_TRADING_MODE = "blocked_until_risk"
+LIVE_EXECUTION_MODE = "disabled"
 
 
 @asynccontextmanager
@@ -27,20 +32,28 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Database initialized")
     with SessionLocal() as session:
         bootstrapped_accounts = ensure_accounting_baseline(session)
+        recovered_paper = PaperExecutionService(session).recover_pending()
     logger.info("[MAIN] Accounting baseline ready (%s accounts bootstrapped)", bootstrapped_accounts)
+    logger.info(
+        "[MAIN] Paper recovery complete (filled=%s cancelled=%s)",
+        recovered_paper["filled"],
+        recovered_paper["cancelled"],
+    )
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
     app.state.accounting_mode = ACCOUNTING_MODE
+    app.state.paper_trading_mode = PAPER_TRADING_MODE
     logger.info("[MAIN] Synthetic AgentEngine is disabled in the normal runtime")
     logger.info("[MAIN] Real read-only market-data contract is available")
     logger.info("[MAIN] Authoritative portfolio accounting is available")
+    logger.info("[MAIN] Paper execution is operator-only; automation waits for Risk")
     yield
     logger.info("[MAIN] Shutdown complete")
 
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.5.0",
+    version="2.6.0",
     description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
@@ -66,17 +79,23 @@ app.include_router(
     prefix="/api/accounting",
     tags=["accounting"],
 )
+app.include_router(
+    paper_execution_router,
+    prefix="/api/paper",
+    tags=["paper"],
+)
 
 
 @app.get("/")
 def root():
     return {
         "message": "AUTOMATON v2 API",
-        "version": "2.5.0",
+        "version": "2.6.0",
         "status": "operational",
         "runtime_mode": RUNTIME_MODE,
         "market_data": MARKET_DATA_MODE,
         "accounting": ACCOUNTING_MODE,
+        "paper_trading": PAPER_TRADING_MODE,
     }
 
 
@@ -88,7 +107,9 @@ def health():
         "synthetic_engine": "disabled",
         "market_data": MARKET_DATA_MODE,
         "accounting": ACCOUNTING_MODE,
-        "paper_trading": "not_implemented",
+        "paper_trading": PAPER_TRADING_MODE,
+        "automated_trading": AUTOMATED_TRADING_MODE,
+        "live_execution": LIVE_EXECUTION_MODE,
     }
 
 
@@ -97,10 +118,12 @@ def get_estado():
     return {
         "runtime_mode": RUNTIME_MODE,
         "synthetic_engine": "disabled",
-        "paper_trading": "not_implemented",
         "market_data_mode": MARKET_DATA_MODE,
         "accounting_mode": ACCOUNTING_MODE,
-        "financial_evidence": "unavailable",
+        "paper_trading": PAPER_TRADING_MODE,
+        "automated_trading": AUTOMATED_TRADING_MODE,
+        "live_execution": LIVE_EXECUTION_MODE,
+        "financial_evidence": "paper_records_only_after_explicit_operator_execution",
     }
 
 
