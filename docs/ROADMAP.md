@@ -4,84 +4,91 @@ This roadmap defines dependency order. A later phase must not be treated as comp
 
 ## Phase 0 — Transition baseline
 
-**Goal:** Preserve the SQLModel application while removing ambiguity and contamination from the old simulator.
+**Goal:** preserve the SQLModel application while removing ambiguity and contamination from the old simulator.
 
-Completed in code/documentation:
+Completed in source/documentation:
 
-- active agents/trades/UI contracts remain coherent;
 - normal startup does not start the synthetic `AgentEngine`;
-- synthetic prices/random closes are isolated from the normal runtime;
-- manual simulated-PnL mutation is removed from the active API/UI;
-- deposits do not manufacture profit;
-- pre-provenance trade records are retained as `legacy_unclassified` but excluded from verified financial metrics;
-- health/state explicitly identify transition mode, synthetic disabled and Paper not implemented;
-- legacy Mongo/trading code remains unmounted.
+- synthetic prices/random closes/manual fake PnL are isolated from active financial evidence;
+- pre-provenance Trade records stay `legacy_unclassified`;
+- funding does not manufacture profit;
+- legacy Mongo/trading code stays unmounted.
 
-**Exit condition:** current runtime is understandable and cannot create new synthetic financial evidence through normal startup or active UI/API paths.
-
-**Status:** code gate is statically satisfied. Fresh `pytest`, frontend tests and frontend build on the same HEAD are still required for execution certification.
+**Status:** source gate satisfied; fresh repository execution remains pending.
 
 ## Phase 1 — Real Market Data
 
-**Goal:** Build a provider-neutral, real-only layer for current quotes and closed OHLCV candles.
+**Goal:** provider-neutral, real-only current quotes and closed OHLCV candles.
 
-Implemented in code/documentation:
+Implemented:
 
-- immutable `Quote` and `Candle` contracts with `evidence_mode=real`;
-- canonical `BASE/USDT` symbol normalization;
-- UTC-only timestamps and provider provenance;
-- `MarketDataService` provider-neutral boundary;
-- public read-only `BinancePublicMarketDataProvider` with no credentials or execution methods;
-- current quotes from provider-timestamped aggregate trades;
-- closed candles only;
-- stale/future quote rejection;
-- candle gap/order/staleness validation;
-- bounded retry on transport errors, 429 and 5xx;
-- fail-closed errors with no generated/mock fallback;
-- `/api/market-data/status`, `/quote/{symbol}` and `/candles/{symbol}`;
-- deterministic unit/API tests authored for parsing, quality and failure semantics;
-- legacy `BinanceService` remains unmounted and is not reused as the real-data provider.
+- immutable real Quote/Candle contracts;
+- UTC/provider provenance;
+- public read-only Binance market provider;
+- stale/future/gap/order checks;
+- bounded retries/rate-limit handling;
+- no mock/generated fallback;
+- `/api/market-data` boundary.
 
-**Exit condition:** Paper/Backtest consumers cannot receive generated prices through the real-data contract.
-
-**Status:** source/contract gate is statically satisfied. Fresh backend/frontend/build execution on the exact Phase 1 HEAD is still required for execution certification.
+**Status:** source/contract gate satisfied; executable certification pending.
 
 ## Phase 2 — Portfolio & Accounting
 
-**Goal:** Establish one authoritative, persistent long-only accounting layer before any Paper execution exists.
+**Goal:** one authoritative persistent financial layer before Paper execution.
 
-Implemented in code/documentation:
+Implemented:
 
-- SQLModel Account, Order, Fill, Position and LedgerEntry records;
-- funded capital, cash, fees, average cost, realized/unrealized PnL, equity and exposure contracts;
-- BUY fee included in acquisition basis and SELL fee included in realized result;
-- additive buys, partial closes and full closes;
-- fail-closed insufficient-cash, oversell and overfill checks;
-- explicit funding ledger separate from PnL;
-- restart/reload reconstruction from persisted records;
-- reconciliation checks for financial identity and persisted-order/fill consistency;
-- safe bootstrap of legacy agents from initial/funded capital only, excluding unverified synthetic current balance;
-- accounting-backed new-agent creation and deposits;
-- lifecycle deletion no longer erases financial balances;
-- manual replication blocked until a non-duplicating capital-allocation policy exists;
-- read-only `/api/accounting/agents/{agent_id}` inspection API;
-- no HTTP path for creating orders/fills or executing trades in Phase 2.
+- Account, Order, Fill, Position and LedgerEntry;
+- long-only funded capital/cash/cost basis/PnL/fees/equity/exposure;
+- deterministic buy/sell and partial/full close semantics;
+- funding separated from PnL;
+- restart/reload and reconciliation;
+- safe historical-agent bootstrap excluding unverified legacy current balance;
+- replication blocked until capital transfer is defined.
 
-**Exit condition:** open/close/fees/PnL/funding/restart behavior is deterministic, persisted and reconcilable, with no competing financial source of truth for new work.
-
-**Status:** source/contract gate is statically satisfied. Fresh backend/frontend/build execution on the exact Phase 2 HEAD is still required for execution certification.
+**Status:** source/contract gate satisfied; executable certification pending.
 
 ## Phase 3 — Paper Execution
 
-Implement virtual orders/fills against real market observations with explicit fees/slippage and persistent state. Every accepted fill must enter through Phase 2 accounting.
+**Goal:** execute virtual orders against current real-market observations while preserving deterministic, auditable financial state.
 
-**Exit:** a real-data/virtual-money end-to-end session can run without random market or random-close behavior.
+Implemented:
+
+- persistent `PaperExecution` provenance linked to Phase 2 Order/Fill;
+- operator-only MARKET BUY/SELL path;
+- `paper-v1`: 10 bps adverse slippage, 10 bps fee, full fill or rejection;
+- real Quote required, with stale/future/provenance validation;
+- active-agent and account-currency gates;
+- every accepted fill delegated to Accounting;
+- persistent `PaperRequest` idempotency with required `request_id`;
+- identical replay returns the same execution; payload conflicts fail;
+- financial rejections remain idempotent;
+- provider failures remain retryable only when no financial state exists;
+- conservative restart recovery: never blindly resubmit uncertain orders;
+- ambiguous recovery state blocks the affected account;
+- `/api/paper/status`, `/api/paper/orders/market`, `/api/paper/executions`;
+- Ops Monitor displays Paper/real provider, quote, fill, fee and state;
+- Settings reports operator-only Paper, automation blocked and Live disabled.
+
+**Exit condition:** the source path `real Quote -> PaperExecution -> Accounting Fill/Position/Equity` is deterministic, persistent, idempotent and recoverable without random or Live behavior.
+
+**Status:** source/contract gate satisfied by static review. Fresh backend/frontend/build execution and a real-provider/virtual-capital smoke run are still required for execution certification.
 
 ## Phase 4 — Risk Engine
 
-Enforce sizing, exposure, loss/drawdown limits, stale-data rejection and circuit breakers independently of strategies.
+**Goal:** put an independent fail-closed approval layer in front of automated Paper execution.
 
-**Exit:** unsafe orders are rejected and critical failures fail closed.
+Required next:
+
+- risk request/decision contract;
+- order/notional sizing limits;
+- per-agent and portfolio exposure limits;
+- loss/drawdown constraints;
+- stale-market/accounting-reconciliation circuit breakers;
+- persisted profile/version and allow/reject reason;
+- only after Risk is active may strategy/agent-originated orders reach Paper Execution.
+
+**Exit:** unsafe or unreconciled orders cannot reach Paper Execution, and every automated order carries a persisted risk decision.
 
 ## Phase 5 — Backtesting & Evidence
 
@@ -97,7 +104,7 @@ Replace simplistic fitness/replication assumptions with evidence-aware lifecycle
 
 ## Phase 7 — 24/7 Paper Operation
 
-Add recovery, reconciliation, provider resilience, observability, sessions and long-running Paper operation.
+Add run/session identity, recovery, reconciliation, provider resilience, observability and long-running Paper operation.
 
 **Exit:** agents can operate unattended with real data and virtual capital while preserving traceable state.
 
@@ -105,18 +112,16 @@ Add recovery, reconciliation, provider resilience, observability, sessions and l
 
 Evaluate richer ideas from historical Alpha/Beta/Gamma material and new research. Promote only reproducibly useful logic.
 
-**Exit:** candidate strategies have deterministic code, backtests and Paper evidence.
+## Phase 9 — Legacy Pruning
 
-## Phase 9 — Live Readiness
+Delete obsolete legacy implementations only after selected concepts have been migrated and dependency/reference audits are clean.
 
-Satisfy `LIVE_TRADING_GATE.md`, design the exchange execution adapter, secret handling, emergency controls and staged deployment plan.
+## Phase 10 — Live Readiness
 
-**Exit:** technical readiness is documented; Live remains disabled pending explicit authorization.
+Satisfy `LIVE_TRADING_GATE.md`, design the separate exchange execution adapter, secret handling, emergency controls and staged deployment plan.
 
-## Phase 10 — Live (optional)
-
-Only after a separate decision. Start with minimal capital, strict limits and defined rollback/stop criteria.
+Live activation remains a separate explicit decision after all prior gates.
 
 ## Deferred product areas
 
-Auth, payments, LLM chat, public APIs, multi-user features and UI customization remain deferred unless they become necessary to operate or validate the core trading product.
+Auth, payments, LLM chat, public APIs, multi-user features and UI customization remain deferred unless needed to operate or validate the core trading product.
