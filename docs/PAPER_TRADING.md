@@ -2,139 +2,93 @@
 
 ## Definition
 
-Paper Trading means **real market data + virtual capital + simulated execution**. It is forward validation, not a visual simulation.
+Paper Trading means **real market data + virtual capital + simulated execution**. It is forward validation, not a visual simulation and never Live execution.
 
-## Current Phase 4 boundary
+## Current boundary
 
-The active Paper domain is `backend/app/paper_execution/` under `/api/paper`.
+The active execution domain is `backend/app/paper_execution/`; Phase 7 adds persistent orchestration in `backend/app/paper_runtime/`.
 
-It remains deliberately narrower than autonomous trading:
+Paper now supports two explicit origins:
 
-- Market Data is real-only through `MarketDataService`.
-- Capital is virtual and financial mutation goes only through Phase 2 `AccountingService`.
-- Only MARKET BUY/SELL is supported.
-- Commands are still explicit operator-originated actions.
-- **Every active request-backed Paper order requires Phase 4 Risk authorization before an Order/Fill can be created.**
-- Strategy/agent automation is not enabled yet.
-- No exchange trading credentials or Live execution adapter are present.
+- `operator`: manual `POST /api/paper/orders/market`;
+- `strategy_runtime`: autonomous actions generated only by a started Phase 7 runtime session.
 
-Active request flow:
+Both paths require:
 
-```text
-request_id -> real Quote/marks -> RiskDecision -> PaperExecution -> Accounting
-```
+- real provider-provenanced current Market Data;
+- virtual capital;
+- MARKET BUY/SELL only;
+- persisted current-profile Risk ALLOW;
+- deterministic `paper-v1` fill policy;
+- Accounting as the only financial mutation path;
+- request-id idempotency and fail-closed recovery.
 
-A Risk REJECT completes the command with no Paper Order/Fill. A Risk ALLOW is payload-bound, one-time consumable and linked to the resulting Paper execution.
+Unknown execution origins are rejected. There are no exchange trading credentials or Live adapter.
 
-## `paper-v1` fill policy
+## `paper-v1`
 
-The first execution model is deliberately simple and deterministic; it does not claim exchange-grade realism.
-
-- MARKET only;
 - full fill or rejection;
-- current real Quote from the Phase 1 market-data boundary;
-- maximum quote age: 30 seconds;
-- maximum future clock skew: 5 seconds;
-- BUY: 10 bps adverse slippage;
-- SELL: 10 bps adverse slippage;
-- fee: 10 bps of simulated fill notional;
+- maximum quote age 30 seconds;
+- maximum future clock skew 5 seconds;
+- BUY/SELL adverse slippage 10 bps;
+- fee 10 bps of fill notional;
 - long-only Accounting;
-- account currency must match market quote currency;
+- account quote currency must match the market;
 - agent must be active.
 
-Policy version, provider, quote timestamps, real market price, simulated fill price, fee and evidence mode are persisted with each execution.
+For BUY, the current compounded cost factor is `1.001 × 1.001 = 1.002001`.
 
 ## Risk gate
 
-The active HTTP mutation path cannot bypass Risk.
+`PaperExecutionService` requires a persisted unconsumed Risk ALLOW matching account, symbol, side, quantity, provider, price and quote timestamp. The active Risk profile must still be enabled/not paused when the decision is consumed.
 
-- A request-backed call without a Risk decision is rejected before Order creation.
-- Risk decision must be `ALLOW`, unconsumed and match account/symbol/side/quantity/price/provider/quote timestamp.
-- Once a PaperExecution is persisted, the decision is consumed and linked to that execution.
-- A consumed or mismatched decision cannot be reused.
+There is no low-level normal execution bypass without Risk. Recovery methods reconcile existing state; they do not submit new orders.
 
-Low-level service calls without `PaperRequest` remain only as deterministic unit-test/recovery seams; they are not exposed as active HTTP bypasses.
+## Idempotency and recovery
 
-## Persistence and provenance
+Manual Paper commands require a caller-provided `request_id`. Phase 7 derives a deterministic runtime request id from session/agent/market/candle/signal.
 
-`PaperExecution` is execution provenance, not financial authority. It links to the Phase 2 `Order` and optional `Fill`.
+Same logical request cannot produce a second fill. Ambiguous `PROCESSING`, missing linkage or partial financial state becomes `RECOVERY_REQUIRED` rather than automatic re-execution.
 
-`PaperRequest` is the persistent command-idempotency/recovery record.
+Startup recovery order relevant to Paper/runtime:
 
-`RiskDecision` is the Phase 4 authorization evidence.
+1. recover pending `PaperExecution`;
+2. recover pending `PaperRequest`;
+3. reconcile interrupted Phase 7 runtime cycles without submitting a new order;
+4. mark previously RUNNING/DEGRADED runtime sessions `RECOVERY_REQUIRED`.
 
-Legacy `Trade` rows remain historical non-evidence records and are not mixed into the active Paper feed.
+## Autonomous Phase 7 path
 
-## Idempotency
+A started `runtime-v1` session evaluates each agent once per new real closed candle:
 
-Every mutating Paper API request requires a non-blank `request_id`.
+```text
+closed candle -> S1-S4 -> intent -> current real quote -> Risk -> Paper -> Accounting
+```
 
-- Same completed `request_id` + same payload returns the existing execution without another market lookup, Risk decision or fill.
-- Reusing the ID for another payload is a conflict.
-- Risk financial rejection is completed/idempotent.
-- Provider/quality failure before Risk/financial state is `RETRYABLE`.
-- An interrupted `PROCESSING` request without safe execution linkage becomes `RECOVERY_REQUIRED`, never an automatic retry.
+HOLD and position-guard no-actions create runtime cycle evidence without Paper orders. Autonomous BUY targets 25% of available cash while accounting for the compounded Paper cost. Autonomous SELL requests the full current long.
 
-## State and recovery
+Provider failure never falls back to generated market data. Repeated operational failures may degrade a session; financial ambiguity blocks it in `RECOVERY_REQUIRED`.
 
-Startup order:
+## API/UI
 
-1. Accounting baseline bootstrap.
-2. `risk-v1` profile bootstrap.
-3. pending PaperExecution recovery.
-4. pending PaperRequest recovery.
-
-Recovery never blindly resubmits an uncertain order.
-
-- persisted full fill -> link and mark `FILLED` when unambiguous;
-- linked execution with no fill -> conservatively cancel;
-- ambiguous partial state -> `RECOVERY_REQUIRED`;
-- interrupted request with no safe execution linkage -> `RECOVERY_REQUIRED`.
-
-Risk also blocks active orders when Paper recovery for the account is unresolved.
-
-## Risk-reducing SELL
-
-A SELL that reduces an existing long is intentionally easier to authorize than a new BUY: Risk must not trap an already risky position because an unrelated symbol temporarily lacks a real mark.
-
-For this path:
-
-- the sold symbol still requires a real fresh quote;
-- Accounting structural integrity is mandatory;
-- oversell is rejected;
-- unrelated-position valuation marks are not mandatory for authorization;
-- the decision's equity/exposure context may therefore be partial and is authorization evidence, **not a portfolio-performance snapshot**.
-
-BUY continues to require real marks for all open positions and full Accounting reconciliation before exposure/drawdown limits are evaluated.
-
-## API and UI
-
-Active Paper API:
+Manual Paper:
 
 - `GET /api/paper/status`
 - `POST /api/paper/orders/market`
 - `GET /api/paper/executions`
 
-Active Risk API is documented in `RISK_MANAGEMENT.md`.
+Persistent autonomous runtime:
 
-Ops Monitor uses `paper_executions`. Settings/Dashboard report Paper operator-only with Risk active and autonomous trading still disabled.
+- `/api/runtime/status`
+- `/api/runtime/sessions*`
+- `/api/runtime/sessions/{id}/start|pause|resume|recover|stop`
 
-There is no active Paper Live endpoint or automatic-trading start endpoint.
+Ops Monitor exposes session heartbeat/failure state. Settings reports autonomous Paper as session-controlled.
 
 ## Isolation from Live
 
-Paper is structurally incapable of placing a real exchange order. Future Live execution must use a separate adapter behind `docs/LIVE_TRADING_GATE.md` and explicit authorization.
+Phase 7 automates **Paper only**. No active route can send a real exchange order. Live requires the separate future adapter and gate in `LIVE_TRADING_GATE.md` plus explicit authorization.
 
-## Completion status
+## Certification
 
-Phase 3 Paper source contract remains implemented. Phase 4 now places mandatory Risk in front of the active request-backed Paper mutation path.
-
-Executable certification still requires fresh exact-HEAD evidence:
-
-```bash
-cd backend && pytest tests/ -v
-cd frontend && npm test
-cd frontend && npm run build
-```
-
-A real-provider virtual-capital smoke must also verify `RiskDecision -> PaperExecution -> Accounting` before operational validation is claimed.
+Source/static coherence is distinct from executable certification. Fresh exact-HEAD backend/frontend tests/build and a sustained real-provider Paper session are required before operational validation is claimed.
