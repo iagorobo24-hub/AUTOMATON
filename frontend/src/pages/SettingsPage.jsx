@@ -66,7 +66,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1>
-            <p className="text-sm text-muted-foreground mt-1">Estado del baseline previo a Real Market Data</p>
+            <p className="text-sm text-muted-foreground mt-1">Estado del runtime Paper de transición</p>
           </div>
           <button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar estado del runtime">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -101,10 +101,13 @@ export default function SettingsPage() {
             <h2 className="evo-section-title">Runtime efectivo</h2>
           </div>
           <div className="px-5">
-            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Fuente de verdad técnica actual para agentes y registros legacy." />
-            <RuntimeRow label="Modo" value={runtime?.runtime_mode || "transition"} description="Baseline de transición: sin motor autónomo de trading activo." />
-            <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "not_implemented"} description="Paper no se declara activo hasta consumir mercado real y accounting verificable." />
-            <RuntimeRow label="Evidencia financiera" value="No disponible" description="Los registros previos carecen de procedencia por modo y quedan excluidos de métricas verificables." />
+            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Accounting es la fuente financiera autoritativa; Trade legacy queda fuera de la evidencia Paper." />
+            <RuntimeRow label="Modo" value={runtime?.runtime_mode || "transition"} description="Runtime de transición sin motor autónomo de trading." />
+            <RuntimeRow label="Market Data" value={runtime?.market_data || "unknown"} description="Quotes reales y fail-closed para la frontera Paper." />
+            <RuntimeRow label="Accounting" value={runtime?.accounting || "unknown"} description="Cash, posiciones, fills, fees y reconciliación persistentes." />
+            <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "unknown"} description="Ejecución virtual sobre quote real disponible únicamente para órdenes explícitas de operador." />
+            <RuntimeRow label="Trading automático" value={runtime?.automated_trading || "blocked_until_risk"} description="Los agentes no pueden ejecutar automáticamente hasta que la Fase 4 Risk autorice cada orden." />
+            <RuntimeRow label="Live" value={runtime?.live_execution || "disabled"} description="Sin adaptador Live ni ruta capaz de enviar órdenes reales." />
           </div>
         </div>
 
@@ -114,8 +117,8 @@ export default function SettingsPage() {
             <h2 className="evo-section-title">Controles disponibles</h2>
           </div>
           <div className="px-5 py-4 text-sm text-muted-foreground space-y-2">
-            <p>La página Agentes permite crear, fondear, replicar manualmente y retirar agentes del inventario técnico.</p>
-            <p>No existe control de PnL simulado en la superficie activa. Paper/Live, riesgo global y ejecución se habilitarán únicamente en sus fases correspondientes.</p>
+            <p>La página Agentes permite crear, fondear y retirar agentes del inventario técnico. La replicación permanece bloqueada hasta definir transferencia de capital y fitness en Agent Evolution.</p>
+            <p>La API Paper permite órdenes MARKET manuales de operador contra quotes reales. No existe automatización de estrategia, PnL simulado ni ejecución Live en la superficie activa.</p>
           </div>
         </div>
 
@@ -125,7 +128,7 @@ export default function SettingsPage() {
             <div>
               <p className="text-sm font-medium text-foreground">Legacy preservado, no operativo</p>
               <p className="text-xs text-muted-foreground mt-1">
-                MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no se montan ni pueden aportar datos a la evidencia activa.
+                MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no se montan ni participan en Market Data, Accounting o Paper activos.
               </p>
             </div>
           </div>
