@@ -4,78 +4,90 @@ AUTOMATON is a local platform for developing, testing and evaluating autonomous 
 
 ## Product contract
 
-The immediate product goal is **Paper Trading with real market data and virtual capital**. Paper results are valid only when decisions are driven by real market observations and execution is simulated under explicit rules.
+The immediate product goal is **Paper Trading with real market data and virtual capital**. Synthetic/Test, Backtest, Paper and Live are separate evidence modes. Synthetic/random/mock activity must never be presented as Paper, Backtest or Live performance.
 
-AUTOMATON distinguishes four modes:
+## Current runtime
 
-| Mode | Market data | Capital | Purpose |
-|---|---|---|---|
-| Synthetic/Test | synthetic | virtual | deterministic technical tests only |
-| Backtest | historical real data | virtual | reproducible strategy evaluation |
-| Paper | current real data | virtual | forward validation of agents and operations |
-| Live | current real data | real | future production mode, gated and disabled until explicitly approved |
+The active stack is FastAPI + SQLModel + SQLite with React/Vite. `backend/app/main.py` and `frontend/src/App.jsx` remain the authority for what actually runs.
 
-Synthetic prices, random fills or mock telemetry must never be presented as Paper, Backtest or Live performance.
+Current runtime contracts:
 
-## Current transition state
+- synthetic `AgentEngine`: disabled from normal startup;
+- Market Data: provider-neutral, real-only, fail-closed;
+- Accounting: authoritative long-only financial source of truth;
+- Paper: operator-only MARKET BUY/SELL against real quotes;
+- Risk: mandatory persistent `risk-v1` gate for active Paper API orders;
+- automated strategy/agent execution: **not enabled yet**;
+- Live execution: disabled and structurally separate.
 
-The active runtime is FastAPI + SQLModel + SQLite with React/Vite. `backend/app/main.py` and `frontend/src/App.jsx` remain the authority for what runs today.
+Historical pre-provenance `Trade` rows remain `legacy_unclassified` and are excluded from verified Paper metrics.
 
-The legacy `AgentEngine` still exists as explicit Synthetic/Test utility code, but **the normal application runtime does not start it**. Synthetic/random execution is isolated from the active financial path.
-
-Historical `Trade` rows created before evidence provenance existed remain `legacy_unclassified` and are excluded from verified Paper metrics.
+## Implemented phases
 
 ### Phase 1 — Real Market Data
 
-`backend/app/market_data/` provides the provider-neutral real-only market-data boundary. The initial `BinancePublicMarketDataProvider` uses public read-only Binance market endpoints without trading credentials or execution capability. Quotes/candles carry provider provenance and UTC timestamps; stale, gapped, malformed or unavailable data fails closed and is never replaced by synthetic values.
+`backend/app/market_data/` provides real Quotes/closed Candles, UTC/provider provenance, symbol normalization, stale/gap/order validation and bounded retry behavior. The initial Binance public provider has no trading credentials or execution methods and never substitutes generated prices.
 
 ### Phase 2 — Portfolio & Accounting
 
-`backend/app/accounting/` is the authoritative long-only financial layer: Account, Order, Fill, Position and LedgerEntry records plus deterministic cash/PnL/fees/equity/reconciliation rules. New agents and deposits use this layer. Historical agents are bootstrapped from funded/initial capital only so old synthetic PnL is not promoted.
-
-Manual replication remains blocked because the previous implementation duplicated parent capital into a child. It returns only after Agent Evolution defines an explicit non-duplicating allocation policy.
+`backend/app/accounting/` owns Account, Order, Fill, Position and LedgerEntry state plus funded capital, cash, fees, realized/unrealized PnL, equity and reconciliation. Existing agents bootstrap from funded/initial capital only so old synthetic PnL is not promoted.
 
 ### Phase 3 — Paper Execution
 
-Paper execution is now implemented as an **operator-only** boundary under `/api/paper`:
+`backend/app/paper_execution/` provides deterministic virtual execution:
 
-- current real market Quote;
+- current real quote;
 - virtual capital only;
 - MARKET BUY/SELL;
-- deterministic `paper-v1` fill policy;
+- `paper-v1` full-fill-or-reject model;
 - 10 bps adverse slippage;
 - 10 bps fee;
-- persistent PaperExecution provenance;
-- required persistent `request_id` idempotency;
-- conservative restart recovery;
-- every financial effect delegated to Phase 2 Accounting;
-- Ops Monitor displays Paper execution provenance rather than legacy Trade data.
+- persistent `PaperExecution` provenance;
+- required `request_id` idempotency;
+- conservative restart/recovery;
+- all financial mutation delegated to Accounting.
 
-The runtime reports `paper_trading=operator_only_phase_3`, `automated_trading=blocked_until_risk` and `live_execution=disabled`.
+### Phase 4 — Risk Engine
 
-**Agents do not trade autonomously yet.** The next development domain is Phase 4 Risk. Strategy/agent-generated orders must not reach Paper Execution until Risk can approve sizing/exposure and fail closed on unsafe state.
+`backend/app/risk/` is now an independent persistent authorization layer.
 
-## Target architecture
+The active `risk-v1` profile defaults to:
+
+- max order notional: 250 USDT;
+- max order/equity: 25%;
+- max total exposure/equity: 60%;
+- max symbol exposure/equity: 35%;
+- max open positions: 4;
+- max realized loss/funded capital: 10%;
+- max drawdown: 15%;
+- max quote age: 30 seconds.
+
+Every active `POST /api/paper/orders/market` request is resolved in this order:
 
 ```text
-Real Market Data
-      ↓
-Strategy / Signal Engine
-      ↓
-Risk Engine
-      ↓
-Paper Execution Engine
-      ↓
-Portfolio & Accounting
-      ↓
-Agent Lifecycle / Evolution
-      ↓
-Metrics & Evidence
-      ↓
-API / UI / Monitoring
+request_id -> real Market Data -> RiskDecision -> PaperExecution -> Accounting
 ```
 
-Live execution, if it is ever enabled, must be a separate adapter behind explicit safety gates. Paper code cannot spend real funds.
+Risk decisions persist ALLOW/REJECT, profile/version, market provenance, requested notional, equity/exposure state and reason codes. ALLOW decisions are one-time consumable and linked to their Paper execution. A REJECT creates no Paper Order/Fill.
+
+`POST /api/risk/pause` and `/resume` provide a persistent circuit breaker. There is no public endpoint that can fabricate an approval.
+
+**Agents still do not trade autonomously.** Risk is now available, but the future Strategy/Signal integration must explicitly submit intents through this gate before automation can be enabled.
+
+## Active APIs relevant to the trading core
+
+- `/api/market-data/*`
+- `/api/accounting/agents/{agent_id}`
+- `/api/risk/status`
+- `/api/risk/profiles/active`
+- `/api/risk/decisions`
+- `/api/risk/pause`
+- `/api/risk/resume`
+- `/api/paper/status`
+- `/api/paper/orders/market`
+- `/api/paper/executions`
+
+No active Live or automatic-trading start endpoint exists.
 
 ## Documentation source of truth
 
@@ -97,9 +109,7 @@ Live execution, if it is ever enabled, must be a separate adapter behind explici
 
 The project advances by dependency: real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 Paper → strategy research → live-readiness.
 
-Authentication, payments, chat, monetization and other peripheral capabilities remain outside the current core unless needed by the trading product.
-
-## Running the current app
+## Running
 
 ```bash
 npm run setup
@@ -117,4 +127,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Phase 3 is source/contract implemented, but the current environment has not produced fresh executable evidence for the exact HEAD. Never describe a HEAD as execution-verified without fresh command output for that exact HEAD.
+Phase 4 may be source/contract complete without being execution-certified. Never call a HEAD green without fresh command output for that exact HEAD.
