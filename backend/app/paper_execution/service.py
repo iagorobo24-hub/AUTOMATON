@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.accounting.service import AccountingError, AccountingService
 from app.market_data.contracts import Quote
-from app.models.accounting import Account
+from app.models.accounting import Account, Fill, Order
 from app.models.paper_execution import PaperExecution
 
 
@@ -209,3 +209,52 @@ class PaperExecutionService:
             observed_at=quote.observed_at,
             policy_version=self.policy.version,
         )
+
+    def recover_pending(self) -> dict[str, int]:
+        """Conservatively reconcile executions left PENDING across a restart.
+
+        A pending execution is never re-submitted. If accounting already has the
+        full fill, the provenance row is linked to it. If no fill exists, the
+        order is cancelled. Ambiguous partial state is marked for manual
+        reconciliation and left financially untouched.
+        """
+        now = self._now_utc()
+        recovered_filled = 0
+        cancelled = 0
+        pending = self.session.exec(
+            select(PaperExecution).where(PaperExecution.status == "PENDING")
+        ).all()
+
+        for execution in pending:
+            order = self.session.get(Order, execution.order_id)
+            fills = self.session.exec(
+                select(Fill).where(Fill.order_id == execution.order_id)
+            ).all()
+
+            if order is not None and order.status == "FILLED" and len(fills) == 1:
+                execution.fill_id = fills[0].id
+                execution.status = "FILLED"
+                execution.updated_at = now
+                self.session.add(execution)
+                recovered_filled += 1
+                continue
+
+            if not fills:
+                if order is not None and order.status not in {"FILLED", "CANCELLED"}:
+                    order.status = "CANCELLED"
+                    order.updated_at = now
+                    self.session.add(order)
+                execution.status = "CANCELLED"
+                execution.rejection_reason = "recovered_unfilled_after_restart"
+                execution.updated_at = now
+                self.session.add(execution)
+                cancelled += 1
+                continue
+
+            execution.status = "RECOVERY_REQUIRED"
+            execution.rejection_reason = "ambiguous_partial_accounting_state"
+            execution.updated_at = now
+            self.session.add(execution)
+
+        self.session.commit()
+        return {"filled": recovered_filled, "cancelled": cancelled}
