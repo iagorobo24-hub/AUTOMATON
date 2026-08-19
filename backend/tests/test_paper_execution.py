@@ -219,3 +219,91 @@ def test_persisted_execution_and_accounting_survive_session_reload(engine):
             account_id, {"BTC/USDT": Decimal("100")}
         )
         assert report.ok is True
+
+
+def test_recovery_links_fill_if_crash_happened_after_accounting_commit(engine):
+    with Session(engine) as session:
+        account = _account(session)
+        accounting = AccountingService(session)
+        order = accounting.create_order(account.id, "BTC/USDT", "BUY", Decimal("1"))
+        execution = PaperExecution(
+            account_id=account.id,
+            agent_id=account.agente_id,
+            order_id=order.id,
+            symbol="BTC/USDT",
+            side="BUY",
+            requested_quantity=Decimal("1"),
+            origin="operator",
+            policy_version="paper-v1",
+            provider="fixture_real",
+            provider_symbol="BTCUSDT",
+            quote_observed_at=NOW,
+            quote_received_at=NOW,
+            market_price=Decimal("100"),
+            fill_price=Decimal("100.1"),
+            slippage_bps=Decimal("10"),
+            fee_bps=Decimal("10"),
+            fee=Decimal("0.1001"),
+            status="PENDING",
+        )
+        session.add(execution)
+        session.commit()
+        session.refresh(execution)
+        fill = accounting.apply_fill(
+            order.id,
+            quantity=Decimal("1"),
+            price=Decimal("100.1"),
+            fee=Decimal("0.1001"),
+            observed_at=NOW,
+        )
+        execution_id = execution.id
+        fill_id = fill.id
+
+    with Session(engine) as session:
+        recovered = PaperExecutionService(session, clock=lambda: NOW).recover_pending()
+        execution = session.get(PaperExecution, execution_id)
+        assert recovered == {"filled": 1, "cancelled": 0}
+        assert execution.status == "FILLED"
+        assert execution.fill_id == fill_id
+
+
+def test_recovery_cancels_unfilled_pending_order_instead_of_reexecuting(engine):
+    with Session(engine) as session:
+        account = _account(session)
+        order = AccountingService(session).create_order(
+            account.id, "BTC/USDT", "BUY", Decimal("1")
+        )
+        execution = PaperExecution(
+            account_id=account.id,
+            agent_id=account.agente_id,
+            order_id=order.id,
+            symbol="BTC/USDT",
+            side="BUY",
+            requested_quantity=Decimal("1"),
+            origin="operator",
+            policy_version="paper-v1",
+            provider="fixture_real",
+            provider_symbol="BTCUSDT",
+            quote_observed_at=NOW,
+            quote_received_at=NOW,
+            market_price=Decimal("100"),
+            fill_price=Decimal("100.1"),
+            slippage_bps=Decimal("10"),
+            fee_bps=Decimal("10"),
+            fee=Decimal("0.1001"),
+            status="PENDING",
+        )
+        session.add(execution)
+        session.commit()
+        execution_id = execution.id
+        order_id = order.id
+
+    with Session(engine) as session:
+        recovered = PaperExecutionService(session, clock=lambda: NOW).recover_pending()
+        execution = session.get(PaperExecution, execution_id)
+        order = session.get(Order, order_id)
+        assert recovered == {"filled": 0, "cancelled": 1}
+        assert execution.status == "CANCELLED"
+        assert execution.rejection_reason == "recovered_unfilled_after_restart"
+        assert order.status == "CANCELLED"
+        assert session.exec(select(Fill)).all() == []
