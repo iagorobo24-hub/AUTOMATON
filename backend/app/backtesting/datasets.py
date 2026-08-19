@@ -21,7 +21,10 @@ def _utc(value: datetime) -> datetime:
 
 
 def _decimal_text(value: Decimal) -> str:
-    return format(Decimal(value), "f")
+    normalized = Decimal(value).normalize()
+    if normalized == 0:
+        return "0"
+    return format(normalized, "f")
 
 
 def _canonical_rows(candles: list[Candle]) -> list[dict[str, str]]:
@@ -71,6 +74,8 @@ def validate_dataset_candles(
         raise DatasetValidationError("requested_end must be after requested_start")
 
     step = interval_timedelta(interval)
+    expected_provider = candles[0].provider
+    expected_provider_symbol = candles[0].provider_symbol
     seen: set[datetime] = set()
     previous: Candle | None = None
     for candle in candles:
@@ -80,6 +85,8 @@ def validate_dataset_candles(
             raise DatasetValidationError("dataset candle symbol/interval mismatch")
         if not candle.provider.strip() or not candle.provider_symbol.strip():
             raise DatasetValidationError("dataset candle provider provenance is required")
+        if candle.provider != expected_provider or candle.provider_symbol != expected_provider_symbol:
+            raise DatasetValidationError("historical dataset cannot mix provider provenance")
         if candle.open_time < start or candle.close_time > end:
             raise DatasetValidationError("dataset candle is outside requested window")
         if candle.open_time in seen:
