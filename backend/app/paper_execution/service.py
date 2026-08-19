@@ -9,6 +9,7 @@ from app.market_data.contracts import Quote
 from app.models import Agent, AgentStatus
 from app.models.accounting import Account, Fill, Order
 from app.models.paper_execution import PaperExecution, PaperRequest
+from app.models.risk import RiskDecision
 
 
 ZERO = Decimal("0")
@@ -62,9 +63,10 @@ class PaperExecutionResult:
 class PaperExecutionService:
     """Deterministic virtual execution against already-validated real quotes.
 
-    Phase 3 intentionally accepts operator-originated requests only. Strategy
-    automation remains disconnected until the independent Risk phase exists.
-    This service has no exchange credentials, account APIs or Live adapter.
+    Public production callers must supply a matching persisted RiskDecision.
+    Direct calls without one remain only as a low-level execution seam for
+    legacy unit tests/recovery construction and must not be exposed by HTTP or
+    future autonomous orchestration.
     """
 
     def __init__(
@@ -132,6 +134,31 @@ class PaperExecutionService:
                 "Paper symbol quote currency must match account currency"
             )
 
+    def _validate_risk_decision(
+        self,
+        decision: RiskDecision,
+        *,
+        account_id: int,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        quote: Quote,
+    ) -> None:
+        if decision.decision != "ALLOW":
+            raise PaperExecutionError("Paper execution requires an ALLOW Risk decision")
+        if decision.consumed_at is not None or decision.paper_execution_id is not None:
+            raise PaperExecutionError("Risk decision has already been consumed")
+        if (
+            decision.account_id != account_id
+            or decision.symbol != symbol
+            or decision.side != side
+            or Decimal(decision.quantity) != Decimal(quantity)
+            or Decimal(decision.market_price) != Decimal(quote.price)
+            or decision.provider != quote.provider
+            or decision.quote_observed_at != quote.observed_at
+        ):
+            raise PaperExecutionError("Risk decision does not match the Paper order payload")
+
     def execute_market_order(
         self,
         *,
@@ -142,10 +169,11 @@ class PaperExecutionService:
         quote: Quote,
         origin: str = "operator",
         request: PaperRequest | None = None,
+        risk_decision: RiskDecision | None = None,
     ) -> PaperExecutionResult:
         if origin != "operator":
             raise PaperExecutionError(
-                "Phase 3 accepts operator orders only; automated execution waits for Risk"
+                "Phase 4 remains operator-only; automated strategy execution is not enabled"
             )
         side = side.strip().upper()
         if side not in {"BUY", "SELL"}:
@@ -165,6 +193,15 @@ class PaperExecutionService:
         now = self._now_utc()
         canonical = self._validate_quote(symbol, quote, now)
         self._assert_account_execution_eligible(account, canonical)
+        if risk_decision is not None:
+            self._validate_risk_decision(
+                risk_decision,
+                account_id=account_id,
+                symbol=canonical,
+                side=side,
+                quantity=quantity,
+                quote=quote,
+            )
         market_price = Decimal(quote.price)
         fill_price = self._fill_price(side, market_price)
         if fill_price <= ZERO:
@@ -202,6 +239,10 @@ class PaperExecutionService:
             request.execution_id = execution.id
             request.updated_at = now
             self.session.add(request)
+        if risk_decision is not None:
+            risk_decision.consumed_at = now
+            risk_decision.paper_execution_id = execution.id
+            self.session.add(risk_decision)
         self.session.commit()
         self.session.refresh(execution)
 
@@ -250,13 +291,6 @@ class PaperExecutionService:
         )
 
     def recover_pending(self) -> dict[str, int]:
-        """Conservatively reconcile executions left PENDING across a restart.
-
-        A pending execution is never re-submitted. If accounting already has the
-        full fill, the provenance row is linked to it. If no fill exists, the
-        order is cancelled. Ambiguous partial state is marked for manual
-        reconciliation and left financially untouched.
-        """
         now = self._now_utc()
         recovered_filled = 0
         cancelled = 0
@@ -299,12 +333,6 @@ class PaperExecutionService:
         return {"filled": recovered_filled, "cancelled": cancelled}
 
     def recover_requests(self) -> dict[str, int]:
-        """Recover idempotency reservations left PROCESSING across a restart.
-
-        A PROCESSING request with no execution linkage is intentionally ambiguous:
-        the process may have crashed immediately after a persistent Order was created.
-        It therefore fails closed instead of being made automatically retryable.
-        """
         now = self._now_utc()
         completed = 0
         recovery_required = 0
