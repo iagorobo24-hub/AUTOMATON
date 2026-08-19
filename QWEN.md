@@ -19,19 +19,32 @@ Do not fabricate market data, fills, PnL, indicators or telemetry for Paper/Back
 
 FastAPI + SQLModel + SQLite is the active backend baseline. React/Vite is the active frontend. Normal startup does not start `AgentEngine`; that file remains only as explicit Synthetic/Test utility code.
 
-The runtime reports transition mode with synthetic disabled and Paper not implemented. Historical trade rows lack mode provenance, so the API marks them `legacy_unclassified` and excludes them from verified financial metrics. Manual simulated-PnL mutation is not part of the active API/UI.
+The runtime reports transition mode with synthetic disabled, real Market Data available, authoritative Phase 2 accounting and Paper not implemented. Historical trade rows lack mode provenance, so they remain `legacy_unclassified` and excluded from verified metrics.
 
 ## Required architecture
 
-New trading work must respect the domain flow:
+New trading work must respect:
 
 `Market Data -> Strategy -> Risk -> Paper Execution -> Portfolio/Accounting -> Metrics/Evidence`.
 
-Agent lifecycle and UI sit around these contracts. A strategy does not own balances. Paper execution cannot send real orders. Accounting is the sole financial truth.
+A strategy does not own balances. Paper execution cannot send real orders. Accounting is the sole financial truth.
 
-## Phase 1 rule
+## Market Data rule
 
-A real-data provider must fail closed. Do not copy the legacy `BinanceService` fallback behavior: missing credentials or provider failures must never become mock prices/candles/orderbook data in a Paper-capable path.
+Real-data providers fail closed. Never copy the legacy `BinanceService` mock fallback behavior into a Paper-capable path.
+
+## Phase 2 accounting rule
+
+`backend/app/accounting/` and `backend/app/models/accounting.py` own new financial state.
+
+- `Agent.presupuesto_*` are compatibility mirrors, not accounting authority.
+- Deposits are ledger capital flows, not profit.
+- Fills enter through `AccountingService`.
+- Long-only is the defined scope; do not invent short/margin behavior.
+- Do not expose order/fill execution mutation endpoints before Phase 3.
+- Killing an agent must not erase its accounting records.
+- Replication is blocked until a tested capital-transfer policy prevents money duplication.
+- Existing agents bootstrap from initial/funded capital only; legacy current balance is not trusted as PnL.
 
 ## Legacy handling
 
