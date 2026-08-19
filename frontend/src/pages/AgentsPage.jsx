@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Bot, Plus, Trash2, Activity,
+  Bot, Plus, Trash2, Activity, GitFork,
   MoreVertical, RefreshCw, Search, X, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ const GRAY = "#6B7280";
 
 const statusConfig = {
   active: { badge: "evo-badge-success", dot: "bg-blue-500", label: "Activo" },
-  replicated: { badge: "evo-badge-cyan", dot: "bg-cyan-400", label: "Replicado" },
+  replicated: { badge: "evo-badge-cyan", dot: "bg-cyan-400", label: "Replicado legacy" },
   dead: { badge: "evo-badge bg-white/5 text-muted-foreground ring-white/10", dot: "bg-gray-500", label: "Muerto" },
   unknown: { badge: "evo-badge-warning", dot: "bg-amber-400", label: "Desconocido" },
 };
@@ -28,7 +28,7 @@ function HealthBar({ value }) {
   );
 }
 
-function AgentCard({ agent, onDestroy, onDeposit }) {
+function AgentCard({ agent, onDestroy, onDeposit, onReplicate }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const finances = agent.finances || {};
   const performance = agent.performance || {};
@@ -58,12 +58,13 @@ function AgentCard({ agent, onDestroy, onDeposit }) {
         <div className="relative">
           <button onClick={() => setMenuOpen(!menuOpen)} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors" aria-label="Opciones del agente"><MoreVertical className="w-4 h-4 text-muted-foreground" /></button>
           {menuOpen && (
-            <div className="absolute right-0 top-10 z-30 w-52 glass-card rounded-lg overflow-hidden shadow-xl shadow-black/40">
+            <div className="absolute right-0 top-10 z-30 w-60 glass-card rounded-lg overflow-hidden shadow-xl shadow-black/40">
               <button disabled={!isActive} onClick={() => { onDeposit(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-foreground"><Activity className="w-4 h-4 text-blue-400" /> Fondear +€100</button>
               <div className="h-px bg-white/5 mx-2" />
-              <div className="px-4 py-2.5 text-xs text-muted-foreground">Replicación deshabilitada hasta definir una política contable de asignación de capital.</div>
+              <button disabled={!isActive} onClick={() => { onReplicate(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-cyan-400"><GitFork className="w-4 h-4" /> Replicar con fitness</button>
+              <div className="px-4 pb-2.5 text-[10px] leading-relaxed text-muted-foreground">Exige Backtest reproducible + evidencia Paper del propio agente. Si pasa, transfiere capital financiado; nunca lo duplica.</div>
               <div className="h-px bg-white/5 mx-2" />
-              <button disabled={isDead} onClick={() => { onDestroy(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-red-400"><Trash2 className="w-4 h-4" /> Eliminar</button>
+              <button disabled={isDead} onClick={() => { onDestroy(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-red-400"><Trash2 className="w-4 h-4" /> Retirar agente</button>
             </div>
           )}
         </div>
@@ -79,9 +80,10 @@ function AgentCard({ agent, onDestroy, onDeposit }) {
         {[
           { label: "Trades válidos", value: tradingStats.total_trades ?? "N/D" },
           { label: "Ganados", value: tradingStats.winning_trades ?? "N/D" },
-          { label: "Clones", value: childrenCount },
+          { label: "Hijos", value: childrenCount },
         ].map((s) => <div key={s.label} className="text-center"><p className="text-[10px] text-muted-foreground uppercase tracking-wide">{s.label}</p><p className="text-sm font-semibold text-foreground">{s.value}</p></div>)}
       </div>
+      {lineage.parent_id != null && <p className="mt-3 text-[10px] text-cyan-400/80">Descendiente del agente #{lineage.parent_id}; lineage financiero persistido en Phase 6.</p>}
       {tradingStats.legacy_records > 0 && <p className="mt-3 text-[10px] text-muted-foreground">{tradingStats.legacy_records} registros históricos sin procedencia verificable excluidos de métricas.</p>}
     </motion.div>
   );
@@ -145,8 +147,17 @@ export default function AgentsPage() {
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
   const handleCreate = async (data) => { try { await agentsAPI.create(data); toast.success("Agente desplegado"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al crear agente"); } };
-  const handleDestroy = async (id) => { try { await agentsAPI.delete(id); toast.success("Agente eliminado"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al eliminar"); } };
+  const handleDestroy = async (id) => { try { await agentsAPI.delete(id, "operator_experiment_complete"); toast.success("Agente retirado con motivo registrado"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al retirar agente"); } };
   const handleDeposit = async (id) => { try { await agentsAPI.deposit(id, 100); toast.success("Capital añadido: +€100"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al fondear"); } };
+  const handleReplicate = async (id) => {
+    try {
+      const res = await agentsAPI.replicate(id);
+      toast.success(`Hijo creado · capital transferido: €${Number(res.data?.allocated_capital || 0).toFixed(2)}`);
+      fetchAgents();
+    } catch (err) {
+      toast.error(err?.message || "El agente no supera el gate de fitness de Phase 6");
+    }
+  };
 
   const counts = {
     active: agents.filter((a) => a.status === "active").length,
@@ -161,16 +172,16 @@ export default function AgentsPage() {
   const statusFilters = [
     { key: "all", label: "Todos", color: CYAN },
     { key: "active", label: "Activos", color: CYAN },
-    { key: "replicated", label: "Replicados", color: CYAN },
+    { key: "replicated", label: "Replicados legacy", color: CYAN },
     { key: "dead", label: "Muertos", color: GRAY },
   ];
 
   return (
     <div className="min-h-screen bg-background" data-testid="agents-page"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"><div><h1 className="font-heading text-3xl font-bold uppercase tracking-wide text-foreground">Agentes</h1><p className="text-sm text-muted-foreground mt-1">Gestión de agentes · rendimiento financiero pendiente de Paper verificable</p></div><div className="flex items-center gap-2"><button onClick={() => { setRefreshing(true); fetchAgents(); }} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar agentes"><RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /><span className="ml-1.5 hidden sm:inline">Actualizar</span></button><button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /><span className="ml-1.5">Nuevo Agente</span></button></div></div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"><div><h1 className="font-heading text-3xl font-bold uppercase tracking-wide text-foreground">Agentes</h1><p className="text-sm text-muted-foreground mt-1">Lifecycle Phase 6 · replicación manual solo con evidencia y transferencia de capital</p></div><div className="flex items-center gap-2"><button onClick={() => { setRefreshing(true); fetchAgents(); }} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar agentes"><RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /><span className="ml-1.5 hidden sm:inline">Actualizar</span></button><button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /><span className="ml-1.5">Nuevo Agente</span></button></div></div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">{Object.entries(counts).map(([key, count]) => { const sc = statusConfig[key]; return <div key={key} className="glass-card rounded-xl px-5 py-4"><div className="flex items-center gap-2 mb-1"><span className={`w-2 h-2 rounded-full ${sc?.dot || "bg-gray-500"}`} /><span className="text-xs text-muted-foreground uppercase tracking-wide">{sc?.label || key}</span></div><p className="text-2xl font-bold text-foreground font-mono">{count}</p></div>; })}</div>
       <div className="flex flex-col sm:flex-row gap-3 mb-6"><div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar agentes…" className="evo-input pl-10" aria-label="Buscar agentes" data-testid="agents-search-input" /></div><div className="flex gap-1.5 flex-wrap">{statusFilters.map((s) => <button key={s.key} onClick={() => setStatusFilter(s.key)} className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all ${statusFilter === s.key ? "bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/20" : "glass-card text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"}`}>{s.label}</button>)}</div></div>
-      {loading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{[...Array(3)].map((_, i) => <div key={i} className="glass-card rounded-xl h-72 animate-pulse" />)}</div> : filtered.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{filtered.map((agent) => <AgentCard key={agent.id} agent={agent} onDestroy={handleDestroy} onDeposit={handleDeposit} />)}</div> : <div className="glass-card rounded-xl py-20 text-center"><div className="w-14 h-14 mx-auto mb-4 rounded-lg bg-cyan-500/10 flex items-center justify-center"><Activity className="w-6 h-6 text-cyan-400 opacity-50" /></div><h3 className="text-lg font-semibold text-foreground mb-1">{search || statusFilter !== "all" ? "Sin resultados" : "No hay agentes desplegados"}</h3><p className="text-sm text-muted-foreground mb-6">{search || statusFilter !== "all" ? "Prueba a ajustar la búsqueda o los filtros" : "Crea un agente para preparar futuros experimentos Paper"}</p>{!search && statusFilter === "all" && <button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /> Desplegar Agente</button>}</div>}
+      {loading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{[...Array(3)].map((_, i) => <div key={i} className="glass-card rounded-xl h-72 animate-pulse" />)}</div> : filtered.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{filtered.map((agent) => <AgentCard key={agent.id} agent={agent} onDestroy={handleDestroy} onDeposit={handleDeposit} onReplicate={handleReplicate} />)}</div> : <div className="glass-card rounded-xl py-20 text-center"><div className="w-14 h-14 mx-auto mb-4 rounded-lg bg-cyan-500/10 flex items-center justify-center"><Activity className="w-6 h-6 text-cyan-400 opacity-50" /></div><h3 className="text-lg font-semibold text-foreground mb-1">{search || statusFilter !== "all" ? "Sin resultados" : "No hay agentes desplegados"}</h3><p className="text-sm text-muted-foreground mb-6">{search || statusFilter !== "all" ? "Prueba a ajustar la búsqueda o los filtros" : "Crea un agente para preparar futuros experimentos Paper"}</p>{!search && statusFilter === "all" && <button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /> Desplegar Agente</button>}</div>}
     </div><CreateDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreate={handleCreate} /></div>
   );
 }
