@@ -8,7 +8,8 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from app.accounting.service import AccountingService
 from app.market_data.contracts import Quote
 from app.models import Agent, StrategyEnum
-from app.models.accounting import Fill
+from app.models.accounting import Fill, Order
+from app.models.paper_execution import PaperRequest
 from app.models.risk import RiskDecision
 from app.paper_execution.service import PaperExecutionError, PaperExecutionService
 from app.risk.bootstrap import ensure_active_risk_profile
@@ -72,3 +73,31 @@ def test_rejected_or_mismatched_risk_decision_cannot_execute():
         with pytest.raises(PaperExecutionError, match="match"):
             service.execute_market_order(account_id=account.id, symbol="BTC/USDT", side="BUY",
                 quantity=Decimal("2"), quote=_quote(), origin="operator", risk_decision=allowed)
+
+
+def test_request_backed_paper_execution_cannot_bypass_risk():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        account = _account(session)
+        request = PaperRequest(
+            request_id="no-risk-bypass",
+            request_fingerprint="a" * 64,
+            account_id=account.id,
+            status="PROCESSING",
+        )
+        session.add(request); session.commit(); session.refresh(request)
+
+        with pytest.raises(PaperExecutionError, match="Risk authorization"):
+            PaperExecutionService(session, clock=lambda: NOW).execute_market_order(
+                account_id=account.id,
+                symbol="BTC/USDT",
+                side="BUY",
+                quantity=Decimal("1"),
+                quote=_quote(),
+                origin="operator",
+                request=request,
+                risk_decision=None,
+            )
+
+        assert session.exec(select(Order)).all() == []
+        assert session.exec(select(Fill)).all() == []
