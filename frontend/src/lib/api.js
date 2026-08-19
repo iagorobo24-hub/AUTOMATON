@@ -49,8 +49,9 @@ export const agentsAPI = {
   list: () => api.get('/agents/'),
   create: (data) => api.post('/agents/', null, { params: data }),
   get: (id) => api.get(`/agents/${id}`),
-  delete: (id) => api.delete(`/agents/${id}`),
+  delete: (id, reason = 'operator_kill') => api.delete(`/agents/${id}`, { params: { reason } }),
   deposit: (id, amount) => api.post(`/agents/${id}/deposit`, null, { params: { amount } }),
+  replicate: (id) => api.post(`/agents/${id}/replicate`),
 };
 
 export const cryptoAPI = {
@@ -91,6 +92,14 @@ export const backtestsAPI = {
   runs: (params = {}) => api.get('/backtests/runs', { params }),
   run: (id) => api.get(`/backtests/runs/${id}`),
   createRun: (params) => api.post('/backtests/runs', null, { params }),
+};
+
+export const evolutionAPI = {
+  status: () => api.get('/evolution/status'),
+  activePolicy: () => api.get('/evolution/policies/active'),
+  evaluateFitness: (agentId) => api.post(`/evolution/agents/${agentId}/fitness`),
+  fitness: (agentId, params = {}) => api.get(`/evolution/agents/${agentId}/fitness`, { params }),
+  lineage: (agentId) => api.get(`/evolution/agents/${agentId}/lineage`),
 };
 
 export const stateAPI = {
