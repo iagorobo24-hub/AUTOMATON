@@ -100,7 +100,17 @@ class StrategyResearchService:
         run, dataset, evidence = self._run_bundle(backtest_run_id)
         self._assert_compatible(study, run, evidence.strategy_code_sha256)
         if existing:
-            previous_run, previous_dataset, _ = self._run_bundle(existing[-1].backtest_run_id)
+            first_run, first_dataset, _ = self._run_bundle(existing[0].backtest_run_id)
+            invariant_checks = (
+                (dataset.symbol, first_dataset.symbol, "market symbol"),
+                (dataset.interval, first_dataset.interval, "timeframe"),
+                (Decimal(run.initial_capital), Decimal(first_run.initial_capital), "initial capital"),
+                (run.risk_profile_version, first_run.risk_profile_version, "risk profile"),
+            )
+            for actual, expected, label in invariant_checks:
+                if actual != expected:
+                    raise StrategyResearchError(f"research window {label} does not match study evidence contract")
+            _, previous_dataset, _ = self._run_bundle(existing[-1].backtest_run_id)
             if dataset.actual_start <= previous_dataset.actual_end:
                 raise StrategyResearchError("research windows must be chronological and non-overlapping")
         duplicate = self.session.exec(
