@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
+from app.market_data.router import router as market_data_router
 from app.routers import agents, trades, crypto
 
 logging.basicConfig(
@@ -13,6 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 RUNTIME_MODE = "transition"
+MARKET_DATA_MODE = "real_contract_available"
 
 
 @asynccontextmanager
@@ -21,14 +23,16 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("[MAIN] Database initialized")
     app.state.runtime_mode = RUNTIME_MODE
+    app.state.market_data_mode = MARKET_DATA_MODE
     logger.info("[MAIN] Synthetic AgentEngine is disabled in the normal runtime")
+    logger.info("[MAIN] Real read-only market-data contract is available")
     yield
     logger.info("[MAIN] Shutdown complete")
 
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.3.0",
+    version="2.4.0",
     description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
@@ -44,15 +48,21 @@ app.add_middleware(
 app.include_router(agents.router, prefix="/api/agents", tags=["agents"])
 app.include_router(trades.router, prefix="/api/trades", tags=["trades"])
 app.include_router(crypto.router, prefix="/api/crypto", tags=["crypto"])
+app.include_router(
+    market_data_router,
+    prefix="/api/market-data",
+    tags=["market-data"],
+)
 
 
 @app.get("/")
 def root():
     return {
         "message": "AUTOMATON v2 API",
-        "version": "2.3.0",
+        "version": "2.4.0",
         "status": "operational",
         "runtime_mode": RUNTIME_MODE,
+        "market_data": MARKET_DATA_MODE,
     }
 
 
@@ -62,6 +72,7 @@ def health():
         "status": "ok",
         "runtime_mode": RUNTIME_MODE,
         "synthetic_engine": "disabled",
+        "market_data": MARKET_DATA_MODE,
         "paper_trading": "not_implemented",
     }
 
@@ -72,7 +83,7 @@ def get_estado():
         "runtime_mode": RUNTIME_MODE,
         "synthetic_engine": "disabled",
         "paper_trading": "not_implemented",
-        "market_data_mode": "ui_only_real_data",
+        "market_data_mode": MARKET_DATA_MODE,
         "financial_evidence": "unavailable",
     }
 
