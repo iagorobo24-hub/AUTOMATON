@@ -9,7 +9,13 @@ from app.backtesting.providers.binance_history import BinanceHistoricalDataProvi
 from app.backtesting.runner import BacktestRunConfig, BacktestRunError, BacktestRunner
 from app.database import get_session
 from app.market_data.quality import MarketDataQualityError, MarketDataUnavailable
-from app.models.backtesting import BacktestDataset, BacktestEquityPoint, BacktestRun, BacktestTrade
+from app.models.backtesting import (
+    BacktestDataset,
+    BacktestEquityPoint,
+    BacktestRun,
+    BacktestRunEvidence,
+    BacktestTrade,
+)
 
 router = APIRouter()
 
@@ -39,13 +45,21 @@ def _dataset_payload(dataset: BacktestDataset) -> dict:
     }
 
 
-def _run_payload(run: BacktestRun) -> dict:
+def _strategy_code_sha256(session: Session, run_id: int) -> str | None:
+    evidence = session.exec(
+        select(BacktestRunEvidence).where(BacktestRunEvidence.run_id == run_id)
+    ).first()
+    return evidence.strategy_code_sha256 if evidence else None
+
+
+def _run_payload(run: BacktestRun, session: Session) -> dict:
     return {
         "id": run.id,
         "dataset_id": run.dataset_id,
         "dataset_sha256": run.dataset_sha256,
         "strategy_id": run.strategy_id,
         "strategy_version": run.strategy_version,
+        "strategy_code_sha256": _strategy_code_sha256(session, run.id),
         "execution_policy": run.execution_policy,
         "initial_capital": _decimal(run.initial_capital),
         "fee_bps": _decimal(run.fee_bps),
@@ -87,6 +101,7 @@ def status() -> dict:
         "dataset_policy": "immutable_sha256",
         "execution_policy": "backtest-v1",
         "strategy_version": "baseline-v1",
+        "strategy_source_fingerprint": "sha256",
         "deterministic": True,
         "lookahead_policy": "signal_close_t_execute_open_t_plus_1",
         "live_execution_capability": False,
@@ -171,7 +186,7 @@ def create_run(
         if "Unknown strategy" in str(exc):
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return _run_payload(run)
+    return _run_payload(run, session)
 
 
 @router.get("/runs")
@@ -187,7 +202,7 @@ def list_runs(
     if strategy_id is not None:
         statement = statement.where(BacktestRun.strategy_id == strategy_id)
     runs = session.exec(statement.order_by(BacktestRun.id.desc()).limit(limit)).all()
-    return [_run_payload(run) for run in runs]
+    return [_run_payload(run, session) for run in runs]
 
 
 @router.get("/runs/{run_id}")
@@ -204,7 +219,7 @@ def get_run(run_id: int, session: Session = Depends(get_session)) -> dict:
         .where(BacktestEquityPoint.run_id == run.id)
         .order_by(BacktestEquityPoint.ordinal)
     ).all()
-    payload = _run_payload(run)
+    payload = _run_payload(run, session)
     payload.update({
         "dataset": _dataset_payload(dataset) if dataset else None,
         "metrics": {
