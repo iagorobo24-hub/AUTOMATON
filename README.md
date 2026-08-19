@@ -16,7 +16,7 @@ Current runtime contracts:
 - Market Data: provider-neutral, real-only, fail-closed;
 - Accounting: authoritative long-only financial source of truth;
 - Paper: operator-only MARKET BUY/SELL against real quotes;
-- Risk: mandatory persistent `risk-v1` gate for active Paper API orders;
+- Risk: mandatory persistent `risk-v1` gate for normal Paper execution;
 - automated strategy/agent execution: **not enabled yet**;
 - Live execution: disabled and structurally separate.
 
@@ -49,7 +49,7 @@ Historical pre-provenance `Trade` rows remain `legacy_unclassified` and are excl
 
 ### Phase 4 — Risk Engine
 
-`backend/app/risk/` is now an independent persistent authorization layer.
+`backend/app/risk/` is an independent persistent authorization layer.
 
 The active `risk-v1` profile defaults to:
 
@@ -62,17 +62,19 @@ The active `risk-v1` profile defaults to:
 - max drawdown: 15%;
 - max quote age: 30 seconds.
 
-Every active `POST /api/paper/orders/market` request is resolved in this order:
+Every normal Paper order is resolved through:
 
 ```text
 request_id -> real Market Data -> RiskDecision -> PaperExecution -> Accounting
 ```
 
-Risk decisions persist ALLOW/REJECT, profile/version, market provenance, requested notional, equity/exposure state and reason codes. ALLOW decisions are one-time consumable and linked to their Paper execution. A REJECT creates no Paper Order/Fill.
+Risk decisions persist ALLOW/REJECT, profile/version, market provenance, requested notional, equity/exposure context and reason codes. A successful normal Paper execution requires a matching ALLOW decision persisted in SQLite, from the active unpaused profile, and consumes it once. A REJECT creates no Paper Order/Fill.
 
-`POST /api/risk/pause` and `/resume` provide a persistent circuit breaker. There is no public endpoint that can fabricate an approval.
+BUY requires complete real marks/reconciliation and reserves the exact current `paper-v1` compounded execution cost: **20.01 bps**. Risk-reducing SELL uses structural Accounting integrity and does not depend on unrelated position marks.
 
-**Agents still do not trade autonomously.** Risk is now available, but the future Strategy/Signal integration must explicitly submit intents through this gate before automation can be enabled.
+`POST /api/risk/pause` and `/resume` provide a persistent circuit breaker. Pausing also invalidates an ALLOW that has not yet been consumed. There is no public endpoint that can fabricate an approval.
+
+**Agents still do not trade autonomously.** Risk is available, but the future Strategy/Signal integration must explicitly submit intents through this gate before automation can be enabled.
 
 ## Active APIs relevant to the trading core
 
@@ -127,4 +129,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Phase 4 may be source/contract complete without being execution-certified. Never call a HEAD green without fresh command output for that exact HEAD.
+**Phase 4 source/contract/static audit is complete.** Execution certification is still pending until fresh command output exists for the exact final HEAD, plus the real-provider virtual-capital smoke required by the roadmap.
