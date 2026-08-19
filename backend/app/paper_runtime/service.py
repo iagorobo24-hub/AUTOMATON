@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
+from app.backtesting.runner import BacktestRunError, strategy_source_sha256
 from app.market_data.quality import MarketDataQualityError, interval_timedelta, normalize_symbol
 from app.models import (
     Account,
@@ -12,6 +13,7 @@ from app.models import (
     PaperRuntimeAgent,
     PaperRuntimeEvent,
     PaperRuntimeSession,
+    PaperRuntimeStrategyEvidence,
 )
 
 
@@ -105,6 +107,39 @@ class PaperRuntimeService:
         if unresolved_request is not None or unresolved_execution is not None:
             raise PaperRuntimeError("Paper recovery state is unresolved")
 
+    def _bind_strategy_evidence(self, runtime: PaperRuntimeSession) -> None:
+        try:
+            current_sha = strategy_source_sha256()
+        except BacktestRunError as exc:
+            raise PaperRuntimeError(f"runtime strategy source fingerprint unavailable: {exc}") from exc
+
+        for attachment in self._attachments(runtime):
+            agent = self.session.get(Agent, attachment.agent_id)
+            if agent is None:
+                raise PaperRuntimeError(f"agent {attachment.agent_id} not found")
+            existing = self.session.exec(
+                select(PaperRuntimeStrategyEvidence).where(
+                    PaperRuntimeStrategyEvidence.session_id == runtime.id,
+                    PaperRuntimeStrategyEvidence.agent_id == agent.id,
+                )
+            ).first()
+            strategy_id = agent.estrategia.value
+            if existing is None:
+                self.session.add(
+                    PaperRuntimeStrategyEvidence(
+                        session_id=runtime.id,
+                        agent_id=agent.id,
+                        strategy_id=strategy_id,
+                        strategy_version="baseline-v1",
+                        strategy_source_sha256=current_sha,
+                    )
+                )
+                continue
+            if existing.strategy_id != strategy_id:
+                raise PaperRuntimeError("runtime agent strategy changed after session start")
+            if existing.strategy_source_sha256 != current_sha:
+                raise PaperRuntimeError("runtime strategy source changed after session start")
+
     def create_session(
         self,
         *,
@@ -182,6 +217,7 @@ class PaperRuntimeService:
         self._assert_agents_startable(runtime)
         self._assert_paper_recovery_clear(runtime)
         self._assert_no_active_conflict(runtime)
+        self._bind_strategy_evidence(runtime)
         now = _now()
         runtime.status = "RUNNING"
         runtime.started_at = runtime.started_at or now
@@ -216,6 +252,7 @@ class PaperRuntimeService:
             raise PaperRuntimeError("runtime session is not awaiting recovery")
         self._assert_agents_startable(runtime)
         self._assert_paper_recovery_clear(runtime)
+        self._bind_strategy_evidence(runtime)
         runtime.status = "PAUSED"
         runtime.consecutive_failures = 0
         runtime.last_error = None
