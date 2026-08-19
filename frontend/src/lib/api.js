@@ -8,6 +8,16 @@ export function normalizeApiBase(value) {
   return raw.endsWith('/api') ? raw : `${raw}/api`;
 }
 
+export function buildPaperMarketOrderParams({ requestId, accountId, symbol, side, quantity }) {
+  return {
+    request_id: requestId,
+    account_id: accountId,
+    symbol,
+    side,
+    quantity,
+  };
+}
+
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
 const BACKEND_BASE = API_BASE.replace(/\/api$/, '');
 
@@ -58,10 +68,10 @@ export const tradesAPI = {
 export const paperAPI = {
   status: () => api.get('/paper/status'),
   executions: (params = {}) => api.get('/paper/executions', { params }),
-  executeMarket: ({ accountId, symbol, side, quantity }) => api.post(
+  executeMarket: (order) => api.post(
     '/paper/orders/market',
     null,
-    { params: { account_id: accountId, symbol, side, quantity } },
+    { params: buildPaperMarketOrderParams(order) },
   ),
 };
 
