@@ -14,53 +14,47 @@ Immutable real historical snapshots, canonical dataset/source SHA-256, next-cand
 
 ## Phase 6 — Agent Evolution
 
-`evolution-v1` implements evidence-aware fitness, lineage/lifecycle and manual child replication with conserving Accounting transfer. Current-source Backtest provenance, agent-specific PaperExecution evidence and recovery/integrity gates are mandatory.
+`evolution-v1` implements evidence-aware fitness, lineage/lifecycle and manual child replication with conserving Accounting transfer.
 
 **Status:** source/contract/static gate satisfied. Execution certification remains pending.
 
 ## Phase 7 — 24/7 Paper Operation
 
-**Goal:** operate S1-S4 autonomously against real current market data with virtual capital while preserving Risk, Accounting, idempotency and restart safety.
+Persistent `runtime-v1` sessions operate unchanged S1-S4 through real Market Data -> Risk -> Paper -> Accounting with one durable cycle per closed candle, deterministic request ids, recovery/ownership controls, no synthetic fallback and no auto-resume.
 
-Implemented in source:
-
-- additive persistent `PaperRuntimeSession`, `PaperRuntimeAgent`, `PaperRuntimeCycle`, `PaperRuntimeEvent`;
-- `runtime-v1` lifecycle: CREATED/RUNNING/PAUSED/DEGRADED/RECOVERY_REQUIRED/STOPPED;
-- explicit operator start/pause/resume/recover/stop controls;
-- Market Data contract validation for session symbol/timeframe before persistence;
-- persistent ownership preventing overlapping agent/symbol/interval sessions, including recovery states;
-- one evaluation per real closed candle per session/agent;
-- unchanged S1-S4 strategies;
-- HOLD/already-long/already-flat no-action evidence;
-- BUY sizing from 25% available cash with exact Paper cost reserve; full-position SELL;
-- deterministic `runtime:` request IDs;
-- autonomous path `Market Data -> Strategy -> Risk -> PaperExecution(strategy_runtime) -> Accounting`;
-- Risk remains mandatory and unsupported Paper origins fail closed;
-- in-process asyncio scheduler with SQLite as authority;
-- scheduler controls execute on an active event loop, not a FastAPI sync worker thread;
-- heartbeat, cycle outcome, failure counters and persistent events;
-- no synthetic fallback; repeated operational failures can mark DEGRADED;
-- financial ambiguity marks RECOVERY_REQUIRED;
-- startup reconciles interrupted runtime intents without submitting new orders;
-- prior RUNNING/DEGRADED sessions become RECOVERY_REQUIRED after restart and never auto-resume;
-- start/recovery is blocked while attached Paper requests/executions remain ambiguous;
-- `/api/runtime` controls and Ops Monitor/Settings/Dashboard observability;
-- no automatic replication, optimizer or Live adapter.
-
-Current runtime identifiers:
-
-- `paper_trading=autonomous_phase_7`
-- `paper_runtime=runtime_phase_7`
-- `automated_trading=paper_enabled_phase_7`
-- `live_execution=disabled`
-
-**Exit condition:** an explicitly started Paper session can evaluate each new real closed candle once, route every actionable signal through Risk/Paper/Accounting, survive polling/retry ambiguity without double execution, and fail closed across restart/recovery.
-
-**Status:** source/contract/static gate satisfied. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification; the current tool environment still fails before test execution because it cannot resolve `github.com`.
+**Status:** source/contract/static gate satisfied. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification.
 
 ## Phase 8 — Strategy Research
 
-Use Phase 5 historical evidence plus Phase 7 forward Paper evidence to evaluate and revise strategies. Establish out-of-sample/walk-forward discipline, fixed cost assumptions and configuration/source versioning before promotion.
+**Goal:** decide which exact strategy configurations deserve continued research using reproducible historical holdout evidence plus forward Paper evidence, without optimizing and scoring on the same window or auto-deploying results.
+
+Implemented in source:
+
+- additive `ResearchPolicy`, `ResearchStudy`, `ResearchWindow`, `ResearchEvaluation`, `StrategyCandidate` records;
+- idempotent `research-v1` policy bootstrap;
+- explicit repeating chronological TRAIN/VALIDATION/OOS folds;
+- first-window freeze of strategy version/source SHA, execution policy, fees, slippage and position fraction;
+- identical symbol/timeframe, initial capital and historical risk-profile requirements across study windows;
+- completed Backtest + source-fingerprint requirements;
+- minimum VALIDATION/OOS round-trip sample;
+- positive VALIDATION/OOS return and expectancy gates;
+- OOS drawdown/profit-factor/relative-degradation limits;
+- forward evidence from STOPPED Phase 7 sessions on the same market/timeframe;
+- matching-strategy runtime cycles and unique FILLED `strategy_runtime` closing SELL provenance;
+- unresolved Paper recovery rejection;
+- rejection when qualifying account PnL is contaminated by FILLED manual/non-runtime Paper execution;
+- positive authoritative account-level realized-PnL context;
+- immutable PASS/REJECT evaluation snapshots with referenced historical and forward evidence;
+- current-source SHA check on promotion;
+- a fresh evaluation for every manual promotion attempt;
+- one candidate identity per exact strategy/version/source SHA;
+- `/api/research` status/policy/studies/windows/evaluate/promote/candidates surfaces;
+- `strategy_research=evidence_phase_8` runtime/UI status;
+- no optimizer, automatic strategy mutation, auto-deployment or Live capability.
+
+Promotion means only that the exact source/config satisfied `research-v1` against the evidence referenced by that evaluation. It is not a future-profitability guarantee or Live eligibility.
+
+**Status:** source implementation present. Final exact-HEAD static audit remains before formal source/static closure. Fresh executable tests/build plus observed real historical and forward Paper research evidence remain pending.
 
 ## Phase 9 — Legacy Pruning
 
@@ -72,4 +66,4 @@ Design a structurally separate exchange adapter, secrets/permissions, exchange c
 
 ## Cross-phase certification debt
 
-Fresh exact-HEAD backend tests, frontend tests/build and relevant real-provider smoke evidence are still required. Static closure must never be reported as a green runtime gate.
+Fresh exact-HEAD backend tests, frontend tests/build and relevant real-provider smoke evidence are still required. Static closure must never be reported as a green runtime or profitable-strategy gate.
