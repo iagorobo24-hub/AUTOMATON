@@ -2,12 +2,38 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Column, Numeric, UniqueConstraint
+from sqlalchemy import Column, DateTime, Numeric, UniqueConstraint
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import Field, SQLModel
 
 MONEY = Numeric(28, 8)
 QUANTITY = Numeric(36, 18)
 RATIO = Numeric(18, 10)
+
+
+class UTCDateTime(TypeDecorator):
+    """Persist UTC datetimes portably while restoring tzinfo on SQLite reads."""
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("backtest timestamps must be timezone-aware")
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+
+def utc_column(*, nullable: bool = False):
+    return Column(UTCDateTime(), nullable=nullable)
 
 
 def utcnow() -> datetime:
@@ -24,14 +50,14 @@ class BacktestDataset(SQLModel, table=True):
     symbol: str = Field(index=True, max_length=32)
     interval: str = Field(index=True, max_length=16)
     provider: str = Field(index=True, max_length=64)
-    requested_start: datetime
-    requested_end: datetime
-    actual_start: datetime
-    actual_end: datetime
+    requested_start: datetime = Field(sa_column=utc_column())
+    requested_end: datetime = Field(sa_column=utc_column())
+    actual_start: datetime = Field(sa_column=utc_column())
+    actual_end: datetime = Field(sa_column=utc_column())
     candle_count: int
     content_sha256: str = Field(index=True, max_length=64)
     status: str = Field(default="READY", index=True, max_length=16)
-    created_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow, sa_column=utc_column())
 
 
 class BacktestCandle(SQLModel, table=True):
@@ -46,8 +72,8 @@ class BacktestCandle(SQLModel, table=True):
     ordinal: int = Field(index=True)
     symbol: str = Field(max_length=32)
     interval: str = Field(max_length=16)
-    open_time: datetime = Field(index=True)
-    close_time: datetime
+    open_time: datetime = Field(sa_column=Column(UTCDateTime(), nullable=False, index=True))
+    close_time: datetime = Field(sa_column=utc_column())
     open: Decimal = Field(sa_column=Column(MONEY, nullable=False))
     high: Decimal = Field(sa_column=Column(MONEY, nullable=False))
     low: Decimal = Field(sa_column=Column(MONEY, nullable=False))
@@ -93,8 +119,8 @@ class BacktestRun(SQLModel, table=True):
     total_fees: Optional[Decimal] = Field(default=None, sa_column=Column(MONEY, nullable=True))
     exposure_fraction: Optional[Decimal] = Field(default=None, sa_column=Column(RATIO, nullable=True))
     forced_exit_count: Optional[int] = Field(default=None)
-    started_at: datetime = Field(default_factory=utcnow)
-    completed_at: Optional[datetime] = Field(default=None)
+    started_at: datetime = Field(default_factory=utcnow, sa_column=utc_column())
+    completed_at: Optional[datetime] = Field(default=None, sa_column=utc_column(nullable=True))
 
 
 class BacktestTrade(SQLModel, table=True):
@@ -103,8 +129,8 @@ class BacktestTrade(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     run_id: int = Field(foreign_key="backtest_runs.id", index=True)
     side: str = Field(max_length=8)
-    signal_candle_time: Optional[datetime] = Field(default=None)
-    execution_candle_time: datetime = Field(index=True)
+    signal_candle_time: Optional[datetime] = Field(default=None, sa_column=utc_column(nullable=True))
+    execution_candle_time: datetime = Field(sa_column=Column(UTCDateTime(), nullable=False, index=True))
     quantity: Decimal = Field(sa_column=Column(QUANTITY, nullable=False))
     market_price: Decimal = Field(sa_column=Column(MONEY, nullable=False))
     fill_price: Decimal = Field(sa_column=Column(MONEY, nullable=False))
@@ -122,7 +148,7 @@ class BacktestEquityPoint(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     run_id: int = Field(foreign_key="backtest_runs.id", index=True)
     ordinal: int
-    candle_time: datetime = Field(index=True)
+    candle_time: datetime = Field(sa_column=Column(UTCDateTime(), nullable=False, index=True))
     cash: Decimal = Field(sa_column=Column(MONEY, nullable=False))
     market_value: Decimal = Field(sa_column=Column(MONEY, nullable=False))
     equity: Decimal = Field(sa_column=Column(MONEY, nullable=False))
