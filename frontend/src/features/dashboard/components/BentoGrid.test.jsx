@@ -23,7 +23,9 @@ describe('dashboard runtime normalization', () => {
         runtime_mode: 'transition',
         synthetic_engine: 'disabled',
         risk: 'authoritative_phase_4',
-        paper_trading: 'operator_only_phase_4',
+        paper_trading: 'autonomous_phase_7',
+        paper_runtime: 'runtime_phase_7',
+        automated_trading: 'paper_enabled_phase_7',
       },
     );
 
@@ -42,7 +44,9 @@ describe('dashboard runtime normalization', () => {
       runtimeMode: 'transition',
       syntheticDisabled: true,
       riskMode: 'authoritative_phase_4',
-      paperTrading: 'operator_only_phase_4',
+      paperTrading: 'autonomous_phase_7',
+      paperRuntime: 'runtime_phase_7',
+      automatedTrading: 'paper_enabled_phase_7',
     });
   });
 
@@ -61,7 +65,9 @@ describe('dashboard runtime normalization', () => {
         runtime_mode: 'transition',
         synthetic_engine: 'disabled',
         risk: 'authoritative_phase_4',
-        paper_trading: 'operator_only_phase_4',
+        paper_trading: 'autonomous_phase_7',
+        paper_runtime: 'runtime_phase_7',
+        automated_trading: 'paper_enabled_phase_7',
       },
     );
 
@@ -70,6 +76,7 @@ describe('dashboard runtime normalization', () => {
     expect(result.winRatePercent).toBe(60);
     expect(result.evidenceValid).toBe(true);
     expect(result.riskMode).toBe('authoritative_phase_4');
-    expect(result.paperTrading).toBe('operator_only_phase_4');
+    expect(result.paperTrading).toBe('autonomous_phase_7');
+    expect(result.paperRuntime).toBe('runtime_phase_7');
   });
 });
