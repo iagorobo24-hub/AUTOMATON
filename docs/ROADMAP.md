@@ -48,13 +48,32 @@ Implemented in code/documentation:
 
 ## Phase 2 — Portfolio & Accounting
 
-Introduce authoritative orders/fills/positions/account/equity semantics and reconciliation invariants.
+**Goal:** Establish one authoritative, persistent long-only accounting layer before any Paper execution exists.
 
-**Exit:** open/close/fees/PnL/restart are deterministic and tested.
+Implemented in code/documentation:
+
+- SQLModel Account, Order, Fill, Position and LedgerEntry records;
+- funded capital, cash, fees, average cost, realized/unrealized PnL, equity and exposure contracts;
+- BUY fee included in acquisition basis and SELL fee included in realized result;
+- additive buys, partial closes and full closes;
+- fail-closed insufficient-cash, oversell and overfill checks;
+- explicit funding ledger separate from PnL;
+- restart/reload reconstruction from persisted records;
+- reconciliation checks for financial identity and persisted-order/fill consistency;
+- safe bootstrap of legacy agents from initial/funded capital only, excluding unverified synthetic current balance;
+- accounting-backed new-agent creation and deposits;
+- lifecycle deletion no longer erases financial balances;
+- manual replication blocked until a non-duplicating capital-allocation policy exists;
+- read-only `/api/accounting/agents/{agent_id}` inspection API;
+- no HTTP path for creating orders/fills or executing trades in Phase 2.
+
+**Exit condition:** open/close/fees/PnL/funding/restart behavior is deterministic, persisted and reconcilable, with no competing financial source of truth for new work.
+
+**Status:** source/contract gate is statically satisfied. Fresh backend/frontend/build execution on the exact Phase 2 HEAD is still required for execution certification.
 
 ## Phase 3 — Paper Execution
 
-Implement virtual orders/fills against real market observations with explicit fees/slippage and persistent state.
+Implement virtual orders/fills against real market observations with explicit fees/slippage and persistent state. Every accepted fill must enter through Phase 2 accounting.
 
 **Exit:** a real-data/virtual-money end-to-end session can run without random market or random-close behavior.
 
@@ -72,9 +91,9 @@ Build reproducible historical runs and evidence metadata. Evaluate S1-S4 as base
 
 ## Phase 6 — Agent Evolution
 
-Replace simplistic fitness/replication assumptions with evidence-aware lifecycle rules, lineage and explicit capital allocation. Manual replication remains an operator action; automatic replication must wait for validated evidence criteria.
+Replace simplistic fitness/replication assumptions with evidence-aware lifecycle rules, lineage and explicit capital transfer/allocation. Replication stays blocked until it cannot duplicate money.
 
-**Exit:** automatic replication cannot be triggered by misleading short-term/synthetic performance.
+**Exit:** replication cannot create capital or be triggered by misleading short-term/synthetic performance.
 
 ## Phase 7 — 24/7 Paper Operation
 
