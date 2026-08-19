@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.pool import StaticPool
@@ -11,9 +13,19 @@ from app.paper_runtime.scheduler import get_runtime_scheduler
 
 
 class FakeScheduler:
-    def __init__(self): self.spawned = []; self.cancelled = []
-    def spawn(self, session_id): self.spawned.append(session_id)
-    def cancel(self, session_id): self.cancelled.append(session_id)
+    def __init__(self):
+        self.spawned = []
+        self.cancelled = []
+        self.spawn_loop_seen = False
+
+    def spawn(self, session_id):
+        asyncio.get_running_loop()
+        self.spawn_loop_seen = True
+        self.spawned.append(session_id)
+
+    def cancel(self, session_id):
+        asyncio.get_running_loop()
+        self.cancelled.append(session_id)
 
 
 @pytest.mark.asyncio
@@ -49,6 +61,7 @@ async def test_runtime_api_creates_and_controls_virtual_only_session():
             started = await client.post(f"/api/runtime/sessions/{session_id}/start")
             assert started.status_code == 200
             assert started.json()["status"] == "RUNNING"
+            assert scheduler.spawn_loop_seen is True
             assert scheduler.spawned == [session_id]
 
             paused = await client.post(f"/api/runtime/sessions/{session_id}/pause")
