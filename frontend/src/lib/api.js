@@ -64,6 +64,20 @@ export const runtimeAPI = {
   resume: (id) => api.post(`/runtime/sessions/${id}/resume`), recover: (id) => api.post(`/runtime/sessions/${id}/recover`), stop: (id) => api.post(`/runtime/sessions/${id}/stop`),
 };
 
+export const researchAPI = {
+  status: () => api.get('/research/status'),
+  activePolicy: () => api.get('/research/policies/active'),
+  studies: (params = {}) => api.get('/research/studies', { params }),
+  study: (id) => api.get(`/research/studies/${id}`),
+  createStudy: ({ name, strategyId, notes }) => api.post('/research/studies', null, { params: { name, strategy_id: strategyId, notes } }),
+  windows: (id) => api.get(`/research/studies/${id}/windows`),
+  addWindow: (id, role, backtestRunId) => api.post(`/research/studies/${id}/windows`, null, { params: { role, backtest_run_id: backtestRunId } }),
+  evaluate: (id) => api.post(`/research/studies/${id}/evaluate`),
+  evaluations: (id) => api.get(`/research/studies/${id}/evaluations`),
+  promote: (id, note) => api.post(`/research/studies/${id}/promote`, null, { params: { note } }),
+  candidates: (params = {}) => api.get('/research/candidates', { params }),
+};
+
 export const stateAPI = { status: () => api.get('/estado') };
 export const healthAPI = { health: () => axios.get(`${BACKEND_BASE}/health`, { timeout: 15000 }), root: () => axios.get(`${BACKEND_BASE}/`, { timeout: 15000 }) };
 
