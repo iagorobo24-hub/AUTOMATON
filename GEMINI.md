@@ -14,61 +14,59 @@ Build autonomous Paper Trading on **real market data + virtual capital**, suppor
 - Synthetic AgentEngine disabled.
 - Phase 1 real-only Market Data.
 - Phase 2 authoritative Accounting.
-- Phase 3 operator-only deterministic Paper.
+- Phase 3 deterministic Paper Execution.
 - Phase 4 mandatory persistent Risk.
 - Phase 5 isolated reproducible Backtesting.
 - Phase 6 evidence-aware Agent Evolution.
-- Runtime: `backtesting=evidence_phase_5`, `agent_evolution=evidence_phase_6`, `automated_trading=blocked_until_phase_7_runtime`, `live_execution=disabled`.
+- Phase 7 persistent autonomous Paper runtime.
+- Runtime: `paper_trading=autonomous_phase_7`, `paper_runtime=runtime_phase_7`, `automated_trading=paper_enabled_phase_7`, `agent_evolution=evidence_phase_6`, `live_execution=disabled`.
 
-## Boundaries
+`paper_enabled_phase_7` means only explicitly started Paper sessions may run strategy loops. Process startup never starts or resumes trading automatically.
 
-Paper path: `Market Data -> Risk -> Paper Execution -> Accounting`.
-Future Phase 7 automation inserts Strategy Intent before Risk; it may never bypass Risk/Paper/Accounting.
-Backtest is a parallel historical path and never mutates Paper state.
+## Active Paper architecture
 
-## Accounting / replication
+Manual path:
+`operator -> real Market Data -> Risk -> PaperExecution(origin=operator) -> Accounting`.
 
-- Accounting owns all active financial state; Agent budget fields are mirrors.
-- Funding is not profit.
-- Long-only; do not invent shorts/margin/leverage.
-- Phase 6 replication transfers funded liquid capital; it never copies/mints balances.
-- Eligible transfer base is `min(cash-reserved_cash, funded_capital)`; `evolution-v1` currently allocates 25%.
-- Parent cash/funded decrease exactly by child initial/funded cash; paired transfer ledger entries are required.
-- Child starts flat and inherits the same strategy.
+Autonomous Phase 7 path:
+`new real closed candle -> S1-S4 -> intent -> current real Market Data -> Risk -> PaperExecution(origin=strategy_runtime) -> Accounting -> runtime cycle evidence`.
 
-## Agent Evolution
+PaperExecution accepts only `operator` and `strategy_runtime`; both require persisted Risk ALLOW. No direct Accounting trading mutation is allowed from runtime orchestration.
 
-`backend/app/agent_evolution/` owns `evolution-v1`, fitness, lineage and lifecycle evidence.
+## Paper Runtime rules
 
-A replication attempt must create a fresh evaluation and PASS only when:
+`backend/app/paper_runtime/` owns persistent session/cycle orchestration.
 
-- agent is ACTIVE;
-- completed same-strategy Backtest exists;
-- Backtest source fingerprint exists and still matches current strategy source;
-- >=5 Backtest round trips;
-- Backtest return/expectancy > 0 and drawdown <=15%;
-- >=3 agent-specific FILLED Paper SELL executions with PaperExecution provenance;
-- authoritative Paper realized PnL >0;
-- Accounting structural integrity holds;
-- no PaperRequest is `RECOVERY_REQUIRED`.
+- SQLite session/cycle state is authoritative; asyncio tasks are process-local workers only.
+- States: CREATED/RUNNING/PAUSED/DEGRADED/RECOVERY_REQUIRED/STOPPED.
+- Evaluate one cycle per `(session, agent, closed candle)`.
+- S1-S4 remain unchanged.
+- HOLD/already-long/already-flat produce no order.
+- Flat BUY targets 25% available cash with exact Paper cost reserve; SELL closes the current long.
+- Runtime request id is deterministic from session/agent/symbol/candle/signal.
+- No synthetic fallback.
+- Repeated operational failures may DEGRADED the session.
+- Financial ambiguity => RECOVERY_REQUIRED.
+- Startup reconciles existing Paper/runtime state without re-submitting uncertain orders, then blocks interrupted sessions pending explicit recovery.
+- Start/recover fail while PaperRequest/PaperExecution recovery is unresolved.
+- A recovery-required session retains agent/symbol/interval ownership.
+- No automatic agent replication or mutation.
 
-Legacy Trade rows or standalone Paper-labelled fills do not count. A PASS is permission for one replication attempt, not a profitability/safety claim. No strategy mutation, auto-replication or auto-trading in Phase 6.
+## Accounting / Evolution
+
+Accounting owns all active financial state. Funding is not profit; long-only remains defined scope. Phase 6 replication transfers funded liquid capital and never copies/mints balances. Fitness/lineage remain separate from Phase 7 scheduling.
 
 ## Backtesting
 
-Historical datasets are real/immutable/SHA-256 identified; mixed/gapped/duplicate/out-of-order data is rejected. Signal on candle `t` executes no earlier than `t+1`. New runs persist strategy source SHA-256. Never modify S1-S4 to make evaluated results look better.
+Historical datasets are real/immutable/SHA-256 identified and source-fingerprinted. Signal on candle `t` executes no earlier than `t+1`. Never tune S1-S4 to make evaluated results look better.
 
-## Paper / Risk
+## Live isolation
 
-Paper prices come from real Market Data. Normal execution requires persisted one-time current-profile Risk ALLOW. Ambiguous recovery fails closed. No Live credentials/adapter.
-
-## Legacy
-
-Mongo/old Trading/Paper engines/mock fallbacks and unmounted product areas are not active contracts. Migrate useful concepts only; never reactivate them as shortcuts.
+No Phase 7 route or service may place a real exchange order. Do not introduce exchange credentials into Paper Runtime. Live requires the future separate adapter and explicit authorization.
 
 ## Evidence
 
-Never merge Synthetic/Backtest/Paper/Live silently. Fixture tests prove software behavior, not trading performance. No profitable/optimized/validated/safe claim without reproducible observed evidence.
+Never merge Synthetic/Backtest/Paper/Live silently. Fixture tests prove software behavior, not trading performance. Autonomous operation does not prove strategy quality.
 
 ## Validation
 
@@ -78,4 +76,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Never report green status without fresh exact-HEAD output.
+Never report green status without fresh exact-HEAD output. Phase 7 operational certification also requires a sustained real-provider Paper session including recovery observation.
