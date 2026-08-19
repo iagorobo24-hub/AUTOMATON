@@ -17,7 +17,7 @@ Current runtime contracts:
 - Accounting: authoritative long-only financial source of truth for Paper;
 - Paper: operator-only MARKET BUY/SELL against real quotes;
 - Risk: mandatory persistent `risk-v1` gate for normal Paper execution;
-- Backtesting: immutable real historical datasets + deterministic `backtest-v1` evidence;
+- Backtesting: immutable real historical datasets + deterministic `backtest-v1` evidence + strategy-source fingerprint;
 - automated strategy/agent execution: **not enabled yet**;
 - Live execution: disabled and structurally separate.
 
@@ -61,11 +61,14 @@ Important contracts:
 
 - historical Binance access is public/read-only and fails closed;
 - datasets are immutable snapshots with provider/symbol/interval/window/count/SHA-256 provenance;
+- mixed providers, gaps, duplicates and ordering errors are rejected;
 - a signal produced from candle `t` can execute no earlier than candle `t+1` open;
 - `backtest-v1` is deterministic, long-only, no pyramiding, default 10 bps adverse slippage + 10 bps fee;
 - BUY allocates a persisted configurable fraction of capital (default 25%);
 - open positions are explicitly liquidated at dataset end and labelled `DATASET_END_EXIT`;
 - Backtest state does not create or mutate active Paper Account/PaperExecution/RiskDecision records;
+- every new run persists a SHA-256 fingerprint of the active strategy source in `BacktestRunEvidence`;
+- older runs without that fingerprint remain readable but are not retroactively given missing provenance;
 - runs persist configuration, trades, equity series and machine-readable metrics;
 - undefined metrics remain null;
 - interrupted RUNNING backtests become INVALID on restart rather than valid evidence;
@@ -125,4 +128,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Phase 5 may be source/contract complete without being execution-certified. Never claim a strategy result or a green repository gate without fresh exact-HEAD execution evidence.
+**Phase 5 source/contract/static gate is complete.** Execution certification and real-provider S1-S4 baseline evidence remain pending until fresh exact-HEAD commands/runs are observed. Never claim strategy results or a green repository gate without that evidence.
