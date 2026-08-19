@@ -31,29 +31,28 @@ Implemented in source:
 - immutable `BacktestDataset`/`BacktestCandle` snapshots;
 - canonical SHA-256 over normalized candle content;
 - provider/symbol/interval/requested+actual UTC window/count provenance;
-- paginated public read-only Binance historical provider;
-- no synthetic fallback;
-- rejection of empty, duplicate, out-of-order, gapped and out-of-window data;
+- paginated public read-only Binance historical provider with no synthetic fallback;
+- rejection of empty, duplicate, out-of-order, gapped, mixed-provider and out-of-window data;
 - UTC-preserving SQLite evidence timestamps;
-- isolated long-only `BacktestLedger` rather than active Paper portfolio rows;
+- isolated long-only `BacktestLedger`, with regression coverage preventing Paper Account/PaperExecution/RiskDecision contamination;
 - deterministic `backtest-v1`;
 - signal on candle `t`, execution no earlier than candle `t+1` open;
-- no pyramiding;
-- default 25% position allocation;
-- default 10 bps adverse slippage and 10 bps fee;
-- explicit `DATASET_END_EXIT` liquidation of final open positions;
-- persistent `BacktestRun`, `BacktestTrade`, `BacktestEquityPoint`;
-- net return/PnL, round trips, win/loss, averages, expectancy, profit factor where defined, max drawdown, fees and exposure metrics;
+- no pyramiding, default 25% allocation, 10 bps adverse slippage and 10 bps fee;
+- explicit `DATASET_END_EXIT` without diluting the time-in-market denominator;
+- persistent `BacktestRun`, `BacktestRunEvidence`, `BacktestTrade`, `BacktestEquityPoint`;
+- SHA-256 fingerprint of active strategy source for every new run;
+- older pre-fingerprint runs remain readable but missing provenance is never invented;
+- return/PnL, round trips, wins/losses, averages, expectancy, profit factor where defined, max drawdown, fees and exposure metrics;
 - undefined ratios remain null;
 - interrupted RUNNING runs are invalidated after restart;
-- `/api/backtests` dataset/run/status/read API;
+- `/api/backtests` dataset/run/status/read API exposing source fingerprints;
 - no optimizer, Live adapter or automatic strategy-to-Paper integration;
-- Settings/client identify `backtesting=evidence_phase_5` without claiming profitability;
+- Settings/client identify `backtesting=evidence_phase_5` without profitability claims;
 - S1-S4 are consumed unchanged as `baseline-v1` strategy inputs.
 
-**Exit condition:** the source path `real historical snapshot -> strategy using history through t -> next-candle deterministic execution -> isolated financial state -> persisted equity/trades/metrics` is reproducible and carries enough provenance to compare runs without mixing evidence modes.
+**Exit condition:** the source path `real historical snapshot -> strategy using history through t -> next-candle deterministic execution -> isolated financial state -> persisted source fingerprint/equity/trades/metrics` is reproducible and carries enough provenance to compare runs without mixing evidence modes.
 
-**Status:** source/contract implementation complete pending final exact-HEAD static audit. Exact-HEAD tests/build and a real historical provider smoke remain required for execution certification. S1-S4 baseline performance remains **unobserved** until actual reproducible runs execute; no numbers may be invented.
+**Status:** source/contract/static gate satisfied. Exact-HEAD tests/build and a real historical provider smoke remain required for execution certification. S1-S4 real-provider baseline performance remains **unobserved** until actual reproducible runs execute; no numbers may be invented.
 
 ## Phase 6 — Agent Evolution
 
