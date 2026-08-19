@@ -45,6 +45,24 @@ def test_metrics_cover_return_round_trips_drawdown_fees_and_exposure():
     assert result.forced_exit_count == 1
 
 
+def test_forced_close_bookkeeping_point_does_not_dilute_time_in_market():
+    equity = [
+        EquitySample(equity=Decimal("1000"), exposure=Decimal("0")),
+        EquitySample(equity=Decimal("1010"), exposure=Decimal("200")),
+        EquitySample(equity=Decimal("1015"), exposure=Decimal("0")),
+        EquitySample(equity=Decimal("1014"), exposure=Decimal("0"), counts_for_exposure=False),
+    ]
+
+    result = compute_metrics(
+        initial_capital=Decimal("1000"),
+        final_equity=Decimal("1014"),
+        trades=[],
+        equity_points=equity,
+    )
+
+    assert result.exposure_fraction == Decimal("1") / Decimal("3")
+
+
 def test_metrics_keep_undefined_ratios_null_when_no_closed_round_trips():
     result = compute_metrics(
         initial_capital=Decimal("1000"),
