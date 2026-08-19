@@ -91,7 +91,7 @@ async def test_agents_active_contract_end_to_end(sqlite_engine):
 
         replicated = await client.post(f"/api/agents/{agent_id}/replicate")
         assert replicated.status_code == 409
-        assert "capital allocation" in replicated.json()["detail"].lower()
+        assert "fitness rejected" in replicated.json()["detail"].lower()
 
         killed = await client.delete(f"/api/agents/{agent_id}")
         assert killed.status_code == 200
