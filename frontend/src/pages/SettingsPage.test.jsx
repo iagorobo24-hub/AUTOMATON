@@ -9,18 +9,22 @@ vi.mock('@/lib/api', () => ({
 
 import SettingsPage from './SettingsPage.jsx';
 
-describe('SettingsPage transition runtime contract', () => {
+describe('SettingsPage Phase 3 runtime contract', () => {
   beforeEach(() => {
     health.mockReset();
   });
 
-  it('shows synthetic isolation and Paper as not implemented', async () => {
+  it('shows synthetic isolation, authoritative accounting and operator-only Paper', async () => {
     health.mockResolvedValue({
       data: {
         status: 'ok',
         runtime_mode: 'transition',
         synthetic_engine: 'disabled',
-        paper_trading: 'not_implemented',
+        market_data: 'real_contract_available',
+        accounting: 'authoritative_phase_2',
+        paper_trading: 'operator_only_phase_3',
+        automated_trading: 'blocked_until_risk',
+        live_execution: 'disabled',
       },
     });
 
@@ -28,17 +32,21 @@ describe('SettingsPage transition runtime contract', () => {
 
     expect(await screen.findByText('Sintético desactivado')).toBeTruthy();
     expect(screen.getByText('SQLModel + SQLite')).toBeTruthy();
-    expect(screen.getByText('not_implemented')).toBeTruthy();
+    expect(screen.getByText('operator_only_phase_3')).toBeTruthy();
+    expect(screen.getByText('blocked_until_risk')).toBeTruthy();
+    expect(screen.getByText('disabled')).toBeTruthy();
     expect(health).toHaveBeenCalledTimes(1);
   });
 
-  it('does not expose unsupported live trading or simulated pnl controls', async () => {
+  it('does not expose live controls, automatic trading or simulated pnl controls', async () => {
     health.mockResolvedValue({
       data: {
         status: 'ok',
         runtime_mode: 'transition',
         synthetic_engine: 'disabled',
-        paper_trading: 'not_implemented',
+        paper_trading: 'operator_only_phase_3',
+        automated_trading: 'blocked_until_risk',
+        live_execution: 'disabled',
       },
     });
 
@@ -48,6 +56,7 @@ describe('SettingsPage transition runtime contract', () => {
     expect(screen.queryByText('Live (Binance)')).toBeNull();
     expect(screen.queryByText('Guardar')).toBeNull();
     expect(screen.queryByText('Simular PnL')).toBeNull();
+    expect(screen.queryByText('Iniciar trading automático')).toBeNull();
     expect(screen.queryByText('Borrar Todos los Datos')).toBeNull();
   });
 
