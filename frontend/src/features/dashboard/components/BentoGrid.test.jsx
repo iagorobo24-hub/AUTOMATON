@@ -22,7 +22,7 @@ describe('dashboard runtime normalization', () => {
         status: 'ok',
         runtime_mode: 'transition',
         synthetic_engine: 'disabled',
-        paper_trading: 'not_implemented',
+        paper_trading: 'operator_only_phase_3',
       },
     );
 
@@ -40,7 +40,7 @@ describe('dashboard runtime normalization', () => {
       evidenceMode: 'legacy_unclassified',
       runtimeMode: 'transition',
       syntheticDisabled: true,
-      paperTrading: 'not_implemented',
+      paperTrading: 'operator_only_phase_3',
     });
   });
 
@@ -55,12 +55,17 @@ describe('dashboard runtime normalization', () => {
         profit_total: 42.5,
         win_rate_percent: 60,
       },
-      { runtime_mode: 'paper', synthetic_engine: 'disabled', paper_trading: 'active' },
+      {
+        runtime_mode: 'transition',
+        synthetic_engine: 'disabled',
+        paper_trading: 'operator_only_phase_3',
+      },
     );
 
     expect(result.totalTrades).toBe(7);
     expect(result.profitTotal).toBe(42.5);
     expect(result.winRatePercent).toBe(60);
     expect(result.evidenceValid).toBe(true);
+    expect(result.paperTrading).toBe('operator_only_phase_3');
   });
 });
