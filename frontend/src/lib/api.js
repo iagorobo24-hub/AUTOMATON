@@ -55,6 +55,16 @@ export const tradesAPI = {
   stats: () => api.get('/trades/stats'),
 };
 
+export const paperAPI = {
+  status: () => api.get('/paper/status'),
+  executions: (params = {}) => api.get('/paper/executions', { params }),
+  executeMarket: ({ accountId, symbol, side, quantity }) => api.post(
+    '/paper/orders/market',
+    null,
+    { params: { account_id: accountId, symbol, side, quantity } },
+  ),
+};
+
 export const stateAPI = {
   status: () => api.get('/estado'),
 };
