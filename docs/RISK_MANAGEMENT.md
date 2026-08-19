@@ -2,7 +2,7 @@
 
 ## Current Phase 4 role
 
-Risk is an independent persistent approval layer between order intent and Paper Execution. It never mutates cash/positions and never places orders. Every normal `PaperExecutionService.execute_market_order()` call now requires a **persisted current-profile `ALLOW` RiskDecision**, and every active `POST /api/paper/orders/market` command is evaluated before Paper creates Order/Fill state.
+Risk is an independent persistent approval layer between order intent and Paper Execution. It never mutates cash/positions and never places orders. Every normal `PaperExecutionService.execute_market_order()` call requires a **persisted current-profile `ALLOW` RiskDecision**, and every active `POST /api/paper/orders/market` command is evaluated before Paper creates Order/Fill state.
 
 ```text
 Operator intent -> real Market Data -> RiskService -> ALLOW/REJECT
@@ -83,9 +83,9 @@ It then checks:
 - projected open-position count;
 - realized-loss limit;
 - drawdown limit;
-- cash for notional plus a conservative 20 bps Paper execution-cost reserve.
+- cash for notional plus the exact current `paper-v1` execution-cost reserve.
 
-The reserve corresponds to current `paper-v1`: 10 bps adverse slippage + 10 bps fee. Accounting remains the final financial authority and can still reject if state changes after Risk approval.
+Current `paper-v1` compounds 10 bps adverse slippage and a 10 bps fee on the slipped fill: `1.001 × 1.001 = 1.002001`. Risk therefore reserves **20.01 bps**, not 20 bps. Accounting remains the final financial authority and can still reject if state changes after Risk approval.
 
 ## Risk-reducing SELL
 
@@ -166,9 +166,11 @@ The legacy RiskManager remains non-authoritative.
 
 ## Completion status
 
-**Phase 4 source/contract implementation:** present and undergoing final exact-HEAD audit.
+**Phase 4 source/contract implementation:** complete.
 
-**Execution certification:** requires fresh output on the exact final HEAD:
+**Phase 4 exact-HEAD static audit:** complete after reconciling service-level Risk enforcement, SELL valuation semantics, circuit-breaker consumption, idempotency/error handling and documentation.
+
+**Execution certification:** still requires fresh output on the exact final HEAD:
 
 ```bash
 cd backend && pytest tests/ -v
