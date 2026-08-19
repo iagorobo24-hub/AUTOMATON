@@ -4,7 +4,6 @@ from sqlmodel import Session, select
 
 from app.models import ResearchStudy, StrategyCandidate
 from app.strategy_research.evaluator import ResearchEvaluator
-from app.strategy_research.service import StrategyResearchError
 
 
 class ResearchPromotionError(ValueError):
@@ -37,6 +36,10 @@ class StrategyPromotionService:
             )
         ).first()
         if existing is not None:
+            study.status = "PROMOTED"
+            study.updated_at = datetime.now(timezone.utc)
+            self.session.add(study)
+            self.session.commit()
             return existing
 
         candidate = StrategyCandidate(
