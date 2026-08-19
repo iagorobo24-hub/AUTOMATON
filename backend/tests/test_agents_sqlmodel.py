@@ -6,6 +6,7 @@ from sqlmodel import SQLModel, Session, create_engine, select
 from app.database import get_session
 from app.main import app
 from app.models import Agent, AgentStatus, StrategyEnum, Trade, TradeType
+from app.models.accounting import Account, LedgerEntry
 from app.services.agent_engine import AgentEngine
 
 
@@ -48,6 +49,12 @@ async def test_agents_active_contract_end_to_end(sqlite_engine):
         assert created.status_code == 200
         agent_id = created.json()["id"]
 
+        with Session(sqlite_engine) as session:
+            account = session.exec(select(Account).where(Account.agente_id == agent_id)).one()
+            assert account.initial_capital == 1000
+            assert account.funded_capital == 1000
+            assert account.cash == 1000
+
         listed = await client.get("/api/agents/")
         assert listed.status_code == 200
         assert listed.json()[0]["nombre"] == "ADAN"
@@ -64,30 +71,38 @@ async def test_agents_active_contract_end_to_end(sqlite_engine):
         assert deposited.json()["presupuesto_actual"] == 1100
         assert deposited.json()["profit"] is None
 
+        with Session(sqlite_engine) as session:
+            account = session.exec(select(Account).where(Account.agente_id == agent_id)).one()
+            assert account.funded_capital == 1100
+            assert account.cash == 1100
+            assert account.realized_pnl == 0
+            deposits = session.exec(
+                select(LedgerEntry).where(
+                    LedgerEntry.account_id == account.id,
+                    LedgerEntry.entry_type == "DEPOSIT",
+                )
+            ).all()
+            assert len(deposits) == 1
+
         simulated = await client.post(
             f"/api/agents/{agent_id}/simulate-trade", params={"profit": -10}
         )
         assert simulated.status_code == 404
 
         replicated = await client.post(f"/api/agents/{agent_id}/replicate")
-        assert replicated.status_code == 200
-        payload = replicated.json()
-        assert payload["parent"]["estado"] == "REPLICADO"
-        assert payload["replica"]["estado"] == "ACTIVO"
-        assert payload["replica"]["padre_id"] == agent_id
+        assert replicated.status_code == 409
+        assert "capital allocation" in replicated.json()["detail"].lower()
 
-        blocked = await client.post(
-            f"/api/agents/{agent_id}/deposit", params={"amount": 100}
-        )
-        assert blocked.status_code == 409
-
-        child_id = payload["replica"]["id"]
-        killed = await client.delete(f"/api/agents/{child_id}")
+        killed = await client.delete(f"/api/agents/{agent_id}")
         assert killed.status_code == 200
         assert killed.json()["estado"] == "MUERTO"
-        assert killed.json()["presupuesto_actual"] == 0
+        assert killed.json()["presupuesto_actual"] == 1100
 
-        killed_again = await client.delete(f"/api/agents/{child_id}")
+        with Session(sqlite_engine) as session:
+            account = session.exec(select(Account).where(Account.agente_id == agent_id)).one()
+            assert account.cash == 1100
+
+        killed_again = await client.delete(f"/api/agents/{agent_id}")
         assert killed_again.status_code == 409
 
 
