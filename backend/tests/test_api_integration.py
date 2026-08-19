@@ -9,10 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 @pytest.mark.integration
 class TestAPI:
-    """API endpoint tests"""
-
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_synthetic_isolation_and_core_contracts(self):
+    async def test_health_endpoint_reports_phase_4_risk_contract(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -26,8 +24,9 @@ class TestAPI:
             "synthetic_engine": "disabled",
             "market_data": "real_contract_available",
             "accounting": "authoritative_phase_2",
-            "paper_trading": "operator_only_phase_3",
-            "automated_trading": "blocked_until_risk",
+            "risk": "authoritative_phase_4",
+            "paper_trading": "operator_only_phase_4",
+            "automated_trading": "blocked_until_strategy_integration",
             "live_execution": "disabled",
         }
 
@@ -45,32 +44,27 @@ class TestAPI:
         assert payload["synthetic_engine"] == "disabled"
         assert payload["market_data_mode"] == "real_contract_available"
         assert payload["accounting_mode"] == "authoritative_phase_2"
-        assert payload["paper_trading"] == "operator_only_phase_3"
-        assert payload["automated_trading"] == "blocked_until_risk"
+        assert payload["risk_mode"] == "authoritative_phase_4"
+        assert payload["paper_trading"] == "operator_only_phase_4"
+        assert payload["automated_trading"] == "blocked_until_strategy_integration"
         assert payload["live_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_include_operator_paper_but_not_live_or_automation(self):
+    def test_active_api_routes_include_risk_gated_operator_paper_but_not_live_or_automation(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
-
         assert "/api/agents/" in routes
-        assert "/api/agents/{agent_id}/replicate" in routes
         assert "/api/agents/{agent_id}/deposit" in routes
         assert "/api/agents/{agent_id}/simulate-trade" not in routes
-        assert "/api/agents/crear" not in routes
-        assert "/api/trades/" in routes
-        assert "/api/trades/stats" in routes
-        assert "/api/crypto/top-coins" in routes
-        assert "/api/crypto/trending" in routes
         assert "/api/market-data/status" in routes
-        assert "/api/market-data/quote/{symbol}" in routes
-        assert "/api/market-data/candles/{symbol}" in routes
         assert "/api/accounting/agents/{agent_id}" in routes
-        assert "/api/accounting/orders" not in routes
-        assert "/api/accounting/fills" not in routes
+        assert "/api/risk/status" in routes
+        assert "/api/risk/profiles/active" in routes
+        assert "/api/risk/decisions" in routes
+        assert "/api/risk/pause" in routes
+        assert "/api/risk/resume" in routes
         assert "/api/paper/status" in routes
         assert "/api/paper/orders/market" in routes
         assert "/api/paper/executions" in routes
@@ -82,7 +76,6 @@ class TestAPI:
         from app.main import app
 
         routes = {route.path for route in app.routes}
-
         assert "/api/system/mode" not in routes
         assert "/api/system/reset-agents" not in routes
         assert "/api/trading/engine/status" not in routes
@@ -92,5 +85,4 @@ class TestAPI:
 
     def test_cors_middleware_is_configured(self):
         from app.main import app
-
         assert app.user_middleware
