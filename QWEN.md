@@ -19,7 +19,7 @@ Do not fabricate market data, fills, PnL, indicators or telemetry for Paper/Back
 
 FastAPI + SQLModel + SQLite is the active backend baseline. React/Vite is the active frontend. Normal startup does not start `AgentEngine`; that file remains only as explicit Synthetic/Test utility code.
 
-The runtime reports transition mode with synthetic disabled, real Market Data available, authoritative Phase 2 accounting and Paper not implemented. Historical trade rows lack mode provenance, so they remain `legacy_unclassified` and excluded from verified metrics.
+The runtime reports transition mode with synthetic disabled, real Market Data available, authoritative Phase 2 accounting, and **operator-only Phase 3 Paper execution** available. Automated strategy execution remains blocked until Risk exists. Live execution is disabled. Historical trade rows remain `legacy_unclassified` and excluded from verified metrics.
 
 ## Required architecture
 
@@ -33,7 +33,7 @@ A strategy does not own balances. Paper execution cannot send real orders. Accou
 
 Real-data providers fail closed. Never copy the legacy `BinanceService` mock fallback behavior into a Paper-capable path.
 
-## Phase 2 accounting rule
+## Accounting rule
 
 `backend/app/accounting/` and `backend/app/models/accounting.py` own new financial state.
 
@@ -41,10 +41,22 @@ Real-data providers fail closed. Never copy the legacy `BinanceService` mock fal
 - Deposits are ledger capital flows, not profit.
 - Fills enter through `AccountingService`.
 - Long-only is the defined scope; do not invent short/margin behavior.
-- Do not expose order/fill execution mutation endpoints before Phase 3.
 - Killing an agent must not erase its accounting records.
 - Replication is blocked until a tested capital-transfer policy prevents money duplication.
 - Existing agents bootstrap from initial/funded capital only; legacy current balance is not trusted as PnL.
+
+## Phase 3 Paper rule
+
+`backend/app/paper_execution/` owns Paper execution provenance.
+
+- Current Paper execution is operator-only MARKET BUY/SELL.
+- Prices come from the real Market Data contract, never from client input.
+- `paper-v1` uses deterministic, versioned fee/slippage semantics.
+- Every accepted fill enters through `AccountingService`.
+- Paper mutations require persistent `request_id` idempotency.
+- Ambiguous crash/recovery state becomes `RECOVERY_REQUIRED`; do not retry automatically.
+- Paper has no Live credentials or execution adapter.
+- Do not connect strategies automatically before Phase 4 Risk.
 
 ## Legacy handling
 
