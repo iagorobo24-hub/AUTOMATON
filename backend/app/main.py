@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.accounting.bootstrap import ensure_accounting_baseline
 from app.accounting.router import router as accounting_router
-from app.database import init_db
+from app.database import SessionLocal, init_db
 from app.market_data.router import router as market_data_router
 from app.routers import agents, trades, crypto
 
@@ -24,6 +25,9 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Starting up...")
     init_db()
     logger.info("[MAIN] Database initialized")
+    with SessionLocal() as session:
+        bootstrapped_accounts = ensure_accounting_baseline(session)
+    logger.info("[MAIN] Accounting baseline ready (%s accounts bootstrapped)", bootstrapped_accounts)
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
     app.state.accounting_mode = ACCOUNTING_MODE
