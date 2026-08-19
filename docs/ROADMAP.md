@@ -23,11 +23,28 @@ Completed in code/documentation:
 
 ## Phase 1 — Real Market Data
 
-Build a provider-neutral real-data layer for candles/current prices with UTC timestamps, normalization, staleness/gap handling and deterministic parsing tests.
+**Goal:** Build a provider-neutral, real-only layer for current quotes and closed OHLCV candles.
 
-The legacy `BinanceService` is not an acceptable provider adapter as-is because provider/key failures silently fall back to mock/generated data. Phase 1 must fail closed instead.
+Implemented in code/documentation:
 
-**Exit:** Paper/Backtest consumers cannot receive generated prices through the real-data contract.
+- immutable `Quote` and `Candle` contracts with `evidence_mode=real`;
+- canonical `BASE/USDT` symbol normalization;
+- UTC-only timestamps and provider provenance;
+- `MarketDataService` provider-neutral boundary;
+- public read-only `BinancePublicMarketDataProvider` with no credentials or execution methods;
+- current quotes from provider-timestamped aggregate trades;
+- closed candles only;
+- stale/future quote rejection;
+- candle gap/order/staleness validation;
+- bounded retry on transport errors, 429 and 5xx;
+- fail-closed errors with no generated/mock fallback;
+- `/api/market-data/status`, `/quote/{symbol}` and `/candles/{symbol}`;
+- deterministic unit/API tests authored for parsing, quality and failure semantics;
+- legacy `BinanceService` remains unmounted and is not reused as the real-data provider.
+
+**Exit condition:** Paper/Backtest consumers cannot receive generated prices through the real-data contract.
+
+**Status:** source/contract gate is statically satisfied. Fresh backend/frontend/build execution on the exact Phase 1 HEAD is still required for execution certification.
 
 ## Phase 2 — Portfolio & Accounting
 
