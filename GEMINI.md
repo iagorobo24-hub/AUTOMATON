@@ -8,78 +8,75 @@ Canonical product direction is defined by `docs/PRODUCT_CONTRACT.md`, `ARCHITECT
 
 Build a trustworthy autonomous-agent trading platform whose immediate target is **Paper Trading on real market data with virtual capital**.
 
-Modes are distinct:
-
-- Synthetic/Test: synthetic + virtual; technical tests only.
-- Backtest: historical real data + virtual execution.
-- Paper: current real data + virtual capital.
-- Live: real data + real capital; future and gated.
-
 Never present synthetic/random/mock results as Paper, Backtest or Live evidence.
 
-## Current transition runtime
+## Current runtime
 
 - FastAPI + SQLModel + SQLite.
-- React 19 + Vite; Electron optional.
-- `app.main` does **not** start an autonomous trading engine.
-- The old `AgentEngine` remains versioned only as explicit Synthetic/Test utility code.
-- Real Market Data is available through the Phase 1 contract.
-- Phase 2 accounting is authoritative for financial state.
-- Phase 3 Paper MARKET execution is available **operator-only** with real quotes and virtual capital.
-- Automated strategy execution is blocked until Risk exists.
-- Live execution is disabled.
-- Pre-provenance `Trade` rows are `legacy_unclassified` and excluded from verified financial metrics.
-- Active HTTP client: `frontend/src/lib/api.js`.
+- React/Vite frontend.
+- Synthetic `AgentEngine` is not started by normal runtime.
+- Phase 1 Market Data is real-only and fail-closed.
+- Phase 2 Accounting is authoritative for financial state.
+- Phase 3 Paper MARKET execution is operator-only, deterministic and idempotent.
+- Phase 4 Risk is active and mandatory for the active Paper HTTP order path.
+- Runtime reports `risk=authoritative_phase_4`, `paper_trading=operator_only_phase_4`, `automated_trading=blocked_until_strategy_integration`, `live_execution=disabled`.
+- Historical Trade rows remain `legacy_unclassified`.
 
 ## Architecture boundaries
 
 New trading work follows:
 
-`Market Data -> Strategy -> Risk -> Execution -> Portfolio/Accounting -> Metrics/Evidence`.
+`Market Data -> Strategy Intent -> Risk -> Paper Execution -> Portfolio/Accounting -> Metrics/Evidence`.
 
-Agent lifecycle consumes these contracts; UI observes them. Strategy code must not directly mutate balances or place real orders. Risk must be able to reject automated execution. Paper must be structurally isolated from any future Live adapter.
+Strategy code does not own balances or execute orders. Risk never mutates balances. Paper never sends real exchange orders. Accounting remains the sole financial truth.
 
 ## Market Data constraint
 
-Do not reuse legacy `BinanceService` as the real-data provider without redesign: it silently returns mock/generated data on failures. Paper-capable Market Data must fail closed.
+Real-data providers fail closed. Never copy legacy `BinanceService` mock/generated fallback behavior into active trading paths.
 
 ## Accounting constraint
 
-`backend/app/accounting/` and `backend/app/models/accounting.py` are authoritative for new financial state.
-
-- Do not mutate `Agent.presupuesto_actual` as trading PnL.
+- `backend/app/accounting/` owns new financial state.
 - `Agent.presupuesto_*` are compatibility mirrors only.
-- Deposits are ledger funding events, never profit.
-- Fills must flow through `AccountingService`.
-- Long-only is the defined scope; do not invent short/margin semantics.
-- Do not erase account balances when an agent is killed/retired.
-- Replication is blocked until Phase 6 defines a capital-transfer policy; never duplicate parent capital into a child.
-- Existing agents are bootstrapped from initial/funded capital only; do not promote legacy current balance because it may contain synthetic PnL.
+- Deposits are funding, never profit.
+- Fills go through `AccountingService`.
+- Long-only is the defined scope; do not invent short/margin/leverage semantics.
+- Replication stays blocked until explicit non-duplicating capital transfer exists.
 
-## Phase 3 Paper constraint
+## Paper constraint
 
-`backend/app/paper_execution/` and `backend/app/models/paper_execution.py` own Paper execution provenance and command idempotency.
+- Current Paper is operator-only MARKET BUY/SELL.
+- Execution price comes from real Market Data, never client input.
+- `paper-v1` is deterministic/versioned.
+- Paper mutations require persistent `request_id` idempotency.
+- Ambiguous recovery becomes `RECOVERY_REQUIRED`; never blindly retry.
+- Paper has no Live credentials/adapter.
 
-- Current Paper execution is operator-only MARKET BUY/SELL.
-- The client never supplies the execution price; fetch it from `MarketDataService`.
-- `paper-v1` is deterministic and versioned; do not introduce random fills/closures.
-- Every accepted fill goes through `AccountingService`.
-- A persistent `request_id` is required for Paper mutations.
-- Never automatically retry ambiguous crash/recovery state. `RECOVERY_REQUIRED` fails closed.
-- Paper code has no exchange credentials or Live execution capability.
-- Do not connect strategies automatically until the independent Risk phase is implemented.
+## Phase 4 Risk constraint
+
+`backend/app/risk/` and `backend/app/models/risk.py` own active Risk policy/evidence.
+
+- Active initial profile is `risk-v1`.
+- Risk decisions are persisted ALLOW/REJECT evidence with profile/version, real-market provenance and account/exposure context.
+- Active Paper API orders must receive Risk ALLOW before Paper Order/Fill creation.
+- ALLOW is one-time consumable and payload-bound.
+- REJECT creates no Paper financial state.
+- Risk fails closed on stale/non-real data, inactive agent, missing real marks, accounting mismatch, unresolved Paper recovery or paused circuit breaker.
+- BUY limits include order/equity, total exposure, symbol concentration, open positions, realized loss, drawdown and cash reserve.
+- Valid risk-reducing SELL may bypass size/loss caps but cannot bypass integrity/recovery/data checks or oversell protection.
+- `/api/risk/pause` and `/resume` are circuit-breaker controls only; they do not enable autonomous trading.
+- Do not connect strategies automatically just because Risk exists. That integration is a later explicit step.
 
 ## Legacy
 
-Mongo `DatabaseService`, old Trading/Paper engines, registry, auth/payments/chat/notifications and unmounted pages are legacy. Do not reactivate them wholesale. Audit useful concepts and migrate only what fits the new contracts. `docs/LEGACY_AUDIT.md` remains transitional until pruning.
+Mongo DatabaseService, old Trading/Paper engines, legacy RiskManager, auth/payments/chat/notifications and unmounted pages are not active contracts. Migrate only useful concepts compatible with the current architecture.
 
 ## Strategy/evidence rules
 
 - S1-S4 are baseline implementations, not proven profitable strategies.
-- Historical Alpha/Beta/Gamma ideas are research hypotheses only.
-- No `optimized`, `validated`, `profitable` or `safe` claim without reproducible evidence.
-- Unknown strategy IDs must fail explicitly.
-- Financial telemetry must carry mode/provenance; missing data stays missing.
+- Alpha/Beta/Gamma historical ideas are hypotheses only.
+- No profitable/optimized/safe claim without reproducible evidence.
+- Financial telemetry must preserve mode/provenance.
 
 ## Validation
 
@@ -90,7 +87,3 @@ cd frontend && npm run build
 ```
 
 Never report green status without fresh output for the exact HEAD.
-
-## Change discipline
-
-Follow the roadmap dependency order. Do not implement Live early, weaken accounting/risk for a test, fabricate UI activity or introduce a second active persistence/API stack.
