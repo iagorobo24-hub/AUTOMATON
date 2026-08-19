@@ -9,20 +9,20 @@ This file tracks implementation order. Domain requirements live in the linked do
 ## Current baseline
 
 - FastAPI + SQLModel + SQLite are the active backend/persistence baseline.
-- React/Vite frontend uses the active agents/trades/crypto APIs.
-- Agent strategies S1-S4 exist as baseline strategy code; this does not prove profitability.
+- React/Vite is the active frontend.
+- Agent strategies S1-S4 exist as baseline code; this does not prove profitability.
 - Historical Mongo/Paper/TradingEngine code is not mounted by `app.main`.
-- Normal application startup no longer starts the synthetic `AgentEngine`.
-- `/health` and `/api/estado` explicitly report transition mode, synthetic engine disabled and Paper not implemented.
-- Pre-provenance trade history is quarantined as `legacy_unclassified` and excluded from verified ROI/PnL/Win Rate/trade metrics.
-- Manual simulated-PnL mutation is removed from the active API/UI.
-- A provider-neutral, real-only market-data boundary is mounted at `/api/market-data`.
-- `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials or execution capability.
-- Quotes/candles carry UTC timestamps and provider provenance; stale/gapped/malformed data fails closed with no synthetic fallback.
-- Phase 2 introduces authoritative SQLModel accounting records: Account, Order, Fill, Position and LedgerEntry.
-- New agents receive an accounting account at creation; deposits are explicit ledger events and do not create PnL.
-- Existing agents are bootstrapped from funded/initial capital only; legacy `presupuesto_actual` is not promoted because it may contain synthetic PnL.
-- Manual replication is blocked until Agent Evolution defines a capital-transfer policy; the old behavior duplicated money.
+- Normal startup does not start the synthetic `AgentEngine`.
+- Pre-provenance `Trade` history remains `legacy_unclassified` and excluded from verified Paper metrics.
+- Phase 1 real-only Market Data is mounted at `/api/market-data` and fails closed without synthetic fallback.
+- Phase 2 Accounting is authoritative for new financial state: Account, Order, Fill, Position and LedgerEntry.
+- Phase 3 Paper Execution is mounted at `/api/paper` and is operator-only.
+- `paper-v1` uses real Quote input, MARKET full-fill-or-reject semantics, 10 bps adverse slippage and 10 bps fees.
+- Paper mutations require persistent `request_id` idempotency and have conservative restart recovery.
+- Ops Monitor reads PaperExecution provenance instead of treating legacy Trade rows as Paper.
+- Automated strategy/agent execution is blocked until Phase 4 Risk exists.
+- Live execution is disabled and no active Paper path can place a real exchange order.
+- Replication remains blocked until Agent Evolution defines non-duplicating capital transfer.
 - Fresh full test/build execution is still required on an available execution environment for the resulting HEAD.
 
 ## Ordered implementation program
@@ -32,63 +32,69 @@ This file tracks implementation order. Domain requirements live in the linked do
 - [x] Define S4 explicitly and prevent silent strategy fallback.
 - [x] Rebuild documentation around real-data Paper Trading.
 - [x] Remove synthetic AgentEngine from normal application startup.
-- [x] Remove manual PnL fabrication from the active agents API/UI.
+- [x] Remove manual PnL fabrication from active API/UI.
 - [x] Quarantine pre-provenance trades from verified financial metrics.
-- [x] Make runtime/health state explicitly identify transition mode and synthetic isolation.
 - [x] Prevent deposits from being counted as profit.
 - [ ] Obtain fresh backend/frontend/build execution evidence on the exact resulting HEAD.
 
-**Phase 0 code gate:** statically complete. Execution certification remains pending until the repository commands below run on the same HEAD.
+**Phase 0 source gate:** complete. Execution certification remains pending.
 
 ### 1. Market Data
 See `docs/MARKET_DATA.md`.
-- [x] Define provider-neutral `Quote`, `Candle` and `MarketDataService` contracts.
-- [x] Implement a public, read-only Binance real quote/candle provider without trading credentials.
-- [x] Normalize BASE/USDT symbols and UTC timestamps at the boundary.
-- [x] Reject stale/future quotes, open candles, gaps and out-of-order candle series.
-- [x] Add bounded retry handling for transport errors, HTTP 429 and provider 5xx responses.
-- [x] Guarantee fail-closed behavior: no generated fallback in the new real-data path.
-- [x] Mount diagnostic/consumer endpoints under `/api/market-data`.
-- [x] Keep legacy `BinanceService` unmounted; its mock fallback is not part of the new contract.
-- [x] Author deterministic parsing, quality and API regression tests.
-- [ ] Execute the authored tests and repository gate on the exact Phase 1 HEAD.
+- [x] Provider-neutral `Quote`, `Candle` and `MarketDataService` contracts.
+- [x] Public read-only Binance provider without trading credentials.
+- [x] Symbol/UTC/provenance normalization.
+- [x] Stale/future/gap/out-of-order validation.
+- [x] Bounded retry/rate-limit handling.
+- [x] Fail closed with no generated fallback.
+- [x] Active `/api/market-data` boundary and deterministic tests authored.
+- [ ] Execute authored tests and repository gate on exact HEAD.
 
-**Phase 1 source gate:** complete by static review. Phase 1 is not execution-certified until the validation gate below is observed green on the same HEAD.
+**Phase 1 source gate:** complete. Execution certification remains pending.
 
 ### 2. Portfolio & Accounting
 See `docs/PORTFOLIO_ACCOUNTING.md`.
-- [x] Add SQLModel Account, Order, Fill, Position and LedgerEntry records.
-- [x] Establish long-only accounting and reject implicit short/margin semantics.
-- [x] Implement funded capital, cash, average cost, realized/unrealized PnL, fees, equity and exposure invariants.
-- [x] Treat buy fees as acquisition cost and sell fees as net realized-PnL costs.
-- [x] Support additive buys, partial closes and full closes without double-counting cash or PnL.
-- [x] Reject insufficient cash, oversells, overfills and invalid timestamps before financial mutation.
-- [x] Persist funding events separately from trading PnL.
-- [x] Add reload/restart reconstruction tests using persisted SQLModel records.
-- [x] Add reconciliation checks for equity identity, negative balances/positions, order/fill mismatches and orphan fills.
-- [x] Bootstrap pre-Phase-2 agents from funded capital while discarding unverified legacy current-balance PnL.
-- [x] Make new-agent creation/deposits use the accounting layer as financial authority while keeping legacy Agent budget fields only as compatibility mirrors.
-- [x] Preserve financial balances when an agent lifecycle state changes to dead.
-- [x] Block replication until a non-duplicating capital-allocation policy is implemented in Agent Evolution.
-- [x] Mount a read-only `/api/accounting/agents/{agent_id}` inspection endpoint; no order/fill execution mutation is exposed in Phase 2.
-- [ ] Execute the authored accounting/backend/frontend/build gates on the exact Phase 2 HEAD.
+- [x] SQLModel Account, Order, Fill, Position and LedgerEntry records.
+- [x] Long-only cash/cost/PnL/fee/equity/exposure invariants.
+- [x] Funding separate from PnL.
+- [x] Additive buys, partial/full closes and fail-closed invalid mutations.
+- [x] Restart/reload and reconciliation contracts/tests authored.
+- [x] Safe bootstrap of historical agents excluding unverified current-balance PnL.
+- [x] Agent creation/deposits use Accounting as authority.
+- [x] Replication blocked until non-duplicating allocation exists.
+- [x] Read-only accounting inspection API.
+- [ ] Execute accounting/backend/frontend/build gates on exact HEAD.
 
-**Phase 2 source gate:** complete by static review. Accounting is not execution-certified until the validation gate below is observed green on the same HEAD.
+**Phase 2 source gate:** complete. Execution certification remains pending.
 
 ### 3. Paper Execution
 See `docs/PAPER_TRADING.md`.
-- [ ] Implement virtual order lifecycle against real observations.
-- [ ] Define deterministic fill, fee, slippage and timeout rules.
-- [ ] Persist open state and restore/reconcile after restart.
-- [ ] Ensure no random trade-closing behavior is reachable from Paper.
-- [ ] Feed every accepted fill through the Phase 2 accounting service instead of mutating balances directly.
+- [x] Add persistent `PaperExecution` provenance linked to authoritative Order/Fill records.
+- [x] Implement operator-only virtual MARKET BUY/SELL execution against Phase 1 real Quote data.
+- [x] Define deterministic `paper-v1`: full fill or rejection, 10 bps adverse slippage, 10 bps fee.
+- [x] Reject stale/future/mismatched quotes, inactive agents and account-currency mismatches.
+- [x] Feed every accepted fill through Phase 2 `AccountingService`; no direct balance mutation.
+- [x] Persist rejections and keep random open/close behavior unreachable.
+- [x] Add persistent `PaperRequest` idempotency keyed by required `request_id`.
+- [x] Make identical request replays return the same execution; conflicting payload reuse fails.
+- [x] Treat provider failures as retryable only when no financial state exists.
+- [x] Recover pending execution/request state on restart without blind re-execution.
+- [x] Cancel definitely unfilled interrupted orders; mark ambiguous state `RECOVERY_REQUIRED` and block the account.
+- [x] Mount `/api/paper/status`, `/api/paper/orders/market` and `/api/paper/executions`.
+- [x] Update Ops Monitor/Settings to show truthful Paper provenance and automation/Live boundaries.
+- [x] Keep strategy/agent automation blocked until Risk.
+- [ ] Execute targeted Phase 3 tests plus repository backend/frontend/build gate on exact HEAD.
+- [ ] Run an end-to-end smoke against the real provider with virtual capital and inspect persisted reconciliation.
+
+**Phase 3 source/contract gate:** complete by static review. It is not execution-certified until both executable gates above are observed on the exact HEAD.
 
 ### 4. Risk
 See `docs/RISK_MANAGEMENT.md`.
-- [ ] Add independent risk approval before execution.
-- [ ] Add position/exposure/loss/drawdown controls.
-- [ ] Add stale-data/accounting-error circuit breakers.
-- [ ] Persist risk profile/version with evidence.
+- [ ] Define independent risk request/decision contract before Paper Execution.
+- [ ] Add position sizing, per-order/notional and total-exposure limits.
+- [ ] Add loss/drawdown and stale-data/accounting-error circuit breakers.
+- [ ] Persist risk profile/version and allow/reject reasons with evidence.
+- [ ] Only after this gate, allow strategy/agent-originated orders to reach Paper Execution.
 
 ### 5. Backtesting & Evidence
 See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
@@ -101,32 +107,28 @@ See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
 See `docs/AGENT_LIFECYCLE.md`.
 - [ ] Define evidence-aware fitness/automatic-replication criteria.
 - [ ] Define explicit child capital transfer/allocation without money duplication.
-- [ ] Re-enable manual/automatic replication only after that accounting policy is implemented and tested.
-- [ ] Persist lineage/configuration versions.
-- [ ] Add retirement/death reasons and lifecycle tests.
+- [ ] Re-enable replication only after that accounting policy is implemented and tested.
+- [ ] Persist lineage/configuration versions and retirement/death reasons.
 
 ### 7. 24/7 Paper
-- [ ] Add session/run identity and operational health.
-- [ ] Add recovery and reconciliation procedures.
-- [ ] Add monitoring for stale provider, engine errors and open financial state.
-- [ ] Run sustained forward Paper experiments.
+- [ ] Add run/session identity and operational health.
+- [ ] Add sustained recovery/reconciliation procedures and monitoring.
+- [ ] Run long-lived forward Paper experiments.
 
 ### 8. Strategy research
 See `docs/STRATEGIES.md`.
-- [ ] Audit legacy Alpha/Beta/Gamma code against the new contracts.
+- [ ] Audit Alpha/Beta/Gamma legacy ideas against new contracts.
 - [ ] Re-implement only useful deterministic concepts.
-- [ ] Validate richer strategies by backtest then Paper.
-- [ ] Reject unsupported historical performance claims.
+- [ ] Validate richer strategies through backtest then Paper.
 
 ### 9. Legacy pruning
 See `docs/LEGACY_AUDIT.md`.
-- [ ] Delete legacy services only after selected concepts have been migrated.
-- [ ] Remove obsolete Mongo/config/dependencies/pages.
-- [ ] Re-audit references, docs and dependencies.
+- [ ] Delete legacy services after useful concepts have been migrated.
+- [ ] Remove obsolete Mongo/config/dependencies/pages and re-audit references.
 
 ### 10. Live readiness
 See `docs/LIVE_TRADING_GATE.md`.
-- [ ] Design separate Live execution adapter only after prior gates.
+- [ ] Design a separate Live execution adapter only after prior gates.
 - [ ] Verify secrets, limits, emergency stop, reconciliation and staged rollout.
 - [ ] Require explicit authorization before any real-capital activation.
 
