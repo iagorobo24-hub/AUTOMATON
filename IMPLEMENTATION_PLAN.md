@@ -14,7 +14,7 @@ Build a verifiable Paper Trading platform: **real market data, virtual capital, 
 - Phase 2 Accounting is authoritative for active Paper financial state.
 - Phase 3 Paper Execution is operator-only, deterministic and idempotent.
 - Phase 4 Risk is mandatory for normal Paper execution.
-- Phase 5 Backtesting uses immutable real historical datasets, next-candle execution and isolated evidence records.
+- Phase 5 Backtesting uses immutable real historical datasets, next-candle execution, isolated evidence records and strategy-source fingerprints.
 - Automated strategy/agent execution remains disabled.
 - Live execution remains disabled.
 - Fresh full test/build execution is still required for exact resulting HEADs.
@@ -83,22 +83,26 @@ See `docs/RISK_MANAGEMENT.md`.
 See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
 - [x] Add immutable `BacktestDataset` + `BacktestCandle` snapshots with canonical SHA-256.
 - [x] Add read-only paginated historical Binance provider with no synthetic fallback.
-- [x] Reject empty/gapped/duplicate/out-of-order/out-of-window historical data.
+- [x] Reject empty/gapped/duplicate/out-of-order/out-of-window or mixed-provider historical data.
 - [x] Preserve UTC semantics across SQLite persistence.
 - [x] Add isolated long-only `BacktestLedger`; do not mutate Paper accounts/evidence.
 - [x] Add deterministic `backtest-v1`: next-candle execution, no pyramiding, 10 bps adverse slippage, 10 bps fee, 25% default allocation.
-- [x] Explicitly force-close final open positions with `DATASET_END_EXIT`.
-- [x] Persist `BacktestRun`, `BacktestTrade` and `BacktestEquityPoint` evidence.
+- [x] Explicitly force-close final open positions with `DATASET_END_EXIT` without diluting time-in-market denominator.
+- [x] Persist `BacktestRun`, `BacktestTrade`, `BacktestEquityPoint` and additive `BacktestRunEvidence`.
+- [x] Persist SHA-256 of the active strategy source so code drift is detectable even if a human forgets to bump `baseline-v1`.
+- [x] Keep pre-fingerprint runs readable but do not retroactively fabricate missing source fingerprints.
 - [x] Compute return/PnL, round trips, win/loss, expectancy, profit factor where defined, drawdown, fees and exposure.
 - [x] Keep undefined metrics null; no Sharpe convention invented.
 - [x] Invalidate interrupted RUNNING backtests on restart.
 - [x] Mount `/api/backtests` dataset/run/status/read surfaces with no optimizer/Live capability.
 - [x] Keep S1-S4 algorithms unchanged and version them as `baseline-v1` evidence inputs.
+- [x] Prove by regression contract that Backtest creates no active Paper Account/PaperExecution/RiskDecision state.
 - [x] Update Settings/client/docs for `backtesting=evidence_phase_5` without profitability claims.
+- [x] Complete exact-HEAD static audit and reconcile code/documentation drift.
 - [ ] Execute targeted backtest tests plus full backend/frontend/build gate on exact Phase 5 HEAD.
 - [ ] Run one real historical dataset through S1-S4 under identical `backtest-v1` assumptions and persist/report observed baseline results.
 
-**Phase 5 source/contract implementation:** complete pending final exact-HEAD static audit. Execution certification and observed S1-S4 baseline evidence remain pending until executable/provider gates are available.
+**Phase 5 source/contract/static gate:** complete. Execution certification and observed real-provider S1-S4 baseline evidence remain pending until those executable gates are observed on the exact HEAD.
 
 ### 6. Agent Lifecycle
 See `docs/AGENT_LIFECYCLE.md`.
