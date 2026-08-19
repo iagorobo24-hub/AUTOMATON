@@ -29,6 +29,14 @@ class PortfolioSnapshot:
     reconciliation_delta: Decimal
 
 
+@dataclass(frozen=True)
+class ReconciliationReport:
+    account_id: int
+    ok: bool
+    issues: tuple[str, ...]
+    snapshot: PortfolioSnapshot
+
+
 class AccountingService:
     """Authoritative long-only accounting for future Backtest/Paper execution.
 
@@ -278,4 +286,57 @@ class AccountingService:
             exposure=market_value,
             funded_capital=account.funded_capital,
             reconciliation_delta=delta,
+        )
+
+    def reconcile(
+        self,
+        account_id: int,
+        market_prices: dict[str, Decimal],
+    ) -> ReconciliationReport:
+        snapshot = self.snapshot(account_id, market_prices)
+        issues: list[str] = []
+        account = self._account(account_id)
+
+        if account.cash < ZERO or account.reserved_cash < ZERO:
+            issues.append("negative_cash_or_reserve")
+        if snapshot.reconciliation_delta != ZERO:
+            issues.append("equity_identity_mismatch")
+
+        positions = self.session.exec(
+            select(Position).where(Position.account_id == account_id)
+        ).all()
+        if any(position.quantity < ZERO for position in positions):
+            issues.append("negative_position_quantity")
+
+        orders = self.session.exec(
+            select(Order).where(Order.account_id == account_id)
+        ).all()
+        for order in orders:
+            fill_quantity = sum(
+                (
+                    fill.quantity
+                    for fill in self.session.exec(
+                        select(Fill).where(Fill.order_id == order.id)
+                    ).all()
+                ),
+                ZERO,
+            )
+            if fill_quantity != order.filled_quantity:
+                issues.append("order_fill_quantity_mismatch")
+                break
+            if order.filled_quantity > order.requested_quantity:
+                issues.append("order_overfilled")
+                break
+
+        fills = self.session.exec(
+            select(Fill).where(Fill.account_id == account_id)
+        ).all()
+        if any(self.session.get(Order, fill.order_id) is None for fill in fills):
+            issues.append("orphan_fill")
+
+        return ReconciliationReport(
+            account_id=account_id,
+            ok=not issues,
+            issues=tuple(issues),
+            snapshot=snapshot,
         )
