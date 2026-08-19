@@ -56,8 +56,8 @@ async def test_candles_return_only_closed_real_candles_in_utc():
         return [open_ms, open_, high, low, close, volume, close_ms, "0", 1, "0", "0", "0"]
 
     rows = [
-        kline(1787140800000, 1787140859999, "100", "102", "99", "101", "10"),
-        kline(1787140860000, 1787140919999, "101", "103", "100", "102", "12"),
+        kline(1787140980000, 1787141039999, "100", "102", "99", "101", "10"),
+        kline(1787141040000, 1787141099999, "101", "103", "100", "102", "12"),
         # Current/open candle: close time is after NOW and must never be returned.
         kline(1787141100000, 1787141159999, "102", "104", "101", "103", "8"),
     ]
