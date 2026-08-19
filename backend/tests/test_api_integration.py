@@ -12,7 +12,7 @@ class TestAPI:
     """API endpoint tests"""
 
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_synthetic_isolation_and_market_data_contract(self):
+    async def test_health_endpoint_reports_synthetic_isolation_and_core_contracts(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -25,6 +25,7 @@ class TestAPI:
             "runtime_mode": "transition",
             "synthetic_engine": "disabled",
             "market_data": "real_contract_available",
+            "accounting": "authoritative_phase_2",
             "paper_trading": "not_implemented",
         }
 
@@ -41,11 +42,12 @@ class TestAPI:
         assert payload["runtime_mode"] == "transition"
         assert payload["synthetic_engine"] == "disabled"
         assert payload["market_data_mode"] == "real_contract_available"
+        assert payload["accounting_mode"] == "authoritative_phase_2"
         assert payload["financial_evidence"] == "unavailable"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_are_registered_without_manual_pnl_mutation(self):
+    def test_active_api_routes_are_registered_without_execution_mutations(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -62,6 +64,9 @@ class TestAPI:
         assert "/api/market-data/status" in routes
         assert "/api/market-data/quote/{symbol}" in routes
         assert "/api/market-data/candles/{symbol}" in routes
+        assert "/api/accounting/agents/{agent_id}" in routes
+        assert "/api/accounting/orders" not in routes
+        assert "/api/accounting/fills" not in routes
         assert "/api/estado" in routes
 
     def test_legacy_system_and_trading_routers_stay_out_of_sqlmodel_runtime(self):
