@@ -14,7 +14,8 @@ from app.models import (
 )
 
 
-ACTIVE_STATES = {"RUNNING", "DEGRADED"}
+INTERRUPTED_STATES = {"RUNNING", "DEGRADED"}
+OWNERSHIP_BLOCKING_STATES = {"RUNNING", "DEGRADED", "RECOVERY_REQUIRED"}
 
 
 class PaperRuntimeError(ValueError):
@@ -27,7 +28,7 @@ def _now() -> datetime:
 
 def recover_interrupted_runtime_sessions(session: Session) -> int:
     interrupted = session.exec(
-        select(PaperRuntimeSession).where(PaperRuntimeSession.status.in_(ACTIVE_STATES))
+        select(PaperRuntimeSession).where(PaperRuntimeSession.status.in_(INTERRUPTED_STATES))
     ).all()
     if not interrupted:
         return 0
@@ -37,13 +38,7 @@ def recover_interrupted_runtime_sessions(session: Session) -> int:
         runtime.last_error = "runtime_process_restart"
         runtime.updated_at = now
         session.add(runtime)
-        session.add(
-            PaperRuntimeEvent(
-                session_id=runtime.id,
-                event_type="RECOVERY_REQUIRED",
-                reason="runtime_process_restart",
-            )
-        )
+        session.add(PaperRuntimeEvent(session_id=runtime.id, event_type="RECOVERY_REQUIRED", reason="runtime_process_restart"))
     session.commit()
     return len(interrupted)
 
@@ -58,14 +53,56 @@ class PaperRuntimeService:
             raise PaperRuntimeError("runtime session not found")
         return runtime
 
-    def _event(self, session_id: int, event_type: str, reason: str) -> None:
-        self.session.add(
-            PaperRuntimeEvent(
-                session_id=session_id,
-                event_type=event_type,
-                reason=reason[:256],
+    def _attachments(self, runtime: PaperRuntimeSession) -> list[PaperRuntimeAgent]:
+        return self.session.exec(
+            select(PaperRuntimeAgent).where(
+                PaperRuntimeAgent.session_id == runtime.id,
+                PaperRuntimeAgent.enabled == True,  # noqa: E712
             )
-        )
+        ).all()
+
+    def _event(self, session_id: int, event_type: str, reason: str) -> None:
+        self.session.add(PaperRuntimeEvent(session_id=session_id, event_type=event_type, reason=reason[:256]))
+
+    def _account_ids(self, runtime: PaperRuntimeSession) -> list[int]:
+        agent_ids = [item.agent_id for item in self._attachments(runtime)]
+        if not agent_ids:
+            return []
+        return [
+            account.id
+            for account in self.session.exec(select(Account).where(Account.agente_id.in_(agent_ids))).all()
+        ]
+
+    def _assert_agents_startable(self, runtime: PaperRuntimeSession) -> None:
+        attachments = self._attachments(runtime)
+        if not attachments:
+            raise PaperRuntimeError("runtime session has no enabled agents")
+        for item in attachments:
+            agent = self.session.get(Agent, item.agent_id)
+            if agent is None or agent.estado != AgentStatus.ACTIVO:
+                raise PaperRuntimeError(f"agent {item.agent_id} is not active")
+            account = self.session.exec(select(Account).where(Account.agente_id == item.agent_id)).first()
+            if account is None:
+                raise PaperRuntimeError(f"agent {item.agent_id} has no accounting account")
+
+    def _assert_paper_recovery_clear(self, runtime: PaperRuntimeSession) -> None:
+        account_ids = self._account_ids(runtime)
+        if not account_ids:
+            raise PaperRuntimeError("runtime session has no accounting accounts")
+        unresolved_request = self.session.exec(
+            select(PaperRequest).where(
+                PaperRequest.account_id.in_(account_ids),
+                PaperRequest.status == "RECOVERY_REQUIRED",
+            )
+        ).first()
+        unresolved_execution = self.session.exec(
+            select(PaperExecution).where(
+                PaperExecution.account_id.in_(account_ids),
+                PaperExecution.status == "RECOVERY_REQUIRED",
+            )
+        ).first()
+        if unresolved_request is not None or unresolved_execution is not None:
+            raise PaperRuntimeError("Paper recovery state is unresolved")
 
     def create_session(
         self,
@@ -100,9 +137,7 @@ class PaperRuntimeService:
                 raise PaperRuntimeError(f"agent {agent_id} not found")
             if agent.estado != AgentStatus.ACTIVO:
                 raise PaperRuntimeError(f"agent {agent_id} is not active")
-            account = self.session.exec(
-                select(Account).where(Account.agente_id == agent_id)
-            ).first()
+            account = self.session.exec(select(Account).where(Account.agente_id == agent_id)).first()
             if account is None:
                 raise PaperRuntimeError(f"agent {agent_id} has no accounting account")
 
@@ -118,47 +153,32 @@ class PaperRuntimeService:
         for agent_id in unique_ids:
             self.session.add(PaperRuntimeAgent(session_id=runtime.id, agent_id=agent_id))
         self._event(runtime.id, "CREATED", "operator_created_runtime_session")
-        self.session.commit()
-        self.session.refresh(runtime)
+        self.session.commit(); self.session.refresh(runtime)
         return runtime
 
     def _assert_no_active_conflict(self, runtime: PaperRuntimeSession) -> None:
-        agent_ids = {
-            item.agent_id
-            for item in self.session.exec(
-                select(PaperRuntimeAgent).where(
-                    PaperRuntimeAgent.session_id == runtime.id,
-                    PaperRuntimeAgent.enabled == True,  # noqa: E712
-                )
-            ).all()
-        }
+        agent_ids = {item.agent_id for item in self._attachments(runtime)}
         if not agent_ids:
             raise PaperRuntimeError("runtime session has no enabled agents")
         candidates = self.session.exec(
             select(PaperRuntimeSession).where(
                 PaperRuntimeSession.id != runtime.id,
-                PaperRuntimeSession.status.in_(ACTIVE_STATES),
+                PaperRuntimeSession.status.in_(OWNERSHIP_BLOCKING_STATES),
                 PaperRuntimeSession.symbol == runtime.symbol,
                 PaperRuntimeSession.interval == runtime.interval,
             )
         ).all()
         for candidate in candidates:
-            candidate_agents = {
-                item.agent_id
-                for item in self.session.exec(
-                    select(PaperRuntimeAgent).where(
-                        PaperRuntimeAgent.session_id == candidate.id,
-                        PaperRuntimeAgent.enabled == True,  # noqa: E712
-                    )
-                ).all()
-            }
+            candidate_agents = {item.agent_id for item in self._attachments(candidate)}
             if agent_ids & candidate_agents:
-                raise PaperRuntimeError("agent is already active in another runtime session")
+                raise PaperRuntimeError("agent is already active or awaiting recovery in another runtime session")
 
     def start(self, session_id: int) -> PaperRuntimeSession:
         runtime = self._session(session_id)
         if runtime.status not in {"CREATED", "PAUSED"}:
             raise PaperRuntimeError(f"cannot start runtime from {runtime.status}")
+        self._assert_agents_startable(runtime)
+        self._assert_paper_recovery_clear(runtime)
         self._assert_no_active_conflict(runtime)
         now = _now()
         runtime.status = "RUNNING"
@@ -192,27 +212,8 @@ class PaperRuntimeService:
         runtime = self._session(session_id)
         if runtime.status != "RECOVERY_REQUIRED":
             raise PaperRuntimeError("runtime session is not awaiting recovery")
-        attachments = self.session.exec(
-            select(PaperRuntimeAgent).where(PaperRuntimeAgent.session_id == runtime.id)
-        ).all()
-        agent_ids = [item.agent_id for item in attachments]
-        accounts = self.session.exec(select(Account).where(Account.agente_id.in_(agent_ids))).all()
-        account_ids = [account.id for account in accounts]
-        if account_ids:
-            unresolved_request = self.session.exec(
-                select(PaperRequest).where(
-                    PaperRequest.account_id.in_(account_ids),
-                    PaperRequest.status == "RECOVERY_REQUIRED",
-                )
-            ).first()
-            unresolved_execution = self.session.exec(
-                select(PaperExecution).where(
-                    PaperExecution.account_id.in_(account_ids),
-                    PaperExecution.status == "RECOVERY_REQUIRED",
-                )
-            ).first()
-            if unresolved_request is not None or unresolved_execution is not None:
-                raise PaperRuntimeError("Paper recovery state is unresolved")
+        self._assert_agents_startable(runtime)
+        self._assert_paper_recovery_clear(runtime)
         runtime.status = "PAUSED"
         runtime.consecutive_failures = 0
         runtime.last_error = None
