@@ -15,9 +15,9 @@ AUTOMATON researches autonomous crypto-trading agents using **real market data a
 7. Every normal Paper execution requires a persisted current-profile Risk ALLOW.
 8. Backtest state is isolated from Paper and uses next-candle execution.
 9. Replication transfers rather than duplicates funded liquid capital.
-10. Phase 7 autonomous trading exists only inside explicitly started Paper runtime sessions.
+10. Autonomous trading exists only inside explicitly started Phase 7 Paper runtime sessions.
 11. Runtime restart never silently resumes an interrupted session or uncertain order.
-12. Phase 7 does not enable Live, auto-replication, strategy mutation or optimization.
+12. Strategy Research classifies evidence; it does not mutate strategy source, optimize parameters, auto-deploy or enable Live.
 
 ## Active domains
 
@@ -27,7 +27,7 @@ AUTOMATON researches autonomous crypto-trading agents using **real market data a
 
 ### Strategy — baseline S1-S4
 
-`backend/app/services/strategies.py` remains unchanged baseline logic. Phase 7 consumes close-price history from real closed candles; the runtime does not tune strategy thresholds.
+`backend/app/services/strategies.py` remains baseline deterministic logic. Phase 5 fingerprints the source, Phase 7 executes it on forward candles and Phase 8 evaluates that exact fingerprint. Phase 8 never edits S1-S4 automatically.
 
 ### Risk — Phase 4
 
@@ -35,12 +35,7 @@ AUTOMATON researches autonomous crypto-trading agents using **real market data a
 
 ### Paper Execution — Phases 3, 4 and 7
 
-`backend/app/paper_execution/` accepts two controlled origins:
-
-- `operator`: explicit manual API command;
-- `strategy_runtime`: Phase 7 session orchestration.
-
-Both require the same real Quote, persisted one-time Risk ALLOW, deterministic `paper-v1` execution and Accounting mutation. Unknown origins are rejected. There is no Live exchange adapter.
+`backend/app/paper_execution/` accepts controlled `operator` and `strategy_runtime` origins. Both require real Quote data, persisted one-time Risk ALLOW, deterministic `paper-v1` execution and Accounting mutation. Unknown origins are rejected. There is no Live exchange adapter.
 
 ### Portfolio & Accounting — Phase 2
 
@@ -52,67 +47,73 @@ Both require the same real Quote, persisted one-time Risk ALLOW, deterministic `
 
 ### Agent Evolution — Phase 6
 
-`backend/app/agent_evolution/` owns evidence-aware fitness, lineage and manual replication. Replication remains manual in Phase 7; runtime cycles cannot auto-replicate agents.
+`backend/app/agent_evolution/` owns evidence-aware fitness, lineage and manual replication. Runtime cycles cannot auto-replicate agents.
 
 ### Paper Runtime — Phase 7
 
-`backend/app/paper_runtime/` owns durable autonomous Paper session orchestration.
+`backend/app/paper_runtime/` owns durable autonomous Paper session orchestration. SQLite session/cycle/request/execution state is authoritative; the asyncio scheduler is only the in-process worker.
+
+```text
+new real closed candle -> S1-S4 -> intent -> Risk -> PaperExecution(strategy_runtime) -> Accounting
+```
+
+One candle is evaluated once per session/agent. Provider failure never invents data. Financial ambiguity becomes `RECOVERY_REQUIRED`, and restart never silently resumes a session or uncertain order.
+
+### Strategy Research — Phase 8
+
+`backend/app/strategy_research/` owns research methodology/evidence only.
 
 Persistent records:
 
-- `PaperRuntimeSession`: session identity, market/timeframe, status, heartbeat and operational failure state;
-- `PaperRuntimeAgent`: agent attachment plus last processed candle/signal/outcome;
-- `PaperRuntimeCycle`: unique `(session, agent, candle close)` evaluation evidence and links to Risk/Paper;
-- `PaperRuntimeEvent`: lifecycle/recovery/operational events.
+- `ResearchPolicy`: versioned `research-v1` methodology thresholds;
+- `ResearchStudy`: one strategy research program and frozen evidence identity;
+- `ResearchWindow`: explicit chronological TRAIN/VALIDATION/OOS Backtest references;
+- `ResearchEvaluation`: immutable PASS/REJECT evidence snapshot;
+- `StrategyCandidate`: manual promotion record for one exact strategy/version/source SHA.
 
-The live worker is an in-process asyncio scheduler. It is **not** authoritative: SQLite state is. The local/single-process baseline prevents two tasks in the current process for one session, while persistent ownership rules reject conflicting sessions for the same agent/symbol/interval.
-
-#### `runtime-v1` loop
+#### Historical evidence flow
 
 ```text
-new real closed candle
-        ↓
-S1-S4 close-price history
-        ↓
-BUY / SELL / HOLD
-        ↓
-position-aware intent
-        ↓
-real current quote + marks
-        ↓
-RiskDecision
-        ↓
-PaperExecution(origin=strategy_runtime)
-        ↓
-Accounting
-        ↓
-PaperRuntimeCycle evidence
+BacktestRun + BacktestRunEvidence + BacktestDataset
+                      ↓
+              ResearchWindow
+                      ↓
+        TRAIN -> VALIDATION -> OOS
+                      ↓
+          research-v1 historical gate
 ```
 
-Rules:
+The first attached Backtest freezes strategy version/source SHA, execution policy, fees, slippage and position fraction. Later windows must match those plus market symbol/timeframe, initial capital and historical risk-profile version. Windows are chronological, non-overlapping and repeat in complete TRAIN/VALIDATION/OOS folds.
 
-- a candle is evaluated once per session/agent;
-- HOLD creates no order;
-- BUY while long creates no order;
-- BUY while flat targets 25% of available cash, reserving exact `paper-v1` compounded cost;
-- SELL while long requests the full current position;
-- SELL while flat creates no order;
-- request id derives deterministically from runtime/session/agent/symbol/candle/signal;
-- replay cannot duplicate an execution.
+`research-v1` requires positive VALIDATION/OOS return and expectancy, minimum samples, bounded OOS drawdown, sufficient profit factor when defined and limited relative degradation from VALIDATION to OOS.
 
-#### Resilience and recovery
+#### Forward evidence flow
 
-Operational provider/data failures do not fabricate observations. Repeated failures increment a persistent counter and can move a session to `DEGRADED`.
+```text
+STOPPED Phase 7 session on same market/timeframe
+                      ↓
+matching-strategy attached agent + runtime cycles
+                      ↓
+FILLED PaperExecution(origin=strategy_runtime)
+                      ↓
+clean Account realized-PnL context
+                      ↓
+research-v1 forward gate
+```
 
-Financial ambiguity moves the session to `RECOVERY_REQUIRED`. Start/recover also fail closed while any attached account has unresolved `PaperRequest` or `PaperExecution` recovery state.
+The forward gate counts unique closing SELL executions and rejects unresolved Paper recovery. It also rejects qualifying accounts with any FILLED non-`strategy_runtime` Paper execution because current Account realized PnL would then be ambiguously attributable.
 
-Startup ordering includes Paper recovery, then reconciliation of interrupted runtime cycles **without submitting a new order**, then converts persisted RUNNING/DEGRADED sessions to `RECOVERY_REQUIRED`. No task is auto-spawned after restart.
+#### Promotion
+
+Each promotion attempt creates a fresh ResearchEvaluation. Promotion additionally fingerprints the current active strategy source and rejects if it differs from the historical research SHA. A PASS can create one persistent StrategyCandidate for that exact strategy/version/source identity.
+
+A candidate is **not** automatic deployment, mutation, replication, profitability proof or Live eligibility.
 
 ## Active API/UI boundary
 
-Phase 7 adds `/api/runtime/*` create/read/start/pause/resume/recover/stop/cycles surfaces. Ops Monitor displays runtime session heartbeat/failure state. Settings displays the current runtime contract.
+Phase 8 mounts `/api/research/*` for status, policy, studies, windows, evaluations, manual promotion and candidates. Settings reports `strategy_research=evidence_phase_8`.
 
-No Live execution, auto-replication or optimizer endpoint exists.
+No `/api/research/optimize`, mutation or Live surface exists.
 
 ## Current runtime
 
@@ -126,11 +127,10 @@ No Live execution, auto-replication or optimizer endpoint exists.
 - `backtesting=evidence_phase_5`;
 - `agent_evolution=evidence_phase_6`;
 - `paper_runtime=runtime_phase_7`;
+- `strategy_research=evidence_phase_8`;
 - `automated_trading=paper_enabled_phase_7`;
 - `live_execution=disabled`.
 
-`paper_enabled_phase_7` means autonomous Paper is available **inside an explicitly started session**; the application does not start trading merely because it boots.
-
 ## Verification
 
-Static review establishes source/contract coherence only. Runtime correctness requires fresh exact-HEAD backend/frontend execution, and Phase 7 operational certification additionally requires a sustained real-provider Paper smoke with restart/recovery observation.
+Static review establishes source/contract coherence only. Runtime correctness and any strategy-performance claim require fresh exact-HEAD execution plus observed historical and forward-provider evidence.
