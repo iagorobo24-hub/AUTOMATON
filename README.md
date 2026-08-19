@@ -25,9 +25,13 @@ The legacy `AgentEngine` still exists as explicit Synthetic/Test utility code, b
 
 Historical `Trade` rows created before evidence provenance existed are preserved but classified as `legacy_unclassified`. They are excluded from verified PnL, Win Rate, ROI and trade-count metrics instead of being silently promoted into future Paper evidence.
 
-Phase 1 now provides a provider-neutral, real-only market-data boundary under `/api/market-data`. The initial `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials, account access or order execution. Quotes/candles carry real provenance and UTC timestamps; stale, gapped, malformed or unavailable data fails closed and is never replaced by synthetic values.
+Phase 1 provides a provider-neutral, real-only market-data boundary under `/api/market-data`. The initial `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials, account access or order execution. Quotes/candles carry real provenance and UTC timestamps; stale, gapped, malformed or unavailable data fails closed and is never replaced by synthetic values.
 
-Paper Trading itself is **not implemented yet**. The next development domain is Portfolio & Accounting, which must become the authoritative financial state before virtual order execution is added.
+Phase 2 provides the authoritative long-only financial layer under `backend/app/accounting/`: Account, Order, Fill, Position and funding LedgerEntry records, plus deterministic cash/PnL/fees/equity/reconciliation rules. New agents and deposits use this accounting layer. Historical agents are bootstrapped from funded/initial capital only so synthetic legacy PnL is not promoted. The active accounting API is read-only; no order/fill execution route exists yet.
+
+Manual replication is currently blocked because the previous implementation duplicated parent capital into a child. Replication returns only after Agent Evolution defines an explicit non-duplicating capital allocation policy.
+
+Paper Trading itself is **not implemented yet**. The next development domain is Paper Execution, which must consume Phase 1 real market data and feed every accepted fill through Phase 2 accounting.
 
 ## Target architecture
 
