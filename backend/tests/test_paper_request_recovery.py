@@ -36,7 +36,7 @@ def _account(session: Session):
     return AccountingService(session).create_account(agent.id, Decimal("1000"))
 
 
-def test_processing_request_without_execution_becomes_retryable_after_restart():
+def test_processing_request_without_execution_requires_manual_recovery_after_restart():
     engine = _engine()
     with Session(engine) as session:
         account = _account(session)
@@ -53,8 +53,10 @@ def test_processing_request_without_execution_becomes_retryable_after_restart():
     with Session(engine) as session:
         recovered = PaperExecutionService(session, clock=lambda: NOW).recover_requests()
         request = session.get(PaperRequest, request_id)
-        assert recovered == {"completed": 0, "retryable": 1}
-        assert request.status == "RETRYABLE"
+        assert recovered == {"completed": 0, "recovery_required": 1}
+        assert request.status == "RECOVERY_REQUIRED"
+        assert request.http_status == 409
+        assert request.error_detail == "request interrupted before execution linkage; automatic retry blocked"
 
 
 def test_processing_request_linked_to_filled_execution_becomes_completed():
@@ -100,7 +102,7 @@ def test_processing_request_linked_to_filled_execution_becomes_completed():
     with Session(engine) as session:
         recovered = PaperExecutionService(session, clock=lambda: NOW).recover_requests()
         request = session.get(PaperRequest, request_id)
-        assert recovered == {"completed": 1, "retryable": 0}
+        assert recovered == {"completed": 1, "recovery_required": 0}
         assert request.status == "COMPLETED"
         assert request.http_status == 200
         assert request.error_detail is None
