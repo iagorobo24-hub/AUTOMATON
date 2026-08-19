@@ -5,9 +5,9 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from app.backtesting.datasets import persist_dataset
-from app.backtesting.runner import BacktestRunConfig, BacktestRunner
+from app.backtesting.runner import BacktestRunConfig, BacktestRunner, strategy_source_sha256
 from app.market_data.contracts import Candle
-from app.models.backtesting import BacktestEquityPoint, BacktestTrade
+from app.models.backtesting import BacktestEquityPoint, BacktestRunEvidence, BacktestTrade
 
 UTC = timezone.utc
 START = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
@@ -77,7 +77,20 @@ def test_s1_signal_on_candle_t_executes_only_at_next_candle_open():
         assert run.status == "COMPLETED"
 
 
-def test_identical_dataset_and_config_produce_identical_trade_and_equity_evidence():
+def test_run_persists_strategy_source_fingerprint_as_separate_evidence_record():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        dataset = _dataset(session, ["100", "101", "102", "103", "104"])
+        run = BacktestRunner(session).run(dataset.id, "S1")
+        evidence = session.exec(
+            select(BacktestRunEvidence).where(BacktestRunEvidence.run_id == run.id)
+        ).one()
+
+        assert evidence.strategy_code_sha256 == strategy_source_sha256()
+        assert len(evidence.strategy_code_sha256) == 64
+
+
+def test_identical_dataset_and_config_produce_identical_trade_equity_and_code_evidence():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         dataset = _dataset(session, ["100", "101", "102", "99", "98", "103", "104"])
@@ -105,5 +118,8 @@ def test_identical_dataset_and_config_produce_identical_trade_and_equity_evidenc
         assert [(p.cash, p.market_value, p.equity, p.exposure, p.drawdown) for p in first_equity] == [
             (p.cash, p.market_value, p.equity, p.exposure, p.drawdown) for p in second_equity
         ]
+        first_evidence = session.exec(select(BacktestRunEvidence).where(BacktestRunEvidence.run_id == first.id)).one()
+        second_evidence = session.exec(select(BacktestRunEvidence).where(BacktestRunEvidence.run_id == second.id)).one()
+        assert first_evidence.strategy_code_sha256 == second_evidence.strategy_code_sha256
         assert first.final_equity == second.final_equity
         assert first.net_pnl == second.net_pnl
