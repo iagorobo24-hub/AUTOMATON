@@ -1,5 +1,6 @@
 import React from 'react';
 import { LiveTradeFeed } from '@/features/ops-monitor/components/LiveTradeFeed';
+import { RuntimeSessionPanel } from '@/features/ops-monitor/components/RuntimeSessionPanel';
 
 export default function OpsMonitorPro() {
   return (
@@ -7,9 +8,10 @@ export default function OpsMonitorPro() {
       <header className="flex justify-between items-center border-bottom border-border-pro pb-4">
         <div>
           <h1 className="text-2xl font-bold text-blue-pro tracking-tight uppercase">Monitor Operativo</h1>
-          <p className="text-xs text-[#86948a] font-mono">SQLMODEL_TRADES::REST_POLLING</p>
+          <p className="text-xs text-[#86948a] font-mono">PAPER_RUNTIME::PERSISTENT_SESSIONS::REAL_MARKET_DATA</p>
         </div>
       </header>
+      <RuntimeSessionPanel />
       <LiveTradeFeed />
     </div>
   );
