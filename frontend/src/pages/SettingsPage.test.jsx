@@ -13,13 +13,13 @@ vi.mock('@/lib/api', () => ({
 
 import SettingsPage from './SettingsPage.jsx';
 
-describe('SettingsPage Phase 4 runtime contract', () => {
+describe('SettingsPage Phase 5 runtime contract', () => {
   beforeEach(() => {
     health.mockReset();
     activeProfile.mockReset();
   });
 
-  it('shows authoritative Risk profile and operator-only Paper', async () => {
+  it('shows Risk, operator-only Paper and backtesting evidence without profitability claims', async () => {
     health.mockResolvedValue({
       data: {
         status: 'ok',
@@ -29,6 +29,7 @@ describe('SettingsPage Phase 4 runtime contract', () => {
         accounting: 'authoritative_phase_2',
         risk: 'authoritative_phase_4',
         paper_trading: 'operator_only_phase_4',
+        backtesting: 'evidence_phase_5',
         automated_trading: 'blocked_until_strategy_integration',
         live_execution: 'disabled',
       },
@@ -40,16 +41,19 @@ describe('SettingsPage Phase 4 runtime contract', () => {
     expect(await screen.findByText('risk-v1')).toBeTruthy();
     expect(screen.getByText('authoritative_phase_4')).toBeTruthy();
     expect(screen.getByText('operator_only_phase_4')).toBeTruthy();
+    expect(screen.getByText('evidence_phase_5')).toBeTruthy();
     expect(screen.getByText('blocked_until_strategy_integration')).toBeTruthy();
     expect(screen.getByText('disabled')).toBeTruthy();
+    expect(screen.getByText(/no implica rentabilidad validada/i)).toBeTruthy();
     expect(health).toHaveBeenCalledTimes(1);
     expect(activeProfile).toHaveBeenCalledTimes(1);
   });
 
-  it('does not expose live or automatic trading controls', async () => {
+  it('does not expose live automatic trading or optimizer controls', async () => {
     health.mockResolvedValue({ data: {
       status: 'ok', runtime_mode: 'transition', synthetic_engine: 'disabled',
       risk: 'authoritative_phase_4', paper_trading: 'operator_only_phase_4',
+      backtesting: 'evidence_phase_5',
       automated_trading: 'blocked_until_strategy_integration', live_execution: 'disabled',
     }});
     activeProfile.mockResolvedValue({ data: { version: 'risk-v1', paused: false } });
@@ -59,6 +63,7 @@ describe('SettingsPage Phase 4 runtime contract', () => {
 
     expect(screen.queryByText('Live (Binance)')).toBeNull();
     expect(screen.queryByText('Iniciar trading automático')).toBeNull();
+    expect(screen.queryByText('Optimizar estrategias')).toBeNull();
     expect(screen.queryByText('Simular PnL')).toBeNull();
   });
 
