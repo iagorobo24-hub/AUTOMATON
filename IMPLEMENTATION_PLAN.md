@@ -111,10 +111,10 @@ See `docs/AGENT_LIFECYCLE.md`.
 - [x] Keep parent ACTIVE; treat replication as evidence/event rather than execution state.
 - [x] Expose `/api/evolution` policy/fitness/lineage surfaces and evidence-gated manual `/api/agents/{id}/replicate`.
 - [x] Update runtime/client/Agents/Settings for `agent_evolution=evidence_phase_6` while auto trading remains blocked until Phase 7.
-- [ ] Complete final exact-HEAD static audit and reconcile documentation drift.
+- [x] Complete final exact-HEAD static audit and reconcile documentation drift.
 - [ ] Execute targeted/full backend/frontend/build gate on exact Phase 6 HEAD.
 
-**Phase 6 source implementation:** present; final static closure and execution certification are separate gates.
+**Phase 6 source/contract/static gate:** complete. Execution certification remains pending.
 
 ### 7. 24/7 Paper Operation
 - [ ] Define durable run/session identity and single active-loop ownership.
