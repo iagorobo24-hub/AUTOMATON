@@ -10,7 +10,7 @@ from app.market_data.service import MarketDataService
 from app.models import PaperRuntimeAgent, PaperRuntimeEvent, PaperRuntimeSession
 from app.paper_runtime.cycle import PaperRuntimeCycleError, evaluate_agent_cycle
 from app.paper_runtime.execution import execute_runtime_cycle
-from app.paper_runtime.service import PaperRuntimeError, PaperRuntimeService
+from app.paper_runtime.service import PaperRuntimeError
 
 
 async def run_runtime_once(
@@ -35,21 +35,12 @@ async def run_runtime_once(
 
     for attachment in attachments:
         try:
-            cycle = await evaluate_agent_cycle(
-                session,
-                runtime.id,
-                attachment.agent_id,
-                market_data,
-            )
+            cycle = await evaluate_agent_cycle(session, runtime.id, attachment.agent_id, market_data)
             if cycle is not None and cycle.outcome in {"INTENT_BUY", "INTENT_SELL"}:
                 cycle = await execute_runtime_cycle(session, cycle.id, market_data)
             if cycle is not None and cycle.outcome == "RECOVERY_REQUIRED":
-                runtime = session.get(PaperRuntimeSession, runtime.id)
-                return runtime
-            if cycle is not None and cycle.outcome in {
-                "SKIPPED_PROVIDER_UNAVAILABLE",
-                "SKIPPED_MARKET_DATA_INVALID",
-            }:
+                return session.get(PaperRuntimeSession, runtime.id)
+            if cycle is not None and cycle.outcome in {"SKIPPED_PROVIDER_UNAVAILABLE", "SKIPPED_MARKET_DATA_INVALID"}:
                 any_failure = True
                 last_error = cycle.error_detail
         except MarketDataUnavailable as exc:
@@ -72,22 +63,10 @@ async def run_runtime_once(
     if any_failure:
         runtime.consecutive_failures += 1
         runtime.last_error = (last_error or "runtime operational failure")[:256]
-        session.add(
-            PaperRuntimeEvent(
-                session_id=runtime.id,
-                event_type="OPERATIONAL_FAILURE",
-                reason=runtime.last_error,
-            )
-        )
+        session.add(PaperRuntimeEvent(session_id=runtime.id, event_type="OPERATIONAL_FAILURE", reason=runtime.last_error))
         if runtime.consecutive_failures >= runtime.max_consecutive_failures:
             runtime.status = "DEGRADED"
-            session.add(
-                PaperRuntimeEvent(
-                    session_id=runtime.id,
-                    event_type="DEGRADED",
-                    reason="maximum consecutive runtime failures reached",
-                )
-            )
+            session.add(PaperRuntimeEvent(session_id=runtime.id, event_type="DEGRADED", reason="maximum consecutive runtime failures reached"))
     else:
         runtime.consecutive_failures = 0
         runtime.last_error = None
@@ -122,38 +101,15 @@ class PaperRuntimeScheduler:
         finally:
             self._tasks.pop(session_id, None)
 
-    def _spawn(self, session_id: int) -> None:
+    def spawn(self, session_id: int) -> None:
         if self.is_running(session_id):
             return
         self._tasks[session_id] = asyncio.create_task(self._loop(session_id))
 
-    def start(self, session_id: int) -> None:
-        with SessionLocal() as session:
-            PaperRuntimeService(session).start(session_id)
-        self._spawn(session_id)
-
-    def resume(self, session_id: int) -> None:
-        with SessionLocal() as session:
-            PaperRuntimeService(session).resume(session_id)
-        self._spawn(session_id)
-
-    def pause(self, session_id: int) -> None:
-        with SessionLocal() as session:
-            PaperRuntimeService(session).pause(session_id)
+    def cancel(self, session_id: int) -> None:
         task = self._tasks.pop(session_id, None)
         if task is not None:
             task.cancel()
-
-    def stop(self, session_id: int) -> None:
-        with SessionLocal() as session:
-            PaperRuntimeService(session).stop(session_id)
-        task = self._tasks.pop(session_id, None)
-        if task is not None:
-            task.cancel()
-
-    def recover(self, session_id: int) -> None:
-        with SessionLocal() as session:
-            PaperRuntimeService(session).recover(session_id)
 
     def cancel_all(self) -> None:
         for task in self._tasks.values():
@@ -162,3 +118,7 @@ class PaperRuntimeScheduler:
 
 
 runtime_scheduler = PaperRuntimeScheduler()
+
+
+def get_runtime_scheduler() -> PaperRuntimeScheduler:
+    return runtime_scheduler
