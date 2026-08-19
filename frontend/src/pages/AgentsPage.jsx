@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
-  Bot, Plus, Copy, Trash2, Activity,
+  Bot, Plus, Trash2, Activity,
   MoreVertical, RefreshCw, Search, X, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ function HealthBar({ value }) {
   );
 }
 
-function AgentCard({ agent, onReplicate, onDestroy, onDeposit }) {
+function AgentCard({ agent, onDestroy, onDeposit }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const finances = agent.finances || {};
   const performance = agent.performance || {};
@@ -61,7 +61,8 @@ function AgentCard({ agent, onReplicate, onDestroy, onDeposit }) {
             <div className="absolute right-0 top-10 z-30 w-52 glass-card rounded-lg overflow-hidden shadow-xl shadow-black/40">
               <button disabled={!isActive} onClick={() => { onDeposit(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-foreground"><Activity className="w-4 h-4 text-blue-400" /> Fondear +€100</button>
               <div className="h-px bg-white/5 mx-2" />
-              <button disabled={!isActive} onClick={() => { onReplicate(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-foreground"><Copy className="w-4 h-4 text-cyan-400" /> Replicar manualmente</button>
+              <div className="px-4 py-2.5 text-xs text-muted-foreground">Replicación deshabilitada hasta definir una política contable de asignación de capital.</div>
+              <div className="h-px bg-white/5 mx-2" />
               <button disabled={isDead} onClick={() => { onDestroy(agent.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed text-red-400"><Trash2 className="w-4 h-4" /> Eliminar</button>
             </div>
           )}
@@ -144,7 +145,6 @@ export default function AgentsPage() {
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
   const handleCreate = async (data) => { try { await agentsAPI.create(data); toast.success("Agente desplegado"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al crear agente"); } };
-  const handleReplicate = async (id) => { try { await agentsAPI.replicate(id); toast.success("Agente replicado manualmente"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al replicar"); } };
   const handleDestroy = async (id) => { try { await agentsAPI.delete(id); toast.success("Agente eliminado"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al eliminar"); } };
   const handleDeposit = async (id) => { try { await agentsAPI.deposit(id, 100); toast.success("Capital añadido: +€100"); fetchAgents(); } catch (err) { toast.error(err?.message || "Error al fondear"); } };
 
@@ -170,7 +170,7 @@ export default function AgentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"><div><h1 className="font-heading text-3xl font-bold uppercase tracking-wide text-foreground">Agentes</h1><p className="text-sm text-muted-foreground mt-1">Gestión de agentes · rendimiento financiero pendiente de Paper verificable</p></div><div className="flex items-center gap-2"><button onClick={() => { setRefreshing(true); fetchAgents(); }} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar agentes"><RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} /><span className="ml-1.5 hidden sm:inline">Actualizar</span></button><button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /><span className="ml-1.5">Nuevo Agente</span></button></div></div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">{Object.entries(counts).map(([key, count]) => { const sc = statusConfig[key]; return <div key={key} className="glass-card rounded-xl px-5 py-4"><div className="flex items-center gap-2 mb-1"><span className={`w-2 h-2 rounded-full ${sc?.dot || "bg-gray-500"}`} /><span className="text-xs text-muted-foreground uppercase tracking-wide">{sc?.label || key}</span></div><p className="text-2xl font-bold text-foreground font-mono">{count}</p></div>; })}</div>
       <div className="flex flex-col sm:flex-row gap-3 mb-6"><div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar agentes…" className="evo-input pl-10" aria-label="Buscar agentes" data-testid="agents-search-input" /></div><div className="flex gap-1.5 flex-wrap">{statusFilters.map((s) => <button key={s.key} onClick={() => setStatusFilter(s.key)} className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wide transition-all ${statusFilter === s.key ? "bg-cyan-500/15 text-cyan-400 ring-1 ring-cyan-500/20" : "glass-card text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"}`}>{s.label}</button>)}</div></div>
-      {loading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{[...Array(3)].map((_, i) => <div key={i} className="glass-card rounded-xl h-72 animate-pulse" />)}</div> : filtered.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{filtered.map((agent) => <AgentCard key={agent.id} agent={agent} onReplicate={handleReplicate} onDestroy={handleDestroy} onDeposit={handleDeposit} />)}</div> : <div className="glass-card rounded-xl py-20 text-center"><div className="w-14 h-14 mx-auto mb-4 rounded-lg bg-cyan-500/10 flex items-center justify-center"><Activity className="w-6 h-6 text-cyan-400 opacity-50" /></div><h3 className="text-lg font-semibold text-foreground mb-1">{search || statusFilter !== "all" ? "Sin resultados" : "No hay agentes desplegados"}</h3><p className="text-sm text-muted-foreground mb-6">{search || statusFilter !== "all" ? "Prueba a ajustar la búsqueda o los filtros" : "Crea un agente para preparar futuros experimentos Paper"}</p>{!search && statusFilter === "all" && <button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /> Desplegar Agente</button>}</div>}
+      {loading ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{[...Array(3)].map((_, i) => <div key={i} className="glass-card rounded-xl h-72 animate-pulse" />)}</div> : filtered.length > 0 ? <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{filtered.map((agent) => <AgentCard key={agent.id} agent={agent} onDestroy={handleDestroy} onDeposit={handleDeposit} />)}</div> : <div className="glass-card rounded-xl py-20 text-center"><div className="w-14 h-14 mx-auto mb-4 rounded-lg bg-cyan-500/10 flex items-center justify-center"><Activity className="w-6 h-6 text-cyan-400 opacity-50" /></div><h3 className="text-lg font-semibold text-foreground mb-1">{search || statusFilter !== "all" ? "Sin resultados" : "No hay agentes desplegados"}</h3><p className="text-sm text-muted-foreground mb-6">{search || statusFilter !== "all" ? "Prueba a ajustar la búsqueda o los filtros" : "Crea un agente para preparar futuros experimentos Paper"}</p>{!search && statusFilter === "all" && <button onClick={() => setCreateOpen(true)} className="evo-button-primary px-5 py-2.5 text-sm"><Plus className="w-4 h-4" /> Desplegar Agente</button>}</div>}
     </div><CreateDialog open={createOpen} onClose={() => setCreateOpen(false)} onCreate={handleCreate} /></div>
   );
 }
