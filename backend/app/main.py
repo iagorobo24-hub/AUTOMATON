@@ -42,9 +42,9 @@ async def lifespan(app: FastAPI):
         recovered_paper["cancelled"],
     )
     logger.info(
-        "[MAIN] Paper request recovery complete (completed=%s retryable=%s)",
+        "[MAIN] Paper request recovery complete (completed=%s recovery_required=%s)",
         recovered_requests["completed"],
-        recovered_requests["retryable"],
+        recovered_requests["recovery_required"],
     )
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
