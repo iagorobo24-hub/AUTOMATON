@@ -45,3 +45,21 @@ class PaperExecution(SQLModel, table=True):
     evidence_mode: str = Field(default="paper", max_length=16)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class PaperRequest(SQLModel, table=True):
+    __tablename__ = "paper_requests"
+    __table_args__ = (
+        UniqueConstraint("request_id", name="uq_paper_request_id"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    request_id: str = Field(index=True, max_length=128)
+    request_fingerprint: str = Field(max_length=64)
+    account_id: int = Field(foreign_key="portfolio_accounts.id", index=True)
+    execution_id: Optional[int] = Field(default=None, foreign_key="paper_executions.id", index=True)
+    status: str = Field(default="PROCESSING", max_length=24)
+    http_status: int = Field(default=200)
+    error_detail: Optional[str] = Field(default=None, max_length=256)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
