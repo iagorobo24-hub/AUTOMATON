@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 
 from app.accounting.service import AccountingError, AccountingService
 from app.market_data.contracts import Quote
+from app.models import Agent, AgentStatus
 from app.models.accounting import Account, Fill, Order
 from app.models.paper_execution import PaperExecution
 
@@ -116,6 +117,19 @@ class PaperExecutionService:
                 "account has unresolved Paper recovery state; execution is blocked"
             )
 
+    def _assert_account_execution_eligible(self, account: Account, symbol: str) -> None:
+        agent = self.session.get(Agent, account.agente_id)
+        if agent is None or agent.estado != AgentStatus.ACTIVO:
+            raise PaperExecutionError("Paper execution requires an active agent")
+        try:
+            _, quote_currency = symbol.split("/", 1)
+        except ValueError as exc:
+            raise PaperExecutionError("Paper symbol must use BASE/QUOTE format") from exc
+        if quote_currency.upper() != account.currency.upper():
+            raise PaperExecutionError(
+                "Paper symbol quote currency must match account currency"
+            )
+
     def execute_market_order(
         self,
         *,
@@ -144,6 +158,7 @@ class PaperExecutionService:
 
         now = self._now_utc()
         canonical = self._validate_quote(symbol, quote, now)
+        self._assert_account_execution_eligible(account, canonical)
         market_price = Decimal(quote.price)
         fill_price = self._fill_price(side, market_price)
         if fill_price <= ZERO:
