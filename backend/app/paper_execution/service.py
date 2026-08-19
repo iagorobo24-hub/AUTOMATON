@@ -9,7 +9,7 @@ from app.market_data.contracts import Quote
 from app.models import Agent, AgentStatus
 from app.models.accounting import Account, Fill, Order
 from app.models.paper_execution import PaperExecution, PaperRequest
-from app.models.risk import RiskDecision
+from app.models.risk import RiskDecision, RiskProfile
 
 
 ZERO = Decimal("0")
@@ -61,11 +61,11 @@ class PaperExecutionResult:
 
 
 class PaperExecutionService:
-    """Deterministic virtual execution against already-validated real quotes.
+    """Deterministic virtual execution against validated real quotes.
 
-    Any request-backed production mutation requires a matching persisted Risk
-    ALLOW decision. Calls without PaperRequest remain only a low-level seam for
-    deterministic unit tests and restart/recovery construction.
+    Phase 4 requires a persisted, current-profile Risk ALLOW decision for every
+    normal execution. Recovery methods reconcile persisted state; they do not
+    submit a new order and therefore do not require a fresh decision.
     """
 
     def __init__(
@@ -135,28 +135,44 @@ class PaperExecutionService:
 
     def _validate_risk_decision(
         self,
-        decision: RiskDecision,
+        decision: RiskDecision | None,
         *,
         account_id: int,
         symbol: str,
         side: str,
         quantity: Decimal,
         quote: Quote,
-    ) -> None:
-        if decision.decision != "ALLOW":
+    ) -> RiskDecision:
+        if decision is None:
+            raise PaperExecutionError("Paper execution requires Risk authorization")
+        if decision.id is None:
+            raise PaperExecutionError("Risk decision must be persisted before Paper execution")
+
+        persisted = self.session.get(RiskDecision, decision.id)
+        if persisted is None:
+            raise PaperExecutionError("Risk decision is not present in authoritative persistence")
+        if persisted.decision != "ALLOW":
             raise PaperExecutionError("Paper execution requires an ALLOW Risk decision")
-        if decision.consumed_at is not None or decision.paper_execution_id is not None:
+        if persisted.consumed_at is not None or persisted.paper_execution_id is not None:
             raise PaperExecutionError("Risk decision has already been consumed")
+
+        profile = self.session.get(RiskProfile, persisted.profile_id)
+        if profile is None or not profile.active or profile.paused:
+            raise PaperExecutionError("Risk authorization is no longer active")
+        if profile.version != persisted.profile_version:
+            raise PaperExecutionError("Risk decision profile version does not match active profile")
+
         if (
-            decision.account_id != account_id
-            or decision.symbol != symbol
-            or decision.side != side
-            or Decimal(decision.quantity) != Decimal(quantity)
-            or Decimal(decision.market_price) != Decimal(quote.price)
-            or decision.provider != quote.provider
-            or decision.quote_observed_at != quote.observed_at
+            persisted.account_id != account_id
+            or persisted.symbol != symbol
+            or persisted.side != side
+            or Decimal(persisted.quantity) != Decimal(quantity)
+            or Decimal(persisted.market_price) != Decimal(quote.price)
+            or persisted.provider != quote.provider
+            or persisted.quote_observed_at != quote.observed_at
         ):
             raise PaperExecutionError("Risk decision does not match the Paper order payload")
+        return persisted
 
     def execute_market_order(
         self,
@@ -184,25 +200,24 @@ class PaperExecutionService:
         account = self.session.get(Account, account_id)
         if account is None:
             raise PaperExecutionError("account not found")
-        if request is not None:
-            if request.account_id != account_id or request.status != "PROCESSING":
-                raise PaperExecutionError("Paper request reservation is not executable")
-            if risk_decision is None:
-                raise PaperExecutionError("active Paper request requires Risk authorization")
+        if request is not None and (
+            request.account_id != account_id or request.status != "PROCESSING"
+        ):
+            raise PaperExecutionError("Paper request reservation is not executable")
         self._assert_recovery_clear(account_id)
 
         now = self._now_utc()
         canonical = self._validate_quote(symbol, quote, now)
         self._assert_account_execution_eligible(account, canonical)
-        if risk_decision is not None:
-            self._validate_risk_decision(
-                risk_decision,
-                account_id=account_id,
-                symbol=canonical,
-                side=side,
-                quantity=quantity,
-                quote=quote,
-            )
+        persisted_risk = self._validate_risk_decision(
+            risk_decision,
+            account_id=account_id,
+            symbol=canonical,
+            side=side,
+            quantity=quantity,
+            quote=quote,
+        )
+
         market_price = Decimal(quote.price)
         fill_price = self._fill_price(side, market_price)
         if fill_price <= ZERO:
@@ -240,10 +255,9 @@ class PaperExecutionService:
             request.execution_id = execution.id
             request.updated_at = now
             self.session.add(request)
-        if risk_decision is not None:
-            risk_decision.consumed_at = now
-            risk_decision.paper_execution_id = execution.id
-            self.session.add(risk_decision)
+        persisted_risk.consumed_at = now
+        persisted_risk.paper_execution_id = execution.id
+        self.session.add(persisted_risk)
         self.session.commit()
         self.session.refresh(execution)
 
