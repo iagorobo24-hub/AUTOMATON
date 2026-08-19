@@ -16,7 +16,7 @@ Provider-neutral contracts:
 
 Initial provider: `BinancePublicMarketDataProvider`.
 
-- public REST only;
+- public REST only through Binance's market-data-only host `https://data-api.binance.vision`;
 - no API key;
 - no account methods;
 - no order/execution capability;
@@ -45,7 +45,9 @@ The current Phase 1 implementation deliberately supports `BASE/USDT` markets onl
 - Only closed candles cross the real-data contract.
 - OHLC values must be structurally valid and prices positive.
 - Missing, malformed or stale data is an error, never repaired with synthetic data.
-- 429, provider 5xx and transport failures use bounded retries and then fail closed.
+- HTTP 429 honors Binance `Retry-After` when it fits the bounded retry window; excessive waits fail closed instead of blocking indefinitely.
+- HTTP 418 IP-ban responses fail closed immediately.
+- Provider 5xx and transport failures use bounded exponential retry and then fail closed.
 - Unsupported intervals are rejected locally before a provider request.
 - Every accepted observation carries provider and provider-symbol provenance.
 
@@ -53,7 +55,7 @@ The current Phase 1 implementation deliberately supports `BASE/USDT` markets onl
 
 The API distinguishes:
 
-- `503`: real provider unavailable after bounded retry;
+- `503`: real provider unavailable after bounded retry or rate-limit/IP-ban condition;
 - `502`: provider payload/request violates the real-data quality contract.
 
 Neither case returns a price, candle or generated substitute.
@@ -92,10 +94,11 @@ The repository now contains tests for:
 5. provider parsing with deterministic HTTP fixtures;
 6. closed-candle filtering;
 7. retry/fail-closed provider behavior;
-8. malformed payload rejection;
-9. API provenance and evidence-mode output;
-10. API 503/502 failure semantics;
-11. route registration in the active runtime.
+8. Binance market-data-only base host and `Retry-After` behavior;
+9. malformed payload rejection;
+10. API provenance and evidence-mode output;
+11. API 503/502 failure semantics;
+12. route registration in the active runtime.
 
 These tests are authored against the implementation but are **not execution-certified on the current HEAD** until the repository test gate runs successfully in an available environment.
 
