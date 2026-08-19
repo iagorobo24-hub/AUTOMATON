@@ -19,6 +19,16 @@ AUTOMATON is being rebuilt around one core path: autonomous agents trading with 
 ### Market Data
 Owns provider access, timestamps, candles, quotes, symbol normalization, gaps, retries and data quality. It produces immutable market observations; it never decides trades.
 
+The active Phase 1 implementation is `backend/app/market_data/`:
+
+- `contracts.py`: immutable real `Quote` and `Candle` contracts;
+- `quality.py`: symbol/UTC/freshness/gap/order validation;
+- `service.py`: provider-neutral `MarketDataService`;
+- `providers/binance_public.py`: first read-only real provider;
+- `router.py`: `/api/market-data` boundary.
+
+`BinancePublicMarketDataProvider` uses public REST only. It has no API keys, account methods or execution methods. Errors never produce generated replacement prices.
+
 ### Strategy / Signals
 Consumes market observations and produces deterministic, inspectable intents or signals. Strategy logic must not mutate portfolio balances or call an exchange directly.
 
@@ -57,9 +67,11 @@ Provider -> Market Data -> Strategy -> Risk -> Paper Execution
 
 ## Current runtime versus target
 
-`backend/app/main.py` currently mounts SQLModel agents/trades/crypto but **does not start a trading engine**. The old `AgentEngine` remains versioned only as explicit Synthetic/Test utility code and is not reachable from normal startup.
+`backend/app/main.py` mounts SQLModel agents/trades/crypto plus the new real-only `/api/market-data` boundary, but **does not start a trading engine**. The old `AgentEngine` remains versioned only as explicit Synthetic/Test utility code and is not reachable from normal startup.
 
-The current runtime reports mode `transition`; Paper is `not_implemented`. `/api/estado` intentionally exposes no generated prices or PnL.
+The runtime remains mode `transition`; Paper is `not_implemented`. `/health` reports `market_data=real_contract_available`, and `/api/estado` intentionally exposes no generated prices or PnL.
+
+The existing `/api/crypto` CoinGecko router remains a UI-oriented real-data surface. It is not the trading-domain Market Data contract. Future Strategy/Paper code must consume `MarketDataService` rather than coupling itself to the UI router.
 
 The pre-provenance `Trade` table is preserved for historical inspection. Existing rows are surfaced as `legacy_unclassified` with `evidence_valid=false`; verified financial metrics remain unavailable until future Backtest/Paper records carry explicit provenance.
 
@@ -74,7 +86,7 @@ Synthetic code may be invoked only explicitly by tests or dedicated future test 
 - feed dashboard Paper/Backtest metrics;
 - provide a silent fallback for real market-data failures.
 
-The legacy `BinanceService` violates the last rule because it falls back to generated data. It remains unmounted and must not become the Phase 1 provider without redesign.
+The legacy `BinanceService` violates the last rule because it falls back to generated data. It remains unmounted and is not used by the new Market Data layer.
 
 ## Persistence target
 
