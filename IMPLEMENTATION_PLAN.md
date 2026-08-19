@@ -16,10 +16,13 @@ This file tracks implementation order. Domain requirements live in the linked do
 - `/health` and `/api/estado` explicitly report transition mode, synthetic engine disabled and Paper not implemented.
 - Pre-provenance trade history is quarantined as `legacy_unclassified` and excluded from verified ROI/PnL/Win Rate/trade metrics.
 - Manual simulated-PnL mutation is removed from the active API/UI.
-- Agent funding increases funded and current capital together, so deposits do not manufacture profit.
 - A provider-neutral, real-only market-data boundary is mounted at `/api/market-data`.
 - `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials or execution capability.
 - Quotes/candles carry UTC timestamps and provider provenance; stale/gapped/malformed data fails closed with no synthetic fallback.
+- Phase 2 introduces authoritative SQLModel accounting records: Account, Order, Fill, Position and LedgerEntry.
+- New agents receive an accounting account at creation; deposits are explicit ledger events and do not create PnL.
+- Existing agents are bootstrapped from funded/initial capital only; legacy `presupuesto_actual` is not promoted because it may contain synthetic PnL.
+- Manual replication is blocked until Agent Evolution defines a capital-transfer policy; the old behavior duplicated money.
 - Fresh full test/build execution is still required on an available execution environment for the resulting HEAD.
 
 ## Ordered implementation program
@@ -54,10 +57,23 @@ See `docs/MARKET_DATA.md`.
 
 ### 2. Portfolio & Accounting
 See `docs/PORTFOLIO_ACCOUNTING.md`.
-- [ ] Specify SQLModel order/fill/position/account records.
-- [ ] Implement cash/equity/PnL/fees invariants.
-- [ ] Add reconciliation and restart tests.
-- [ ] Make financial metrics consume this single source of truth.
+- [x] Add SQLModel Account, Order, Fill, Position and LedgerEntry records.
+- [x] Establish long-only accounting and reject implicit short/margin semantics.
+- [x] Implement funded capital, cash, average cost, realized/unrealized PnL, fees, equity and exposure invariants.
+- [x] Treat buy fees as acquisition cost and sell fees as net realized-PnL costs.
+- [x] Support additive buys, partial closes and full closes without double-counting cash or PnL.
+- [x] Reject insufficient cash, oversells, overfills and invalid timestamps before financial mutation.
+- [x] Persist funding events separately from trading PnL.
+- [x] Add reload/restart reconstruction tests using persisted SQLModel records.
+- [x] Add reconciliation checks for equity identity, negative balances/positions, order/fill mismatches and orphan fills.
+- [x] Bootstrap pre-Phase-2 agents from funded capital while discarding unverified legacy current-balance PnL.
+- [x] Make new-agent creation/deposits use the accounting layer as financial authority while keeping legacy Agent budget fields only as compatibility mirrors.
+- [x] Preserve financial balances when an agent lifecycle state changes to dead.
+- [x] Block replication until a non-duplicating capital-allocation policy is implemented in Agent Evolution.
+- [x] Mount a read-only `/api/accounting/agents/{agent_id}` inspection endpoint; no order/fill execution mutation is exposed in Phase 2.
+- [ ] Execute the authored accounting/backend/frontend/build gates on the exact Phase 2 HEAD.
+
+**Phase 2 source gate:** complete by static review. Accounting is not execution-certified until the validation gate below is observed green on the same HEAD.
 
 ### 3. Paper Execution
 See `docs/PAPER_TRADING.md`.
@@ -65,6 +81,7 @@ See `docs/PAPER_TRADING.md`.
 - [ ] Define deterministic fill, fee, slippage and timeout rules.
 - [ ] Persist open state and restore/reconcile after restart.
 - [ ] Ensure no random trade-closing behavior is reachable from Paper.
+- [ ] Feed every accepted fill through the Phase 2 accounting service instead of mutating balances directly.
 
 ### 4. Risk
 See `docs/RISK_MANAGEMENT.md`.
@@ -83,7 +100,8 @@ See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
 ### 6. Agent Lifecycle
 See `docs/AGENT_LIFECYCLE.md`.
 - [ ] Define evidence-aware fitness/automatic-replication criteria.
-- [ ] Define child capital allocation without money duplication.
+- [ ] Define explicit child capital transfer/allocation without money duplication.
+- [ ] Re-enable manual/automatic replication only after that accounting policy is implemented and tested.
 - [ ] Persist lineage/configuration versions.
 - [ ] Add retirement/death reasons and lifecycle tests.
 
