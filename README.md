@@ -4,7 +4,7 @@ AUTOMATON is a local platform for developing, testing and evaluating autonomous 
 
 ## Product contract
 
-The current product target is **autonomous Paper Trading with real market data and virtual capital**, supported by reproducible historical evidence, explicit Risk and evidence-aware agent lifecycle. Synthetic/Test, Backtest, Paper and Live remain separate evidence modes.
+The current product target is **autonomous Paper Trading with real market data and virtual capital**, supported by reproducible historical evidence, explicit Risk, evidence-aware agent lifecycle and disciplined Strategy Research. Synthetic/Test, Backtest, Paper and Live remain separate evidence modes.
 
 ## Current runtime
 
@@ -18,63 +18,69 @@ Active stack: FastAPI + SQLModel + SQLite with React/Vite.
 - Backtesting: immutable real historical datasets, deterministic `backtest-v1` and strategy-source SHA-256 evidence.
 - Agent Evolution: `evolution-v1` fitness, lineage/lifecycle evidence and manual non-duplicating replication.
 - Paper Runtime: persistent `runtime-v1` sessions that can execute S1-S4 autonomously on new real closed candles.
+- Strategy Research: `research-v1` studies with chronological TRAIN/VALIDATION/OOS evidence, forward Phase 7 Paper gates and manual candidate promotion.
 - Automated trading: enabled **only inside explicitly started Phase 7 Paper sessions**.
 - Live execution: disabled and structurally separate.
 
-Legacy pre-provenance `Trade` rows remain excluded from valid Paper/Backtest/fitness evidence.
+Legacy pre-provenance `Trade` rows remain excluded from valid Paper/Backtest/fitness/research evidence.
 
 ## Implemented core
 
-### Phases 1–6
+### Phases 1–7
 
-Market Data, Accounting, deterministic Paper Execution, Risk, reproducible Backtesting and evidence-aware Agent Evolution are implemented as separate domains. S1-S4 remain unchanged baseline algorithms; no performance claim is implied by infrastructure completion.
+Market Data, Accounting, deterministic Paper Execution, Risk, reproducible Backtesting, evidence-aware Agent Evolution and recoverable 24/7 Paper orchestration are implemented as separate domains. S1-S4 remain baseline algorithms; infrastructure completion does not imply performance.
 
-### Phase 7 — 24/7 Paper Operation
+### Phase 8 — Strategy Research
 
-`backend/app/paper_runtime/` adds a durable orchestration boundary:
+`backend/app/strategy_research/` adds a persistent research/evidence boundary over Phase 5 and Phase 7:
 
 ```text
-real closed candle -> S1-S4 -> intent -> Risk -> Paper Execution -> Accounting
+immutable Backtests -> TRAIN / VALIDATION / OOS
+                              +
+                     stopped forward Paper
+                              ↓
+                       research-v1
+                              ↓
+                    PASS / REJECT snapshot
+                              ↓
+                 manual StrategyCandidate
 ```
 
-`runtime-v1` contracts:
+`research-v1` requires, among other gates:
 
-- session states: `CREATED`, `RUNNING`, `PAUSED`, `DEGRADED`, `RECOVERY_REQUIRED`, `STOPPED`;
-- one durable cycle per `(session, agent, candle close)`;
-- same candle cannot create a second action;
-- HOLD persists evidence without an order;
-- BUY while flat targets 25% of available cash and accounts for `paper-v1` compounded cost;
-- BUY while already long is a no-op;
-- SELL closes the current long; SELL while flat is a no-op;
-- each autonomous action gets a deterministic `runtime:` request id;
-- every execution still requires current real Market Data and a persisted Risk ALLOW;
-- Paper origin is `strategy_runtime` and financial mutation still goes only through Accounting;
-- provider failures never fall back to synthetic data;
-- repeated operational failures can mark a session `DEGRADED`;
-- financial ambiguity produces `RECOVERY_REQUIRED`;
-- process restart never silently resumes a previous RUNNING session;
-- startup reconciles interrupted Paper/runtime evidence without re-submitting an uncertain order;
-- a session in recovery keeps ownership of its agent until explicitly recovered or stopped;
-- automatic replication remains disabled.
+- complete chronological non-overlapping TRAIN/VALIDATION/OOS folds;
+- identical strategy version/source SHA, market/timeframe, execution policy, capital, costs, position fraction and historical risk profile across study windows;
+- at least 5 round trips in VALIDATION and OOS;
+- positive VALIDATION/OOS return and expectancy;
+- OOS drawdown <= 15%;
+- OOS profit factor >= 1.05 when defined;
+- no more than 50% relative return degradation from VALIDATION to OOS;
+- stopped Phase 7 Paper evidence on the same market/timeframe;
+- at least 3 unique FILLED `strategy_runtime` closing SELL executions;
+- positive authoritative account-level realized PnL context;
+- no unresolved Paper recovery;
+- no FILLED manual/operator Paper execution contaminating the qualifying account PnL context;
+- current strategy source SHA still equal to the historical research SHA when promotion is requested.
 
-The in-process asyncio scheduler is only the live worker. SQLite session/cycle/request/execution state is authoritative.
+Each promotion attempt creates a fresh evaluation. A promoted candidate is an immutable evidence classification for one exact strategy version/source SHA; it does **not** mutate S1-S4, auto-deploy a session, replicate an agent or enable Live.
 
 ## Active APIs
 
-In addition to Market Data, Accounting, Risk, Paper, Backtest and Evolution APIs, Phase 7 adds:
+Phase 8 adds:
 
-- `GET /api/runtime/status`
-- `POST /api/runtime/sessions`
-- `GET /api/runtime/sessions`
-- `GET /api/runtime/sessions/{id}`
-- `GET /api/runtime/sessions/{id}/cycles`
-- `POST /api/runtime/sessions/{id}/start`
-- `POST /api/runtime/sessions/{id}/pause`
-- `POST /api/runtime/sessions/{id}/resume`
-- `POST /api/runtime/sessions/{id}/recover`
-- `POST /api/runtime/sessions/{id}/stop`
+- `GET /api/research/status`
+- `GET /api/research/policies/active`
+- `POST /api/research/studies`
+- `GET /api/research/studies`
+- `GET /api/research/studies/{id}`
+- `POST /api/research/studies/{id}/windows`
+- `GET /api/research/studies/{id}/windows`
+- `POST /api/research/studies/{id}/evaluate`
+- `GET /api/research/studies/{id}/evaluations`
+- `POST /api/research/studies/{id}/promote`
+- `GET /api/research/candidates`
 
-There is no Live execution endpoint, auto-replication endpoint or Backtest optimizer.
+There is no Research optimizer, strategy-mutation endpoint or Live execution endpoint.
 
 ## Runtime identifiers
 
@@ -84,13 +90,14 @@ Current backend reports:
 - `paper_runtime=runtime_phase_7`
 - `automated_trading=paper_enabled_phase_7`
 - `agent_evolution=evidence_phase_6`
+- `strategy_research=evidence_phase_8`
 - `live_execution=disabled`
 
-This means autonomous **Paper capability exists when an operator explicitly starts a session**. Startup itself does not begin trading or resume interrupted sessions.
+A Research promotion does not alter the runtime configuration automatically.
 
 ## Development order
 
-real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 Paper → **strategy research** → legacy pruning → live-readiness.
+real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 Paper → strategy research → **legacy pruning** → live-readiness.
 
 ## Validation
 
@@ -100,4 +107,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Source/static gates are not runtime certification. Phase 7 operational certification additionally requires a sustained real-provider Paper session. Never claim strategy profitability, fitness quality or a green repository without fresh exact-HEAD evidence.
+Source/static gates are not runtime certification. Strategy promotion is not a profitability guarantee. Fresh exact-HEAD execution plus observed historical/forward evidence is required before making performance claims.
