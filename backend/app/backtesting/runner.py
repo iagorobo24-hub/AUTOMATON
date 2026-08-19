@@ -32,9 +32,13 @@ class BacktestRunError(ValueError):
 
 
 def strategy_source_sha256() -> str:
-    """Fingerprint the active strategy source so run evidence detects code drift."""
-    source = inspect.getsource(strategies_module).replace("\r\n", "\n").replace("\r", "\n")
-    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+    """Fingerprint active strategy source; fail closed if source is unavailable."""
+    try:
+        source = inspect.getsource(strategies_module)
+    except (OSError, TypeError) as exc:
+        raise BacktestRunError("active strategy source is unavailable for fingerprinting") from exc
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -92,13 +96,7 @@ class BacktestRunner:
             raise BacktestRunError("backtest requires at least two candles")
         return candles
 
-    def _persist_trade(
-        self,
-        *,
-        run_id: int,
-        fill: BacktestFill,
-        signal_candle_time: datetime | None,
-    ) -> BacktestTrade:
+    def _persist_trade(self, *, run_id: int, fill: BacktestFill, signal_candle_time: datetime | None) -> BacktestTrade:
         trade = BacktestTrade(
             run_id=run_id,
             side=fill.side,
@@ -140,12 +138,7 @@ class BacktestRunner:
         self.session.add(point)
         return point, new_high
 
-    def run(
-        self,
-        dataset_id: int,
-        strategy_id: str,
-        config: BacktestRunConfig | None = None,
-    ) -> BacktestRun:
+    def run(self, dataset_id: int, strategy_id: str, config: BacktestRunConfig | None = None) -> BacktestRun:
         config = config or BacktestRunConfig()
         dataset = self._dataset(dataset_id)
         candles = self._candles(dataset_id)
@@ -158,6 +151,7 @@ class BacktestRunner:
         if initial <= ZERO:
             raise BacktestRunError("initial_capital must be positive")
         policy = config.policy()
+        strategy_digest = strategy_source_sha256()
 
         run = BacktestRun(
             dataset_id=dataset.id,
@@ -176,12 +170,7 @@ class BacktestRunner:
         )
         self.session.add(run)
         self.session.flush()
-        self.session.add(
-            BacktestRunEvidence(
-                run_id=run.id,
-                strategy_code_sha256=strategy_source_sha256(),
-            )
-        )
+        self.session.add(BacktestRunEvidence(run_id=run.id, strategy_code_sha256=strategy_digest))
         self.session.commit()
         self.session.refresh(run)
 
@@ -197,21 +186,11 @@ class BacktestRunner:
                 if pending_signal is not None:
                     signal, signal_time = pending_signal
                     if signal == "BUY" and ledger.position_quantity == ZERO:
-                        fill = ledger.buy(
-                            symbol=dataset.symbol,
-                            market_price=Decimal(candle.open),
-                            observed_at=candle.open_time,
-                            policy=policy,
-                        )
+                        fill = ledger.buy(symbol=dataset.symbol, market_price=Decimal(candle.open), observed_at=candle.open_time, policy=policy)
                         fills.append(fill)
                         self._persist_trade(run_id=run.id, fill=fill, signal_candle_time=signal_time)
                     elif signal == "SELL" and ledger.position_quantity > ZERO:
-                        fill = ledger.sell(
-                            symbol=dataset.symbol,
-                            market_price=Decimal(candle.open),
-                            observed_at=candle.open_time,
-                            policy=policy,
-                        )
+                        fill = ledger.sell(symbol=dataset.symbol, market_price=Decimal(candle.open), observed_at=candle.open_time, policy=policy)
                         fills.append(fill)
                         self._persist_trade(run_id=run.id, fill=fill, signal_candle_time=signal_time)
 
@@ -224,10 +203,8 @@ class BacktestRunner:
                     high_water=high_water,
                 )
                 equity_samples.append(EquitySample(equity=point.equity, exposure=point.exposure))
-
                 history.append(float(candle.close))
-                signal = strategy.calcular_señal(history)
-                pending_signal = (signal, candle.close_time)
+                pending_signal = (strategy.calcular_señal(history), candle.close_time)
 
             if ledger.position_quantity > ZERO:
                 final_candle = candles[-1]
@@ -248,21 +225,10 @@ class BacktestRunner:
                     mark_price=Decimal(final_candle.close),
                     high_water=high_water,
                 )
-                equity_samples.append(
-                    EquitySample(
-                        equity=point.equity,
-                        exposure=point.exposure,
-                        counts_for_exposure=False,
-                    )
-                )
+                equity_samples.append(EquitySample(equity=point.equity, exposure=point.exposure, counts_for_exposure=False))
 
             final_equity = ledger.cash if ledger.position_quantity == ZERO else ledger.equity(Decimal(candles[-1].close))
-            metrics = compute_metrics(
-                initial_capital=initial,
-                final_equity=final_equity,
-                trades=fills,
-                equity_points=equity_samples,
-            )
+            metrics = compute_metrics(initial_capital=initial, final_equity=final_equity, trades=fills, equity_points=equity_samples)
             run.final_equity = metrics.final_equity
             run.net_pnl = metrics.net_pnl
             run.net_return = metrics.net_return
