@@ -45,6 +45,21 @@ class BacktestRunConfig:
         )
 
 
+def recover_interrupted_runs(session: Session) -> int:
+    """Invalidate stale RUNNING evidence after restart; never silently resume it."""
+    runs = session.exec(select(BacktestRun).where(BacktestRun.status == "RUNNING")).all()
+    if not runs:
+        return 0
+    now = datetime.now(timezone.utc)
+    for run in runs:
+        run.status = "INVALID"
+        run.failure_reason = "INTERRUPTED_RESTART"
+        run.completed_at = now
+        session.add(run)
+    session.commit()
+    return len(runs)
+
+
 class BacktestRunner:
     def __init__(self, session: Session):
         self.session = session
