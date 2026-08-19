@@ -4,7 +4,7 @@ AUTOMATON is a local platform for developing, testing and evaluating autonomous 
 
 ## Product contract
 
-The immediate product goal is **Paper Trading with real market data and virtual capital**. Synthetic/Test, Backtest, Paper and Live are separate evidence modes. Synthetic/random/mock activity must never be presented as Paper, Backtest or Live performance.
+The immediate product goal is **Paper Trading with real market data and virtual capital**, supported by reproducible historical evidence. Synthetic/Test, Backtest, Paper and Live are separate evidence modes. Synthetic/random/mock activity must never be presented as Backtest, Paper or Live performance.
 
 ## Current runtime
 
@@ -14,19 +14,20 @@ Current runtime contracts:
 
 - synthetic `AgentEngine`: disabled from normal startup;
 - Market Data: provider-neutral, real-only, fail-closed;
-- Accounting: authoritative long-only financial source of truth;
+- Accounting: authoritative long-only financial source of truth for Paper;
 - Paper: operator-only MARKET BUY/SELL against real quotes;
 - Risk: mandatory persistent `risk-v1` gate for normal Paper execution;
+- Backtesting: immutable real historical datasets + deterministic `backtest-v1` evidence;
 - automated strategy/agent execution: **not enabled yet**;
 - Live execution: disabled and structurally separate.
 
-Historical pre-provenance `Trade` rows remain `legacy_unclassified` and are excluded from verified Paper metrics.
+Historical pre-provenance `Trade` rows remain `legacy_unclassified` and are excluded from valid Paper/Backtest evidence.
 
 ## Implemented phases
 
 ### Phase 1 — Real Market Data
 
-`backend/app/market_data/` provides real Quotes/closed Candles, UTC/provider provenance, symbol normalization, stale/gap/order validation and bounded retry behavior. The initial Binance public provider has no trading credentials or execution methods and never substitutes generated prices.
+`backend/app/market_data/` provides real Quotes/closed Candles, UTC/provider provenance, symbol normalization, stale/gap/order validation and bounded retry behavior. The active public Binance provider has no trading credentials or execution methods and never substitutes generated prices.
 
 ### Phase 2 — Portfolio & Accounting
 
@@ -34,33 +35,11 @@ Historical pre-provenance `Trade` rows remain `legacy_unclassified` and are excl
 
 ### Phase 3 — Paper Execution
 
-`backend/app/paper_execution/` provides deterministic virtual execution:
-
-- current real quote;
-- virtual capital only;
-- MARKET BUY/SELL;
-- `paper-v1` full-fill-or-reject model;
-- 10 bps adverse slippage;
-- 10 bps fee;
-- persistent `PaperExecution` provenance;
-- required `request_id` idempotency;
-- conservative restart/recovery;
-- all financial mutation delegated to Accounting.
+`backend/app/paper_execution/` provides deterministic virtual execution with current real quotes, virtual capital, MARKET BUY/SELL, `paper-v1`, 10 bps adverse slippage, 10 bps fee, persistent execution provenance, request-id idempotency and conservative recovery. All accepted financial mutation is delegated to Accounting.
 
 ### Phase 4 — Risk Engine
 
-`backend/app/risk/` is an independent persistent authorization layer.
-
-The active `risk-v1` profile defaults to:
-
-- max order notional: 250 USDT;
-- max order/equity: 25%;
-- max total exposure/equity: 60%;
-- max symbol exposure/equity: 35%;
-- max open positions: 4;
-- max realized loss/funded capital: 10%;
-- max drawdown: 15%;
-- max quote age: 30 seconds.
+`backend/app/risk/` is an independent persistent authorization layer. `risk-v1` limits order size, exposure, concentration, open positions, realized loss and drawdown, requires trustworthy market/accounting state and provides a persistent pause/resume circuit breaker.
 
 Every normal Paper order is resolved through:
 
@@ -68,28 +47,45 @@ Every normal Paper order is resolved through:
 request_id -> real Market Data -> RiskDecision -> PaperExecution -> Accounting
 ```
 
-Risk decisions persist ALLOW/REJECT, profile/version, market provenance, requested notional, equity/exposure context and reason codes. A successful normal Paper execution requires a matching ALLOW decision persisted in SQLite, from the active unpaused profile, and consumes it once. A REJECT creates no Paper Order/Fill.
+A successful Paper execution requires a matching persisted one-time ALLOW. BUY reserves the exact current `paper-v1` compounded execution cost (**20.01 bps**). Risk-reducing SELL can reduce an existing long without depending on unrelated market marks, while still requiring structural integrity and no oversell.
 
-BUY requires complete real marks/reconciliation and reserves the exact current `paper-v1` compounded execution cost: **20.01 bps**. Risk-reducing SELL uses structural Accounting integrity and does not depend on unrelated position marks.
+### Phase 5 — Backtesting & Evidence
 
-`POST /api/risk/pause` and `/resume` provide a persistent circuit breaker. Pausing also invalidates an ALLOW that has not yet been consumed. There is no public endpoint that can fabricate an approval.
+`backend/app/backtesting/` provides a separate historical-evidence path:
 
-**Agents still do not trade autonomously.** Risk is available, but the future Strategy/Signal integration must explicitly submit intents through this gate before automation can be enabled.
+```text
+real historical candles -> immutable SHA-256 dataset -> S1-S4 signal -> next-candle execution -> isolated ledger -> persisted trades/equity/metrics
+```
+
+Important contracts:
+
+- historical Binance access is public/read-only and fails closed;
+- datasets are immutable snapshots with provider/symbol/interval/window/count/SHA-256 provenance;
+- a signal produced from candle `t` can execute no earlier than candle `t+1` open;
+- `backtest-v1` is deterministic, long-only, no pyramiding, default 10 bps adverse slippage + 10 bps fee;
+- BUY allocates a persisted configurable fraction of capital (default 25%);
+- open positions are explicitly liquidated at dataset end and labelled `DATASET_END_EXIT`;
+- Backtest state does not create or mutate active Paper Account/PaperExecution/RiskDecision records;
+- runs persist configuration, trades, equity series and machine-readable metrics;
+- undefined metrics remain null;
+- interrupted RUNNING backtests become INVALID on restart rather than valid evidence;
+- no parameter optimizer exists in Phase 5.
+
+S1-S4 algorithms are **unchanged**. Backtesting capability does not mean any strategy is profitable, optimized or validated. Performance claims require observed reproducible runs.
 
 ## Active APIs relevant to the trading core
 
 - `/api/market-data/*`
 - `/api/accounting/agents/{agent_id}`
-- `/api/risk/status`
-- `/api/risk/profiles/active`
-- `/api/risk/decisions`
-- `/api/risk/pause`
-- `/api/risk/resume`
-- `/api/paper/status`
-- `/api/paper/orders/market`
-- `/api/paper/executions`
+- `/api/risk/*`
+- `/api/paper/*`
+- `/api/backtests/status`
+- `/api/backtests/datasets`
+- `/api/backtests/datasets/{id}`
+- `/api/backtests/runs`
+- `/api/backtests/runs/{id}`
 
-No active Live or automatic-trading start endpoint exists.
+No active Live, strategy-automation-start or backtest-optimizer endpoint exists.
 
 ## Documentation source of truth
 
@@ -102,8 +98,8 @@ No active Live or automatic-trading start endpoint exists.
 - [Risk management](docs/RISK_MANAGEMENT.md)
 - [Strategies](docs/STRATEGIES.md)
 - [Backtesting](docs/BACKTESTING.md)
-- [Agent lifecycle](docs/AGENT_LIFECYCLE.md)
 - [Metrics and evidence](docs/METRICS_AND_EVIDENCE.md)
+- [Agent lifecycle](docs/AGENT_LIFECYCLE.md)
 - [Live trading gate](docs/LIVE_TRADING_GATE.md)
 - [Legacy transition audit](docs/LEGACY_AUDIT.md)
 
@@ -129,4 +125,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-**Phase 4 source/contract/static audit is complete.** Execution certification is still pending until fresh command output exists for the exact final HEAD, plus the real-provider virtual-capital smoke required by the roadmap.
+Phase 5 may be source/contract complete without being execution-certified. Never claim a strategy result or a green repository gate without fresh exact-HEAD execution evidence.
