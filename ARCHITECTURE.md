@@ -6,121 +6,143 @@ AUTOMATON is built around autonomous-agent research using **real market data and
 
 ## Non-negotiable boundaries
 
-1. Synthetic data is test-only and must be labelled synthetic.
+1. Synthetic data is test-only and explicitly labelled.
 2. Backtest and Paper use real market data.
-3. Paper uses virtual funds only.
-4. Live execution is a separate future adapter; it cannot be enabled by toggling Paper.
-5. Financial evidence carries its mode/provenance.
+3. Backtest and Paper use virtual capital only.
+4. Live is a separate future execution adapter.
+5. Financial evidence carries explicit mode/provenance.
 6. SQLModel/SQLite is the active persistence baseline.
 7. Legacy Mongo/trading services are not reactivated as shortcuts.
-8. Accounting is the only active financial authority.
+8. Accounting is the only active Paper financial authority.
 9. Paper mutations are idempotent and fail closed on ambiguous recovery.
-10. Every normal Paper execution requires a persisted Phase 4 Risk ALLOW decision before financial state is created.
+10. Every normal Paper execution requires a persisted current-profile Phase 4 Risk ALLOW.
+11. Backtest state is isolated from active Paper accounts and cannot be merged into Paper evidence.
+12. Backtest signals observed on candle `t` cannot execute before candle `t+1`.
 
 ## Active domains
 
 ### Market Data — Phase 1
 
-`backend/app/market_data/` owns provider access, real Quote/Candle contracts, UTC/provenance, symbol normalization, freshness/gaps/order validation and bounded retries. It never decides trades or executes orders.
+`backend/app/market_data/` owns current real Quote/Candle contracts, UTC/provenance, symbol normalization, freshness/gaps/order validation and bounded retries.
+
+`backend/app/backtesting/providers/binance_history.py` is a separate read-only historical adapter. It paginates explicit UTC windows from Binance public market data and has no account/trading capability or synthetic fallback.
 
 ### Strategy / Signals
 
-S1-S4 remain deterministic baseline strategy code, not proven profitable strategies. Strategy code must not mutate balances or execute orders directly.
+S1-S4 remain the active deterministic baseline implementations in `backend/app/services/strategies.py`.
 
-No active automatic Strategy -> Risk integration exists yet.
+Phase 5 consumes them unchanged through `get_strategy()`. Backtesting results must not trigger threshold changes inside the evaluated period. No active Strategy -> Risk -> Paper automation exists yet.
 
 ### Risk — Phase 4
 
-`backend/app/risk/` plus `backend/app/models/risk.py` is the active independent authorization domain.
+`backend/app/risk/` is the persistent Paper authorization domain. It owns `RiskProfile`, `RiskDecision`, exposure/loss/drawdown gates and the pause/resume circuit breaker.
 
-`RiskProfile` persists versioned limits. The initial `risk-v1` profile defines:
-
-- max order notional: 250 USDT;
-- max order/equity: 25%;
-- max total exposure/equity: 60%;
-- max symbol exposure/equity: 35%;
-- max open positions: 4;
-- max realized loss/funded capital: 10%;
-- max drawdown: 15%;
-- max quote age: 30 s.
-
-`RiskDecision` persists ALLOW/REJECT plus account/agent, profile version, real-market provenance, requested notional, equity/exposure state and reason code.
-
-Risk fails closed on paused/inactive profile, inactive agent, non-real/stale/future data, currency mismatch, Accounting mismatch or unresolved Paper recovery. BUY additionally requires complete real marks for open positions.
-
-BUY orders are constrained by notional/equity/exposure/concentration/open-position/loss/drawdown/cash-reserve limits. A valid SELL reducing an existing long may bypass those size/loss caps but still requires integrity, data and recovery gates and cannot oversell.
-
-Every normal `PaperExecutionService.execute_market_order()` call requires a persisted current-profile ALLOW decision. Paper verifies that the decision exists in SQLite, is unconsumed, matches the payload and provider observation, and remains valid under an active/unpaused profile at consumption time.
+Normal Paper execution cannot bypass a persisted current-profile ALLOW decision.
 
 ### Paper Execution — Phase 3 + Phase 4 gate
 
-`backend/app/paper_execution/` supports operator-originated MARKET BUY/SELL only.
-
-`paper-v1`:
-
-- real current Quote;
-- full fill or rejection;
-- 10 bps adverse slippage;
-- 10 bps fee;
-- persistent `PaperExecution` provenance;
-- persistent `PaperRequest` idempotency;
-- conservative restart/recovery;
-- no exchange credentials or Live adapter.
-
-The active path is Risk-gated:
+`backend/app/paper_execution/` supports operator-originated MARKET BUY/SELL with real current Quotes and virtual capital. `paper-v1` uses 10 bps adverse slippage, 10 bps fee, persistent request-id idempotency and conservative restart recovery.
 
 ```text
-request_id
-   -> Real Market Data
-   -> RiskService.evaluate()
-   -> RiskDecision
-        REJECT -> no Paper Order/Fill
-        ALLOW  -> PaperExecutionService
-                     -> AccountingService
+request_id -> Real Market Data -> Risk -> Paper Execution -> Accounting
 ```
 
-There is no normal Paper execution bypass without Risk. Recovery routines reconcile already-persisted Paper state but do not submit new orders.
+There is no normal Paper execution bypass without Risk and no Live exchange adapter.
 
 ### Portfolio & Accounting — Phase 2
 
-`backend/app/accounting/` plus `backend/app/models/accounting.py` owns Account, Order, Fill, Position and LedgerEntry.
+`backend/app/accounting/` owns active Paper Account, Order, Fill, Position and LedgerEntry state. Funding never counts as PnL and long-only is the defined scope.
 
-Accounting invariants include:
+`AccountingIntegrityService` provides structural integrity checks for Risk where complete valuation is unavailable.
 
-`equity = cash + market_value(open_positions)`
+### Backtesting & Evidence — Phase 5
 
-and
+`backend/app/backtesting/` is a separate historical evidence subsystem.
 
-`equity = funded_capital + realized_pnl + unrealized_pnl`
+#### Immutable dataset path
 
-Funding never counts as PnL. Buy fees enter acquisition basis; sell fees reduce realized proceeds. Shorts, leverage and margin remain undefined/rejected.
+`BacktestDataset` and `BacktestCandle` persist an exact real historical snapshot:
 
-`AccountingIntegrityService` provides valuation-free structural checks needed by risk-reducing SELL when unrelated market marks are unavailable. BUY continues to require full `AccountingService.reconcile()` with real marks.
+- canonical symbol/timeframe;
+- requested and actual UTC windows;
+- provider/provider symbol;
+- ordered OHLCV candles;
+- candle count;
+- canonical SHA-256 digest;
+- `READY`/invalid state.
 
-### Agent Lifecycle
+Dataset creation rejects empty, duplicate, out-of-order, gapped, provenance-less or out-of-window series. Dataset hashes are calculated from normalized candle content before persistence.
 
-Owns identity, strategy assignment, status and future lineage/replication. Replication remains blocked until Phase 6 defines evidence-aware fitness and non-duplicating capital allocation.
+#### Runner
+
+`BacktestRunner` implements `backtest-v1`:
+
+```text
+candle t open: execute only signal produced earlier
+candle t close: mark equity
+candle t close: append close to history and compute new S1-S4 signal
+next candle open: signal may execute
+```
+
+Therefore a strategy can use candle `t` close but can never also fill at that already-observed close.
+
+Execution is deterministic and isolated:
+
+- long-only;
+- BUY only while flat;
+- SELL only while long;
+- no pyramiding;
+- default 25% allocation per entry;
+- default 10 bps adverse slippage;
+- default 10 bps fee;
+- no random fills/stops/exits;
+- final open position is explicitly closed at dataset end with `DATASET_END_EXIT`.
+
+`BacktestLedger` mirrors the cash/cost-basis/PnL conservation rules needed for comparable evidence but does **not** create active Paper Account/Order/Fill/Position rows.
+
+#### Persisted evidence
+
+`BacktestRun`, `BacktestTrade` and `BacktestEquityPoint` persist:
+
+- dataset hash;
+- strategy ID/version;
+- execution policy;
+- initial capital;
+- fees/slippage/allocation;
+- evidence status;
+- chronological trades;
+- chronological equity/exposure/drawdown;
+- resulting metrics.
+
+Interrupted `RUNNING` backtests are invalidated at restart instead of resumed or promoted to valid evidence.
 
 ### Metrics & Evidence
 
-Consumes persisted Accounting/Paper/Risk records. Legacy `Trade` rows remain `legacy_unclassified`; they are not promoted into Paper evidence.
+Phase 5 computes final equity, net PnL/return, trades, round trips, wins/losses, win rate, average win/loss, expectancy, gross profit/loss, profit factor where defined, maximum drawdown, fees, exposure fraction and forced exits.
+
+Undefined metrics remain null. Sharpe is intentionally absent until its sampling convention is defined.
+
+Legacy `Trade`, Paper, Backtest and future Live histories remain distinct evidence modes.
+
+### Agent Lifecycle
+
+Owns identity, status and future lineage/replication. Replication remains blocked until Phase 6 defines evidence-aware fitness and non-duplicating capital allocation.
 
 ## Active API/UI boundary
 
-Trading-core surfaces:
+Trading/research surfaces include:
 
 - `/api/market-data/*`
-- `/api/accounting/agents/{agent_id}`
-- `/api/risk/status`
-- `/api/risk/profiles/active`
-- `/api/risk/decisions`
-- `/api/risk/pause`
-- `/api/risk/resume`
-- `/api/paper/status`
-- `/api/paper/orders/market`
-- `/api/paper/executions`
+- `/api/accounting/*`
+- `/api/risk/*`
+- `/api/paper/*`
+- `/api/backtests/status`
+- `/api/backtests/datasets`
+- `/api/backtests/datasets/{dataset_id}`
+- `/api/backtests/runs`
+- `/api/backtests/runs/{run_id}`
 
-Settings reports Market Data, Accounting, Risk, Paper, automation and Live state. Ops Monitor displays Paper execution provenance instead of legacy Trade data.
+There is no optimizer endpoint, automatic-trading start endpoint or Live execution endpoint.
 
 ## Current runtime
 
@@ -131,32 +153,26 @@ Settings reports Market Data, Accounting, Risk, Paper, automation and Live state
 - `accounting=authoritative_phase_2`;
 - `risk=authoritative_phase_4`;
 - `paper_trading=operator_only_phase_4`;
+- `backtesting=evidence_phase_5`;
 - `automated_trading=blocked_until_strategy_integration`;
 - `live_execution=disabled`.
 
-Normal startup initializes the DB, bootstraps Accounting and `risk-v1`, then reconciles Paper execution/request recovery before accepting normal work.
+Startup initializes persistence, bootstraps Accounting/Risk, invalidates interrupted Backtest runs and reconciles Paper execution/request recovery.
 
-## Target automated data flow
+## Target automated Paper flow
 
 ```text
-Provider -> Market Data -> Strategy Intent -> Risk -> Paper Execution
-                                                |          |
-                                                v          v
-                                           Decision    Accounting
-                                                |          |
-                                                +----> Evidence
+Provider -> Market Data -> Strategy Intent -> Risk -> Paper Execution -> Accounting
+                                                |
+                                                +-> Evidence
 ```
 
-The Strategy Intent -> Risk integration is not active yet. Phase 4 deliberately establishes the safety gate without silently enabling autonomous agents.
+Backtesting is a parallel historical research path and does not enable this autonomous flow.
 
 ## Synthetic and Live isolation
 
-Synthetic code may be used only by explicit tests/harnesses. It must never provide fallback data, mutate authoritative Accounting or appear as Paper evidence.
-
-Future Live trading must use a separate execution adapter behind `docs/LIVE_TRADING_GATE.md`, explicit credentials/safety controls and explicit authorization.
+Synthetic code is test-only. Historical/current real-data failures never fall back to fabricated prices. Future Live execution must be a separate explicitly authorized adapter behind `docs/LIVE_TRADING_GATE.md`.
 
 ## Verification
 
-**Phase 4 static architecture audit:** complete for the current Phase 4 source gate.
-
-Static source review establishes contract coherence but cannot certify runtime correctness. Exact-HEAD execution certification still requires fresh backend tests, frontend tests/build and the relevant real-provider virtual-capital smoke run.
+Static review can establish source/contract coherence, not runtime correctness or profitability. Exact-HEAD execution certification requires fresh backend tests, frontend tests/build and, for operational evidence, a real-provider historical dataset/run smoke.
