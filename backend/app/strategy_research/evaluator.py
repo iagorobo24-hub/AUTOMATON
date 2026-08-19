@@ -7,6 +7,7 @@ from app.backtesting.runner import BacktestRunError, strategy_source_sha256
 from app.models import (
     Account,
     Agent,
+    BacktestDataset,
     BacktestRun,
     PaperExecution,
     PaperRequest,
@@ -108,14 +109,28 @@ class ResearchEvaluator:
     def forward_gate(self, study_id: int) -> ResearchGateResult:
         policy = bootstrap_research_policy(self.session)
         study = self._study(study_id)
+        items = self._windows_with_runs(study_id)
+        if not items:
+            return ResearchGateResult(False, "FORWARD_SESSION_REQUIRED", "historical study identity is required before forward evidence")
+        reference_run = items[0][1]
+        reference_dataset = self.session.get(BacktestDataset, reference_run.dataset_id)
+        if reference_dataset is None:
+            return ResearchGateResult(False, "FORWARD_MARKET_IDENTITY_MISSING", "reference historical market identity is missing")
+
         stopped = self.session.exec(
-            select(PaperRuntimeSession).where(PaperRuntimeSession.status == "STOPPED")
+            select(PaperRuntimeSession).where(
+                PaperRuntimeSession.status == "STOPPED",
+                PaperRuntimeSession.symbol == reference_dataset.symbol,
+                PaperRuntimeSession.interval == reference_dataset.interval,
+            )
         ).all()
         qualifying_session_ids: list[int] = []
         qualifying_account_ids: set[int] = set()
-        closing_sells = 0
+        closing_execution_ids: set[int] = set()
 
         for runtime in stopped:
+            if runtime.stopped_at is None:
+                continue
             attachments = self.session.exec(
                 select(PaperRuntimeAgent).where(
                     PaperRuntimeAgent.session_id == runtime.id,
@@ -154,12 +169,12 @@ class ResearchEvaluator:
                         and execution.origin == "strategy_runtime"
                         and execution.fill_id is not None
                     ):
-                        closing_sells += 1
+                        closing_execution_ids.add(execution.id)
             if session_qualified:
                 qualifying_session_ids.append(runtime.id)
 
         if not qualifying_session_ids:
-            return ResearchGateResult(False, "FORWARD_SESSION_REQUIRED", "a completed STOPPED Phase 7 session is required")
+            return ResearchGateResult(False, "FORWARD_SESSION_REQUIRED", "a completed STOPPED Phase 7 session on the same market/timeframe is required")
 
         for account_id in qualifying_account_ids:
             unresolved_request = self.session.exec(
@@ -176,7 +191,17 @@ class ResearchEvaluator:
             ).first()
             if unresolved_request is not None or unresolved_execution is not None:
                 return ResearchGateResult(False, "FORWARD_RECOVERY_UNRESOLVED", "forward Paper recovery evidence is unresolved")
+            contaminating_execution = self.session.exec(
+                select(PaperExecution).where(
+                    PaperExecution.account_id == account_id,
+                    PaperExecution.status == "FILLED",
+                    PaperExecution.origin != "strategy_runtime",
+                )
+            ).first()
+            if contaminating_execution is not None:
+                return ResearchGateResult(False, "FORWARD_ATTRIBUTION_AMBIGUOUS", "forward account PnL is contaminated by non-runtime Paper execution")
 
+        closing_sells = len(closing_execution_ids)
         if closing_sells < policy.min_forward_closing_sells:
             return ResearchGateResult(False, "FORWARD_CLOSE_SAMPLE_TOO_SMALL", "forward closing SELL sample is below research-v1")
 
