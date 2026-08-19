@@ -25,7 +25,9 @@ The legacy `AgentEngine` still exists as explicit Synthetic/Test utility code, b
 
 Historical `Trade` rows created before evidence provenance existed are preserved but classified as `legacy_unclassified`. They are excluded from verified PnL, Win Rate, ROI and trade-count metrics instead of being silently promoted into future Paper evidence.
 
-Paper Trading itself is **not implemented yet**. The next phase is Real Market Data.
+Phase 1 now provides a provider-neutral, real-only market-data boundary under `/api/market-data`. The initial `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials, account access or order execution. Quotes/candles carry real provenance and UTC timestamps; stale, gapped, malformed or unavailable data fails closed and is never replaced by synthetic values.
+
+Paper Trading itself is **not implemented yet**. The next development domain is Portfolio & Accounting, which must become the authoritative financial state before virtual order execution is added.
 
 ## Target architecture
 
@@ -67,7 +69,7 @@ Live execution, if it is ever enabled, must be a separate adapter behind explici
 
 ## Development order
 
-The project should advance by dependency, not by visual polish: real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 paper operation → strategy research → live-readiness.
+The project advances by dependency, not by visual polish: real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 paper operation → strategy research → live-readiness.
 
 Authentication, payments, chat, monetization and other peripheral capabilities are outside the current core unless they become necessary for the trading product.
 
