@@ -201,6 +201,10 @@ async def execute_market_order(
     session: Session = Depends(get_session),
     market_data: MarketDataService = Depends(get_market_data_service),
 ) -> dict:
+    normalized_request_id = request_id.strip()
+    if not normalized_request_id:
+        raise HTTPException(status_code=422, detail="request_id cannot be blank")
+
     try:
         canonical_symbol = normalize_symbol(symbol)
     except MarketDataQualityError as exc:
@@ -215,7 +219,7 @@ async def execute_market_order(
     )
     request, replay = _reserve_request(
         session,
-        request_id=request_id.strip(),
+        request_id=normalized_request_id,
         fingerprint=fingerprint,
         account_id=account_id,
     )
