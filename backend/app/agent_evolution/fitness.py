@@ -4,13 +4,16 @@ from sqlmodel import Session, select
 
 from app.accounting.integrity import AccountingIntegrityService
 from app.agent_evolution.policy import active_evolution_policy
+from app.backtesting.runner import BacktestRunError, strategy_source_sha256
 from app.models import (
     Account,
     Agent,
     AgentFitnessEvaluation,
+    AgentStatus,
     BacktestRun,
     BacktestRunEvidence,
     PaperExecution,
+    PaperRequest,
 )
 
 ZERO = Decimal("0")
@@ -50,6 +53,7 @@ class FitnessService:
         paper_closed = 0
         paper_realized = ZERO
         integrity_issues: tuple[str, ...] = ("account_not_found",)
+        recovery_required = False
         if account is not None:
             paper_closed = len(
                 self.session.exec(
@@ -65,11 +69,25 @@ class FitnessService:
             )
             paper_realized = Decimal(account.realized_pnl)
             integrity_issues = AccountingIntegrityService(self.session).issues(account.id)
+            recovery_required = self.session.exec(
+                select(PaperRequest).where(
+                    PaperRequest.account_id == account.id,
+                    PaperRequest.status == "RECOVERY_REQUIRED",
+                )
+            ).first() is not None
 
         reasons: list[str] = []
+        if agent.estado != AgentStatus.ACTIVO:
+            reasons.append("AGENT_NOT_ACTIVE")
         if run is None or run_evidence is None:
             reasons.append("BACKTEST_EVIDENCE_MISSING")
         else:
+            try:
+                current_source_sha = strategy_source_sha256()
+            except BacktestRunError:
+                current_source_sha = None
+            if current_source_sha is None or run_evidence.strategy_code_sha256 != current_source_sha:
+                reasons.append("STRATEGY_SOURCE_CHANGED")
             if run.round_trip_count is None or run.round_trip_count < policy.min_backtest_round_trips:
                 reasons.append("BACKTEST_ROUND_TRIPS_INSUFFICIENT")
             if run.net_return is None or Decimal(run.net_return) <= Decimal(policy.min_backtest_net_return):
@@ -81,6 +99,8 @@ class FitnessService:
 
         if integrity_issues:
             reasons.append("ACCOUNTING_INTEGRITY_FAILED")
+        if recovery_required:
+            reasons.append("PAPER_RECOVERY_REQUIRED")
         if paper_closed < policy.min_paper_closed_trades:
             reasons.append("PAPER_TRADES_INSUFFICIENT")
         if paper_realized <= Decimal(policy.min_paper_realized_pnl):
