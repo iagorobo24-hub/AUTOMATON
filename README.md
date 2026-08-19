@@ -21,17 +21,39 @@ Synthetic prices, random fills or mock telemetry must never be presented as Pape
 
 The active runtime is FastAPI + SQLModel + SQLite with React/Vite. `backend/app/main.py` and `frontend/src/App.jsx` remain the authority for what runs today.
 
-The legacy `AgentEngine` still exists as explicit Synthetic/Test utility code, but **the normal application runtime no longer starts it**. `/health` and `/api/estado` identify the runtime as `transition`, report the synthetic engine as disabled and do not publish synthetic price/PnL telemetry.
+The legacy `AgentEngine` still exists as explicit Synthetic/Test utility code, but **the normal application runtime does not start it**. Synthetic/random execution is isolated from the active financial path.
 
-Historical `Trade` rows created before evidence provenance existed are preserved but classified as `legacy_unclassified`. They are excluded from verified PnL, Win Rate, ROI and trade-count metrics instead of being silently promoted into future Paper evidence.
+Historical `Trade` rows created before evidence provenance existed remain `legacy_unclassified` and are excluded from verified Paper metrics.
 
-Phase 1 provides a provider-neutral, real-only market-data boundary under `/api/market-data`. The initial `BinancePublicMarketDataProvider` uses public read-only Binance REST endpoints without credentials, account access or order execution. Quotes/candles carry real provenance and UTC timestamps; stale, gapped, malformed or unavailable data fails closed and is never replaced by synthetic values.
+### Phase 1 — Real Market Data
 
-Phase 2 provides the authoritative long-only financial layer under `backend/app/accounting/`: Account, Order, Fill, Position and funding LedgerEntry records, plus deterministic cash/PnL/fees/equity/reconciliation rules. New agents and deposits use this accounting layer. Historical agents are bootstrapped from funded/initial capital only so synthetic legacy PnL is not promoted. The active accounting API is read-only; no order/fill execution route exists yet.
+`backend/app/market_data/` provides the provider-neutral real-only market-data boundary. The initial `BinancePublicMarketDataProvider` uses public read-only Binance market endpoints without trading credentials or execution capability. Quotes/candles carry provider provenance and UTC timestamps; stale, gapped, malformed or unavailable data fails closed and is never replaced by synthetic values.
 
-Manual replication is currently blocked because the previous implementation duplicated parent capital into a child. Replication returns only after Agent Evolution defines an explicit non-duplicating capital allocation policy.
+### Phase 2 — Portfolio & Accounting
 
-Paper Trading itself is **not implemented yet**. The next development domain is Paper Execution, which must consume Phase 1 real market data and feed every accepted fill through Phase 2 accounting.
+`backend/app/accounting/` is the authoritative long-only financial layer: Account, Order, Fill, Position and LedgerEntry records plus deterministic cash/PnL/fees/equity/reconciliation rules. New agents and deposits use this layer. Historical agents are bootstrapped from funded/initial capital only so old synthetic PnL is not promoted.
+
+Manual replication remains blocked because the previous implementation duplicated parent capital into a child. It returns only after Agent Evolution defines an explicit non-duplicating allocation policy.
+
+### Phase 3 — Paper Execution
+
+Paper execution is now implemented as an **operator-only** boundary under `/api/paper`:
+
+- current real market Quote;
+- virtual capital only;
+- MARKET BUY/SELL;
+- deterministic `paper-v1` fill policy;
+- 10 bps adverse slippage;
+- 10 bps fee;
+- persistent PaperExecution provenance;
+- required persistent `request_id` idempotency;
+- conservative restart recovery;
+- every financial effect delegated to Phase 2 Accounting;
+- Ops Monitor displays Paper execution provenance rather than legacy Trade data.
+
+The runtime reports `paper_trading=operator_only_phase_3`, `automated_trading=blocked_until_risk` and `live_execution=disabled`.
+
+**Agents do not trade autonomously yet.** The next development domain is Phase 4 Risk. Strategy/agent-generated orders must not reach Paper Execution until Risk can approve sizing/exposure and fail closed on unsafe state.
 
 ## Target architecture
 
@@ -53,7 +75,7 @@ Metrics & Evidence
 API / UI / Monitoring
 ```
 
-Live execution, if it is ever enabled, must be a separate adapter behind explicit safety gates. Paper code must not be able to spend real funds accidentally.
+Live execution, if it is ever enabled, must be a separate adapter behind explicit safety gates. Paper code cannot spend real funds.
 
 ## Documentation source of truth
 
@@ -73,9 +95,9 @@ Live execution, if it is ever enabled, must be a separate adapter behind explici
 
 ## Development order
 
-The project advances by dependency, not by visual polish: real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 paper operation → strategy research → live-readiness.
+The project advances by dependency: real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 Paper → strategy research → live-readiness.
 
-Authentication, payments, chat, monetization and other peripheral capabilities are outside the current core unless they become necessary for the trading product.
+Authentication, payments, chat, monetization and other peripheral capabilities remain outside the current core unless needed by the trading product.
 
 ## Running the current app
 
@@ -95,4 +117,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Never describe a HEAD as execution-verified without fresh command output for that exact HEAD.
+Phase 3 is source/contract implemented, but the current environment has not produced fresh executable evidence for the exact HEAD. Never describe a HEAD as execution-verified without fresh command output for that exact HEAD.
