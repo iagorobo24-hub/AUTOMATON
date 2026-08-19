@@ -52,20 +52,22 @@ async def test_agents_active_contract_end_to_end(sqlite_engine):
         assert listed.status_code == 200
         assert listed.json()[0]["nombre"] == "ADAN"
         assert listed.json()[0]["estado"] == "ACTIVO"
-        assert listed.json()[0]["trades_count"] == 0
-        assert listed.json()[0]["successful_trades"] == 0
+        assert listed.json()[0]["trades_count"] is None
+        assert listed.json()[0]["successful_trades"] is None
+        assert listed.json()[0]["performance_evidence_valid"] is False
 
         deposited = await client.post(
             f"/api/agents/{agent_id}/deposit", params={"amount": 100}
         )
         assert deposited.status_code == 200
+        assert deposited.json()["presupuesto_inicial"] == 1100
         assert deposited.json()["presupuesto_actual"] == 1100
+        assert deposited.json()["profit"] is None
 
         simulated = await client.post(
             f"/api/agents/{agent_id}/simulate-trade", params={"profit": -10}
         )
-        assert simulated.status_code == 200
-        assert simulated.json()["presupuesto_actual"] == 1090
+        assert simulated.status_code == 404
 
         replicated = await client.post(f"/api/agents/{agent_id}/replicate")
         assert replicated.status_code == 200
@@ -118,7 +120,7 @@ async def test_agents_reject_invalid_creation_values():
 
 
 @pytest.mark.asyncio
-async def test_agent_engine_does_not_double_count_long_pnl(sqlite_engine, monkeypatch):
+async def test_agent_engine_remains_available_only_as_explicit_synthetic_test_utility(sqlite_engine, monkeypatch):
     class SellStrategy:
         def calcular_señal(self, _prices):
             return "SELL"
@@ -161,7 +163,7 @@ async def test_agent_engine_does_not_double_count_long_pnl(sqlite_engine, monkey
 
 
 @pytest.mark.asyncio
-async def test_agents_list_reports_real_trade_counters(sqlite_engine):
+async def test_agents_list_quarantines_pre_provenance_trade_counters(sqlite_engine):
     with Session(sqlite_engine) as session:
         agent = Agent(
             nombre="COUNTER",
@@ -182,5 +184,8 @@ async def test_agents_list_reports_real_trade_counters(sqlite_engine):
 
     assert response.status_code == 200
     payload = response.json()[0]
-    assert payload["trades_count"] == 2
-    assert payload["successful_trades"] == 1
+    assert payload["legacy_trades_count"] == 2
+    assert payload["trades_count"] is None
+    assert payload["successful_trades"] is None
+    assert payload["performance_evidence_valid"] is False
+    assert payload["evidence_mode"] == "legacy_unclassified"

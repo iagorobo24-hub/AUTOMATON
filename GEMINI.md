@@ -21,8 +21,10 @@ Never present synthetic/random/mock results as Paper, Backtest or Live evidence.
 
 - FastAPI + SQLModel + SQLite.
 - React 19 + Vite; Electron optional.
-- `app.main` mounts agents/trades/crypto and starts `AgentEngine`.
-- Current `AgentEngine` still contains synthetic price generation; treat it as transition/test infrastructure, not valid Paper.
+- `app.main` mounts agents/trades/crypto and **does not start a trading engine**.
+- The old `AgentEngine` remains versioned only as explicit Synthetic/Test utility code.
+- `/health` reports `runtime_mode=transition`, `synthetic_engine=disabled`, `paper_trading=not_implemented`.
+- Pre-provenance `Trade` rows are `legacy_unclassified` and excluded from verified financial metrics.
 - Active HTTP client: `frontend/src/lib/api.js`.
 
 ## Architecture boundaries
@@ -32,6 +34,10 @@ New trading work follows:
 `Market Data -> Strategy -> Risk -> Execution -> Portfolio/Accounting -> Metrics/Evidence`.
 
 Agent lifecycle consumes these contracts; UI observes them. Strategy code must not directly mutate balances or place real orders. Risk must be able to reject execution. Paper must be structurally isolated from any future Live adapter.
+
+## Phase 1 constraint
+
+Do not reuse legacy `BinanceService` as the real-data provider without redesign: it silently returns mock/generated prices, candles and orderbook data on missing credentials/provider errors. A Paper-capable Market Data adapter must fail closed instead.
 
 ## Legacy
 
@@ -44,6 +50,7 @@ Mongo `DatabaseService`, old Trading/Paper engines, registry, auth/payments/chat
 - No `optimized`, `validated`, `profitable` or `safe` claim without reproducible evidence.
 - Unknown strategy IDs must fail explicitly.
 - Financial telemetry must carry mode/provenance; missing data stays missing.
+- Deposits/funding are capital flows, not trading profit.
 
 ## Validation
 

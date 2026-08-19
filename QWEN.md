@@ -17,7 +17,9 @@ Do not fabricate market data, fills, PnL, indicators or telemetry for Paper/Back
 
 ## Current state
 
-FastAPI + SQLModel + SQLite is the active backend baseline. React/Vite is the active frontend. The current `AgentEngine` contains synthetic price/random-close behavior and therefore is transition/test infrastructure, not compliant Paper execution.
+FastAPI + SQLModel + SQLite is the active backend baseline. React/Vite is the active frontend. Normal startup does not start `AgentEngine`; that file remains only as explicit Synthetic/Test utility code.
+
+The runtime reports transition mode with synthetic disabled and Paper not implemented. Historical trade rows lack mode provenance, so the API marks them `legacy_unclassified` and excludes them from verified financial metrics. Manual simulated-PnL mutation is not part of the active API/UI.
 
 ## Required architecture
 
@@ -26,6 +28,10 @@ New trading work must respect the domain flow:
 `Market Data -> Strategy -> Risk -> Paper Execution -> Portfolio/Accounting -> Metrics/Evidence`.
 
 Agent lifecycle and UI sit around these contracts. A strategy does not own balances. Paper execution cannot send real orders. Accounting is the sole financial truth.
+
+## Phase 1 rule
+
+A real-data provider must fail closed. Do not copy the legacy `BinanceService` fallback behavior: missing credentials or provider failures must never become mock prices/candles/orderbook data in a Paper-capable path.
 
 ## Legacy handling
 

@@ -51,16 +51,14 @@ export default function SettingsPage() {
   }, [fetchRuntime]);
 
   const apiOperational = runtime?.status === "ok";
-  const engineRunning = runtime?.agent_engine === "running";
-  const engineLabel = loading
+  const syntheticDisabled = runtime?.synthetic_engine === "disabled";
+  const runtimeLabel = loading
     ? "Consultando…"
     : !runtime
       ? "Desconocido"
-      : engineRunning
-        ? "En ejecución"
-        : runtime.agent_engine === "stopped"
-          ? "Detenido"
-          : "Desconocido";
+      : syntheticDisabled
+        ? "Sintético desactivado"
+        : "Revisar configuración";
 
   return (
     <div className="min-h-screen bg-background" data-testid="settings-page">
@@ -68,7 +66,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1>
-            <p className="text-sm text-muted-foreground mt-1">Estado y límites del runtime activo</p>
+            <p className="text-sm text-muted-foreground mt-1">Estado del baseline previo a Real Market Data</p>
           </div>
           <button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar estado del runtime">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -90,10 +88,10 @@ export default function SettingsPage() {
             active={!loading && apiOperational}
           />
           <StatusCard
-            label="AgentEngine"
-            value={engineLabel}
-            description="Motor SQLModel utilizado por los agentes activos"
-            active={!loading && engineRunning}
+            label="Synthetic/Test"
+            value={runtimeLabel}
+            description="El generador aleatorio no participa en el runtime normal ni produce evidencia financiera."
+            active={!loading && syntheticDisabled}
           />
         </div>
 
@@ -103,10 +101,10 @@ export default function SettingsPage() {
             <h2 className="evo-section-title">Runtime efectivo</h2>
           </div>
           <div className="px-5">
-            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Es la fuente de verdad montada por app.main para agentes y trades." />
-            <RuntimeRow label="Motor de agentes" value="AgentEngine" description="Ejecuta la simulación y el ciclo de vida de los agentes SQLModel." />
-            <RuntimeRow label="Trading activo" value="Simulación" description="El runtime actual no monta TradingEngine, PaperTradingEngine ni cambio Live/Paper." />
-            <RuntimeRow label="Configuración de agentes" value="Por agente" description="Estrategia, capital y umbral de réplica se definen al crear cada agente; no existe un perfil global persistente." />
+            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Fuente de verdad técnica actual para agentes y registros legacy." />
+            <RuntimeRow label="Modo" value={runtime?.runtime_mode || "transition"} description="Baseline de transición: sin motor autónomo de trading activo." />
+            <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "not_implemented"} description="Paper no se declara activo hasta consumir mercado real y accounting verificable." />
+            <RuntimeRow label="Evidencia financiera" value="No disponible" description="Los registros previos carecen de procedencia por modo y quedan excluidos de métricas verificables." />
           </div>
         </div>
 
@@ -116,8 +114,8 @@ export default function SettingsPage() {
             <h2 className="evo-section-title">Controles disponibles</h2>
           </div>
           <div className="px-5 py-4 text-sm text-muted-foreground space-y-2">
-            <p>La gestión de agentes se realiza desde la página Agentes mediante el contrato SQLModel activo.</p>
-            <p>Los parámetros globales de trading, notificaciones, retención, depuración y cambio Live/Paper no están expuestos por este runtime y por tanto no se presentan como configurables.</p>
+            <p>La página Agentes permite crear, fondear, replicar manualmente y retirar agentes del inventario técnico.</p>
+            <p>No existe control de PnL simulado en la superficie activa. Paper/Live, riesgo global y ejecución se habilitarán únicamente en sus fases correspondientes.</p>
           </div>
         </div>
 
@@ -125,9 +123,9 @@ export default function SettingsPage() {
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
             <div>
-              <p className="text-sm font-medium text-foreground">Arquitectura legacy aislada</p>
+              <p className="text-sm font-medium text-foreground">Legacy preservado, no operativo</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Los antiguos routers de system/trading dependen de MongoDB y motores distintos. Permanecen fuera de app.main para evitar mezclar fuentes de verdad o habilitar operaciones Live desde el runtime SQLModel.
+                MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no se montan ni pueden aportar datos a la evidencia activa.
               </p>
             </div>
           </div>

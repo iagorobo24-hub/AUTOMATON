@@ -2,18 +2,22 @@
 
 ## Current program objective
 
-Replace the transition simulator with a verifiable Paper Trading platform: **real market data, virtual capital, deterministic accounting, explicit risk and reproducible evidence**.
+Build a verifiable Paper Trading platform: **real market data, virtual capital, deterministic accounting, explicit risk and reproducible evidence**.
 
 This file tracks implementation order. Domain requirements live in the linked documents under `docs/`.
 
-## Current verified baseline
+## Current baseline
 
 - FastAPI + SQLModel + SQLite are the active backend/persistence baseline.
 - React/Vite frontend uses the active agents/trades/crypto APIs.
 - Agent strategies S1-S4 exist as baseline strategy code; this does not prove profitability.
 - Historical Mongo/Paper/TradingEngine code is not mounted by `app.main`.
-- The current `AgentEngine` still uses synthetic market movement and therefore is not valid Paper Trading.
-- Fresh full test/build execution is still required on an available execution environment for the current HEAD.
+- Normal application startup no longer starts the synthetic `AgentEngine`.
+- `/health` and `/api/estado` explicitly report transition mode, synthetic engine disabled and Paper not implemented.
+- Pre-provenance trade history is quarantined as `legacy_unclassified` and excluded from verified ROI/PnL/Win Rate/trade metrics.
+- Manual simulated-PnL mutation is removed from the active API/UI.
+- Agent funding increases funded and current capital together, so deposits do not manufacture profit.
+- Fresh full test/build execution is still required on an available execution environment for the resulting HEAD.
 
 ## Ordered implementation program
 
@@ -21,15 +25,22 @@ This file tracks implementation order. Domain requirements live in the linked do
 - [x] Stabilize active SQLModel contracts and remove fake UI telemetry.
 - [x] Define S4 explicitly and prevent silent strategy fallback.
 - [x] Rebuild documentation around real-data Paper Trading.
-- [ ] Obtain fresh backend/frontend/build execution evidence on the exact current HEAD.
-- [ ] Mark synthetic engine paths explicitly test-only before Paper replacement work lands.
+- [x] Remove synthetic AgentEngine from normal application startup.
+- [x] Remove manual PnL fabrication from the active agents API/UI.
+- [x] Quarantine pre-provenance trades from verified financial metrics.
+- [x] Make runtime/health state explicitly identify transition mode and synthetic isolation.
+- [x] Prevent deposits from being counted as profit.
+- [ ] Obtain fresh backend/frontend/build execution evidence on the exact resulting HEAD.
+
+**Phase 0 code gate:** statically complete. Execution certification remains pending until the repository commands below run on the same HEAD.
 
 ### 1. Market Data
 See `docs/MARKET_DATA.md`.
 - [ ] Define provider-neutral market observation types.
 - [ ] Implement real candle/current-price provider adapter.
 - [ ] Add UTC, stale, gap, retry and parsing tests.
-- [ ] Remove synthetic fallback from every Paper-capable path.
+- [ ] Guarantee provider failure is fail-closed: no generated fallback in any Paper-capable path.
+- [ ] Keep legacy `BinanceService` unmounted unless its mock fallback behavior is removed behind the new contract.
 
 ### 2. Portfolio & Accounting
 See `docs/PORTFOLIO_ACCOUNTING.md`.
@@ -43,7 +54,7 @@ See `docs/PAPER_TRADING.md`.
 - [ ] Implement virtual order lifecycle against real observations.
 - [ ] Define deterministic fill, fee, slippage and timeout rules.
 - [ ] Persist open state and restore/reconcile after restart.
-- [ ] Remove random trade-closing behavior from Paper.
+- [ ] Ensure no random trade-closing behavior is reachable from Paper.
 
 ### 4. Risk
 See `docs/RISK_MANAGEMENT.md`.
@@ -61,7 +72,7 @@ See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
 
 ### 6. Agent Lifecycle
 See `docs/AGENT_LIFECYCLE.md`.
-- [ ] Define evidence-aware fitness/replication criteria.
+- [ ] Define evidence-aware fitness/automatic-replication criteria.
 - [ ] Define child capital allocation without money duplication.
 - [ ] Persist lineage/configuration versions.
 - [ ] Add retirement/death reasons and lifecycle tests.
@@ -101,4 +112,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-A checker or historical report is not a substitute for fresh evidence.
+A checker, static review or historical report is not a substitute for fresh execution evidence.

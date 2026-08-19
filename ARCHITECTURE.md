@@ -57,13 +57,28 @@ Provider -> Market Data -> Strategy -> Risk -> Paper Execution
 
 ## Current runtime versus target
 
-Today `backend/app/main.py` mounts SQLModel agents/trades/crypto and starts `AgentEngine`. That engine still generates synthetic prices and contains random trade closing behavior from the earlier simulator. It is not compliant with target Paper semantics and must be isolated or replaced during the Paper migration.
+`backend/app/main.py` currently mounts SQLModel agents/trades/crypto but **does not start a trading engine**. The old `AgentEngine` remains versioned only as explicit Synthetic/Test utility code and is not reachable from normal startup.
 
-`frontend/src/App.jsx` currently exposes Dashboard, Crypto, Ops Monitor, Agents and Settings. These pages may evolve, but their data must continue to come from active APIs and preserve provenance.
+The current runtime reports mode `transition`; Paper is `not_implemented`. `/api/estado` intentionally exposes no generated prices or PnL.
+
+The pre-provenance `Trade` table is preserved for historical inspection. Existing rows are surfaced as `legacy_unclassified` with `evidence_valid=false`; verified financial metrics remain unavailable until future Backtest/Paper records carry explicit provenance.
+
+`frontend/src/App.jsx` exposes Dashboard, Crypto, Ops Monitor, Agents and Settings. Dashboard/Agents show financial metrics as `N/D` while evidence is unavailable. Ops Monitor labels existing rows as historical non-Paper records.
+
+## Synthetic isolation
+
+Synthetic code may be invoked only explicitly by tests or dedicated future test harnesses. It must not:
+
+- start from the normal FastAPI lifespan;
+- write evidence that is indistinguishable from Paper;
+- feed dashboard Paper/Backtest metrics;
+- provide a silent fallback for real market-data failures.
+
+The legacy `BinanceService` violates the last rule because it falls back to generated data. It remains unmounted and must not become the Phase 1 provider without redesign.
 
 ## Persistence target
 
-SQLModel should evolve from current `Agent` and `Trade` tables toward explicit entities for at least:
+SQLModel should evolve from current `Agent` and legacy `Trade` tables toward explicit entities for at least:
 
 - market observations/cache metadata where persistence is needed;
 - orders;
@@ -82,4 +97,4 @@ Future Live trading uses the same upstream strategy/risk concepts but a differen
 
 ## Verification
 
-Architecture claims are considered implemented only when code, tests and fresh execution evidence agree. Documentation describes target state and must label current gaps explicitly.
+Architecture claims are considered execution-verified only when code, tests and fresh execution evidence agree. Static source review may establish contract coherence but does not substitute for running the repository gate.

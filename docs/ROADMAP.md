@@ -4,18 +4,28 @@ This roadmap defines dependency order. A later phase must not be treated as comp
 
 ## Phase 0 — Transition baseline
 
-**Goal:** Preserve the working SQLModel application while removing ambiguity about the old simulator.
+**Goal:** Preserve the SQLModel application while removing ambiguity and contamination from the old simulator.
 
-- keep active agents/trades/UI coherent;
-- isolate synthetic behavior as test/transition infrastructure;
-- maintain regression tests and fresh validation when execution is available;
-- keep legacy code unmounted until migrated or deleted.
+Completed in code/documentation:
 
-**Exit:** current runtime is understandable, documented and safe to evolve without reactivating Mongo by accident.
+- active agents/trades/UI contracts remain coherent;
+- normal startup does not start the synthetic `AgentEngine`;
+- synthetic prices/random closes are isolated from the normal runtime;
+- manual simulated-PnL mutation is removed from the active API/UI;
+- deposits do not manufacture profit;
+- pre-provenance trade records are retained as `legacy_unclassified` but excluded from verified financial metrics;
+- health/state explicitly identify transition mode, synthetic disabled and Paper not implemented;
+- legacy Mongo/trading code remains unmounted.
+
+**Exit condition:** current runtime is understandable and cannot create new synthetic financial evidence through normal startup or active UI/API paths.
+
+**Status:** code gate is statically satisfied. Fresh `pytest`, frontend tests and frontend build on the same HEAD are still required for execution certification.
 
 ## Phase 1 — Real Market Data
 
 Build a provider-neutral real-data layer for candles/current prices with UTC timestamps, normalization, staleness/gap handling and deterministic parsing tests.
+
+The legacy `BinanceService` is not an acceptable provider adapter as-is because provider/key failures silently fall back to mock/generated data. Phase 1 must fail closed instead.
 
 **Exit:** Paper/Backtest consumers cannot receive generated prices through the real-data contract.
 
@@ -45,9 +55,9 @@ Build reproducible historical runs and evidence metadata. Evaluate S1-S4 as base
 
 ## Phase 6 — Agent Evolution
 
-Replace simplistic fitness/replication assumptions with evidence-aware lifecycle rules, lineage and explicit capital allocation.
+Replace simplistic fitness/replication assumptions with evidence-aware lifecycle rules, lineage and explicit capital allocation. Manual replication remains an operator action; automatic replication must wait for validated evidence criteria.
 
-**Exit:** replication cannot be triggered by misleading short-term/synthetic performance.
+**Exit:** automatic replication cannot be triggered by misleading short-term/synthetic performance.
 
 ## Phase 7 — 24/7 Paper Operation
 

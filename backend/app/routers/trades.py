@@ -1,26 +1,26 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
-from sqlmodel import Session, select, func
+from sqlmodel import Session, select
 
-from app.models import Trade, Agent
+from app.models import Trade
 from app.database import get_session
 
 router = APIRouter()
+
+LEGACY_EVIDENCE_MODE = "legacy_unclassified"
 
 
 @router.get("/")
 def get_trades(
     agente_id: Optional[int] = None,
     limit: int = Query(default=100, le=1000),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
 ) -> List[dict]:
-    """Get all trades with optional filter by agent_id"""
+    """Return preserved legacy trade records without presenting them as valid evidence."""
     query = select(Trade)
     if agente_id:
         query = query.where(Trade.agente_id == agente_id)
-    query = query.limit(limit)
-    
-    trades = session.exec(query).all()
+    trades = session.exec(query.limit(limit)).all()
     return [
         {
             "id": t.id,
@@ -31,35 +31,26 @@ def get_trades(
             "tipo": t.tipo.value,
             "resultado": t.resultado,
             "timestamp": t.timestamp.isoformat(),
+            "evidence_mode": LEGACY_EVIDENCE_MODE,
+            "evidence_valid": False,
         }
         for t in trades
     ]
 
 
 @router.get("/stats")
-def get_trades_stats(
-    session: Session = Depends(get_session)
-) -> dict:
-    """Get trading statistics: total profit, win rate, number of trades"""
-    trades = session.exec(select(Trade)).all()
-    
-    total_trades = len(trades)
-    trades_cerrados = [t for t in trades if t.resultado is not None]
-    
-    # Profit total
-    profit_total = sum(t.resultado for t in trades_cerrados if t.resultado)
-    
-    # Win rate (trades con resultado positivo / total cerrados)
-    if trades_cerrados:
-        winners = sum(1 for t in trades_cerrados if t.resultado and t.resultado > 0)
-        win_rate = winners / len(trades_cerrados)
-    else:
-        win_rate = 0.0
-    
+def get_trades_stats(session: Session = Depends(get_session)) -> dict:
+    """Do not derive financial metrics from pre-provenance trade records."""
+    records = session.exec(select(Trade)).all()
+    closed_records = [record for record in records if record.resultado is not None]
     return {
-        "total_trades": total_trades,
-        "trades_cerrados": len(trades_cerrados),
-        "profit_total": profit_total,
-        "win_rate": win_rate,
-        "win_rate_percent": round(win_rate * 100, 2),
+        "evidence_mode": LEGACY_EVIDENCE_MODE,
+        "evidence_valid": False,
+        "legacy_records": len(records),
+        "legacy_closed_records": len(closed_records),
+        "total_trades": None,
+        "trades_cerrados": None,
+        "profit_total": None,
+        "win_rate": None,
+        "win_rate_percent": None,
     }

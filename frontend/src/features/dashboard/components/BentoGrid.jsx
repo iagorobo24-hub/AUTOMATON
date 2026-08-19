@@ -8,18 +8,28 @@ export function normalizeDashboardData(agents = [], tradeStats = {}, health = {}
   const activeAgents = agents.filter((agent) => agent.estado === 'ACTIVO').length;
   const deadAgents = agents.filter((agent) => agent.estado === 'MUERTO').length;
   const replicatedAgents = agents.filter((agent) => agent.estado === 'REPLICADO').length;
+  const evidenceValid = tradeStats.evidence_valid === true;
 
   return {
     totalAgents: agents.length,
     activeAgents,
     deadAgents,
     replicatedAgents,
-    totalTrades: Number(tradeStats.total_trades ?? 0),
-    closedTrades: Number(tradeStats.trades_cerrados ?? 0),
-    profitTotal: Number(tradeStats.profit_total ?? 0),
-    winRatePercent: Number(tradeStats.win_rate_percent ?? 0),
-    engineRunning: health.agent_engine === 'running',
+    totalTrades: evidenceValid && tradeStats.total_trades != null ? Number(tradeStats.total_trades) : null,
+    closedTrades: evidenceValid && tradeStats.trades_cerrados != null ? Number(tradeStats.trades_cerrados) : null,
+    profitTotal: evidenceValid && tradeStats.profit_total != null ? Number(tradeStats.profit_total) : null,
+    winRatePercent: evidenceValid && tradeStats.win_rate_percent != null ? Number(tradeStats.win_rate_percent) : null,
+    legacyRecords: Number(tradeStats.legacy_records ?? 0),
+    evidenceValid,
+    evidenceMode: tradeStats.evidence_mode || 'unknown',
+    runtimeMode: health.runtime_mode || 'unknown',
+    syntheticDisabled: health.synthetic_engine === 'disabled',
+    paperTrading: health.paper_trading || 'unknown',
   };
+}
+
+function metricValue(value, formatter) {
+  return value == null ? 'N/D' : formatter(value);
 }
 
 export function BentoGrid() {
@@ -41,10 +51,16 @@ export function BentoGrid() {
   });
 
   const metrics = data || normalizeDashboardData();
-  const engineLabel = isLoading ? 'Consultando' : isError ? 'Desconocido' : metrics.engineRunning ? 'En ejecución' : 'Detenido';
+  const runtimeLabel = isLoading
+    ? 'Consultando'
+    : isError
+      ? 'Desconocido'
+      : metrics.syntheticDisabled
+        ? `Transición · sintético desactivado`
+        : 'Revisar runtime';
   const cards = [
-    { title: 'Win Rate', value: `${metrics.winRatePercent.toFixed(1)}%`, icon: TrendingUp },
-    { title: 'PnL acumulado', value: `€${metrics.profitTotal.toFixed(2)}`, icon: Activity },
+    { title: 'Win Rate verificable', value: metricValue(metrics.winRatePercent, (v) => `${v.toFixed(1)}%`), icon: TrendingUp },
+    { title: 'PnL verificable', value: metricValue(metrics.profitTotal, (v) => `€${v.toFixed(2)}`), icon: Activity },
     { title: 'Agentes activos', value: String(metrics.activeAgents), icon: Bot },
   ];
 
@@ -53,10 +69,10 @@ export function BentoGrid() {
       <Card className="md:col-span-3 md:row-span-2 p-6 min-h-[300px]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Resumen SQLModel</h3>
-            <p className="text-[10px] text-gray-500 font-mono mt-1">Datos reales de agentes y trades persistidos</p>
+            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Baseline de transición</h3>
+            <p className="text-[10px] text-gray-500 font-mono mt-1">Paper aún no implementado · registros legacy excluidos de evidencia</p>
           </div>
-          <span className="font-mono text-[#3b82f6] text-lg font-bold">{metrics.totalTrades} trades</span>
+          <span className="font-mono text-[#3b82f6] text-lg font-bold">{metrics.totalTrades == null ? 'N/D trades válidos' : `${metrics.totalTrades} trades`}</span>
         </div>
         {isLoading ? (
           <p className="text-sm text-gray-500 font-mono">Consultando runtime…</p>
@@ -65,9 +81,9 @@ export function BentoGrid() {
         ) : (
           <div className="grid grid-cols-2 gap-4">
             <div className="glass-card rounded-lg p-4"><p className="text-xs text-gray-500 uppercase">Agentes totales</p><p className="text-2xl font-mono text-gray-200 mt-2">{metrics.totalAgents}</p></div>
-            <div className="glass-card rounded-lg p-4"><p className="text-xs text-gray-500 uppercase">Trades cerrados</p><p className="text-2xl font-mono text-gray-200 mt-2">{metrics.closedTrades}</p></div>
+            <div className="glass-card rounded-lg p-4"><p className="text-xs text-gray-500 uppercase">Trades verificables</p><p className="text-2xl font-mono text-gray-200 mt-2">{metrics.closedTrades == null ? 'N/D' : metrics.closedTrades}</p></div>
             <div className="glass-card rounded-lg p-4"><p className="text-xs text-gray-500 uppercase">Replicados</p><p className="text-2xl font-mono text-gray-200 mt-2">{metrics.replicatedAgents}</p></div>
-            <div className="glass-card rounded-lg p-4"><p className="text-xs text-gray-500 uppercase">Muertos</p><p className="text-2xl font-mono text-gray-200 mt-2">{metrics.deadAgents}</p></div>
+            <div className="glass-card rounded-lg p-4"><p className="text-xs text-gray-500 uppercase">Legacy sin clasificar</p><p className="text-2xl font-mono text-gray-200 mt-2">{metrics.legacyRecords}</p></div>
           </div>
         )}
       </Card>
@@ -84,8 +100,8 @@ export function BentoGrid() {
 
       <Card className="p-4 bg-[#3b82f6]/5 border-[#3b82f6]/20 flex flex-col justify-center items-center gap-2">
         <HeartPulse className="w-4 h-4 text-[#3b82f6]" />
-        <div className="text-[10px] uppercase tracking-widest text-gray-400">AgentEngine</div>
-        <span className="text-xs font-mono text-gray-200">{engineLabel}</span>
+        <div className="text-[10px] uppercase tracking-widest text-gray-400">Runtime</div>
+        <span className="text-xs font-mono text-gray-200 text-center">{runtimeLabel}</span>
       </Card>
     </div>
   );

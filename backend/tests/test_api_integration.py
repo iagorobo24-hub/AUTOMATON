@@ -12,7 +12,7 @@ class TestAPI:
     """API endpoint tests"""
 
     @pytest.mark.asyncio
-    async def test_health_endpoint(self):
+    async def test_health_endpoint_reports_synthetic_isolation(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -20,8 +20,30 @@ class TestAPI:
             response = await client.get("/health")
 
         assert response.status_code == 200
+        assert response.json() == {
+            "status": "ok",
+            "runtime_mode": "transition",
+            "synthetic_engine": "disabled",
+            "paper_trading": "not_implemented",
+        }
 
-    def test_active_api_routes_are_registered(self):
+    @pytest.mark.asyncio
+    async def test_runtime_state_does_not_publish_synthetic_financial_metrics(self):
+        from app.main import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/estado")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["runtime_mode"] == "transition"
+        assert payload["synthetic_engine"] == "disabled"
+        assert payload["financial_evidence"] == "unavailable"
+        assert "precios_actuales" not in payload
+        assert "profit_total" not in payload
+
+    def test_active_api_routes_are_registered_without_manual_pnl_mutation(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -29,7 +51,7 @@ class TestAPI:
         assert "/api/agents/" in routes
         assert "/api/agents/{agent_id}/replicate" in routes
         assert "/api/agents/{agent_id}/deposit" in routes
-        assert "/api/agents/{agent_id}/simulate-trade" in routes
+        assert "/api/agents/{agent_id}/simulate-trade" not in routes
         assert "/api/agents/crear" not in routes
         assert "/api/trades/" in routes
         assert "/api/trades/stats" in routes

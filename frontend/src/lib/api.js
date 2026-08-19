@@ -42,7 +42,6 @@ export const agentsAPI = {
   replicate: (id) => api.post(`/agents/${id}/replicate`),
   delete: (id) => api.delete(`/agents/${id}`),
   deposit: (id, amount) => api.post(`/agents/${id}/deposit`, null, { params: { amount } }),
-  simulateTrade: (id, profit) => api.post(`/agents/${id}/simulate-trade`, null, { params: { profit } }),
 };
 
 export const cryptoAPI = {

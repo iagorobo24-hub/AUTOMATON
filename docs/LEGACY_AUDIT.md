@@ -1,19 +1,23 @@
 # Legacy audit and migration decisions
 
-Audit date: 2026-08-18
-Audited HEAD: `bba2c07ea540558279a08748877556771a15842a`
+Audit origin: 2026-08-18  
+Reconciled for Phase 0.1 synthetic isolation: 2026-08-19
 
 ## Purpose
 
-Classify the code that remains outside the active SQLModel runtime before any destructive pruning. This document classifies implementations, not product ideas: a feature can be valuable in the future while its current legacy implementation is still a DELETE candidate.
+Classify code that remains outside the active SQLModel runtime before destructive pruning. This document classifies implementations, not product ideas: a future capability can be valuable while its current legacy implementation is still unsuitable.
 
-## Verification status
+## Current runtime boundary
 
-The active runtime remains `backend/app/main.py` with FastAPI + SQLModel + SQLite + `AgentEngine`, and only mounts agents, trades and crypto plus `/health` and `/api/estado`.
+`backend/app/main.py` uses FastAPI + SQLModel + SQLite and mounts only agents, trades and crypto plus `/health` and `/api/estado`.
 
-Executable validation is **not currently available**. A fresh external checkout failed before downloading the repository because the execution environment could not resolve `github.com`, and there are no usable GitHub Actions results for this HEAD. Therefore the repository is statically reviewed but not execution-verified.
+The normal runtime **does not start `AgentEngine`**. `services/agent_engine.py` remains versioned only as explicit Synthetic/Test utility code. Synthetic price generation and random-close behavior must not be reconnected to normal startup, Paper or evidence metrics.
 
-Required gate when execution is available:
+S4 is explicitly implemented in `services/strategies.py`; the former silent S4->S1 fallback blocker is closed in source.
+
+Pre-provenance `Trade` rows remain stored but are exposed as `legacy_unclassified` with `evidence_valid=false`. They are not valid Paper/Backtest evidence.
+
+Executable validation remains pending whenever no environment can run the repository gate:
 
 ```bash
 cd backend && pytest tests/ -v
@@ -21,90 +25,77 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-## Active blocker discovered during this audit
-
-### STRATEGY-04 — S4 contract is not implemented
-
-`StrategyEnum` exposes `S1`, `S2`, `S3`, `S4` and the active Agents UI allows S4. `AgentEngine` resolves the strategy through `services/strategies.py`, but that factory only implements S1-S3 and silently falls back to S1 for any other value. Consequently an S4 agent currently executes S1 behavior while being labelled S4.
-
-Classification: **confirmed active bug**.
-
-Do not invent S4 semantics during cleanup. Before execution certification, make an explicit product decision: either implement a defined S4 Hybrid strategy with tests, or stop accepting/advertising S4 while preserving safe handling of any historical S4 rows.
-
 ## Classification rules
 
-- **KEEP** — used by the active runtime or required support for it.
-- **MIGRATE / REDESIGN** — product capability remains valuable, but current implementation is coupled to the Mongo/legacy architecture and must not be mounted as-is.
-- **DELETE** — current implementation has no justified role in the active product. Delete only after dependent MIGRATE work has been completed where applicable.
+- **KEEP** — active baseline or required support for current/future phases.
+- **TEST-ONLY** — useful only for deterministic/synthetic tests and prohibited from production/Paper evidence paths.
+- **MIGRATE / REDESIGN** — product capability remains valuable, but implementation violates current architecture/contracts.
+- **DELETE** — implementation has no justified role after dependencies/migrations are resolved.
 
 ## KEEP
 
-| Area | Files / components | Evidence / rationale |
+| Area | Files / components | Decision |
 |---|---|---|
-| SQLModel persistence | `backend/app/database.py`, `models/sql_models.py` and active model exports | Source of truth used by `app.main`, agents and trades. |
-| Agent lifecycle | `services/agent_engine.py`, `services/agent_replication.py`, `routers/agents.py` | Active runtime. |
-| Active trades | `routers/trades.py` | Used by Dashboard and Ops Monitor. |
-| Market data | `routers/crypto.py`, active `httpx` dependency | Mounted by `app.main` and consumed by Crypto. |
-| Active strategy factory | `services/strategies.py` | Used directly by `AgentEngine`; S1-S3 are active. S4 is separately blocked above. |
-| Active frontend | `App.jsx`, `src/lib/api.js`, DashboardPro/CryptoPro/OpsMonitorPro/AgentsPage/SettingsPage and their active feature components | These are the only routes registered by `App.jsx`. |
-| Desktop/dev tooling | Electron shell, canonical npm scripts, reconciled launcher/Makefile and CI definition | Supports the current 8000/5173 runtime. |
+| SQLModel persistence baseline | `backend/app/database.py`, `models/sql_models.py` | Keep as active persistence baseline. Evolve schema phase-by-phase rather than reviving Mongo. |
+| Agent inventory/lifecycle API | `routers/agents.py`, `services/agent_replication.py` | Keep. Manual lifecycle actions are operator actions; automatic evidence-based evolution belongs to later phases. |
+| Historical trade inspection | `routers/trades.py` | Keep temporarily. It must quarantine old rows from verified metrics until provenance-aware accounting replaces it. |
+| UI market browser | `routers/crypto.py` | Keep as UI-facing real-data integration. It is not yet the engine Market Data contract. |
+| Strategy baselines | `services/strategies.py` | Keep S1-S4 as deterministic baselines, not profitability claims. |
+| Active frontend | `App.jsx`, `src/lib/api.js`, DashboardPro/CryptoPro/OpsMonitorPro/AgentsPage/SettingsPage and active feature components | Keep. Financial telemetry must respect evidence validity. |
+| Desktop/dev tooling | Electron shell, npm scripts, launcher/Makefile and CI definition | Keep. |
+
+## TEST-ONLY
+
+| Area | Files / components | Constraint |
+|---|---|---|
+| Synthetic agent simulator | `services/agent_engine.py` | May be used only by explicit tests/test harnesses. Must not start from `app.main`, feed Paper, or write indistinguishable evidence into a normal runtime. |
 
 ## MIGRATE / REDESIGN
 
-These capabilities fit AUTOMATON's likely product direction, but their existing code is not a safe extension point.
-
 | Capability | Legacy implementation | Decision |
 |---|---|---|
-| Paper trading with real market data | `routers/simulation.py`, `routers/paper_trading.py`, `services/paper_engine.py` | **MIGRATE / REDESIGN.** Rebuild on SQLModel Agent/Trade and a defined execution abstraction. Do not reuse Mongo agent documents or registry state as source of truth. |
-| Real/live trading | `routers/trading.py`, `services/trading_engine.py`, `services/binance_service.py` | **MIGRATE / REDESIGN.** Keep only reviewed exchange/market-data techniques that are still correct. Live execution requires a new explicit safety contract before mounting anything. |
-| Advanced strategies | `strategy_alpha.py`, `strategy_beta.py`, `strategy_gamma.py`, `indicators.py`, `regime_detector.py` | **MIGRATE / REVIEW.** Potentially valuable strategy logic, but currently consumed by legacy engines rather than `AgentEngine`. Port only after strategy contracts and backtesting criteria are defined. |
-| Risk controls | `risk_manager.py`, legacy `routers/risk.py` | **MIGRATE / REDESIGN.** Risk belongs in the active trading path, not in an unmounted Mongo router. |
-| Portfolio snapshots / performance | `portfolio_snapshot.py` and related legacy data paths | **MIGRATE / REDESIGN** if required by the next trading phase. Persist against SQLModel entities. |
-| Notifications / activity | `services/notifications.py`, `routers/notifications.py`, historical activity UI | **MIGRATE / REDESIGN.** Useful operational capability, but current injection path belongs to `DatabaseService`. |
-| Simulation UI | `frontend/src/pages/SimulationPage.jsx` | **MIGRATE / REDESIGN** only when the SQLModel paper-simulation backend exists. Do not remount it against legacy endpoints. |
-| Activity UI | `frontend/src/pages/ActivityPage.jsx` | **MIGRATE / REDESIGN** together with the new notification/event model, if retained as a product capability. |
+| Market data provider | `services/binance_service.py` | **REDESIGN.** Potentially reusable parsing/provider knowledge, but current behavior silently returns mock data when credentials/provider calls fail. Phase 1 must fail closed. |
+| Paper trading | `routers/simulation.py`, `routers/paper_trading.py`, `services/paper_engine.py` | **REDESIGN.** Rebuild after Market Data and Accounting contracts; do not mount Mongo/registry implementation. |
+| Live trading | `routers/trading.py`, `services/trading_engine.py`, parts of `binance_service.py` | **REDESIGN LATER.** No Live adapter before `LIVE_TRADING_GATE.md`. |
+| Advanced strategies | `strategy_alpha.py`, `strategy_beta.py`, `strategy_gamma.py`, `indicators.py`, `regime_detector.py` | **REVIEW/MIGRATE.** Treat historical thresholds/performance statements as hypotheses until reproducible backtests. |
+| Risk controls | `risk_manager.py`, legacy `routers/risk.py` | **REDESIGN.** Risk must sit independently between strategy intent and execution. |
+| Portfolio/performance | `portfolio_snapshot.py` and legacy data paths | **REDESIGN.** Future accounting is authoritative; no competing balance/PnL calculations. |
+| Notifications/activity | legacy notifications service/router/UI | **REDESIGN IF NEEDED.** Not a current core dependency. |
 
-## DELETE
+## DELETE after dependencies are resolved
 
-The following implementations should be removed in the later pruning phase, not reactivated.
+- Mongo `DatabaseService` and Mongo injection stack.
+- `api/api.py` legacy router aggregator.
+- Legacy system/dashboard/strategy-CRUD routers.
+- `services/mock_engine.py` and registry layer once no migration candidate needs them.
+- `services/replication.py` legacy replication implementation.
+- Current Mongo-backed auth/payments/chat/memory implementations unless separately redesigned as future product initiatives.
+- Replaced/unreachable frontend pages after final reference audit.
+- Mongo infrastructure/config/dependencies after all retained migration candidates are detached.
 
-| Area | Files / components | Reason |
-|---|---|---|
-| Mongo source of truth | `services/database.py` (`DatabaseService`), `api/deps.py` Mongo dependencies | Replaced by SQLModel/SQLite. Retain only until all selected MIGRATE capabilities stop importing it. |
-| Legacy router aggregator | `api/api.py` | Registers a second application surface that `app.main` intentionally does not use. Mounting it would reintroduce the split architecture. |
-| Legacy system/settings controls | `routers/system.py` and associated Mongo/engine controls | Already replaced by honest runtime Settings. |
-| Legacy dashboard API | `routers/dashboard.py` | Active Dashboard derives metrics from agents/trades/health. Second dashboard contract is unnecessary. |
-| Legacy strategy CRUD router | `routers/strategies.py` | Stores Mongo strategy documents unrelated to the active S1-S4 enum contract. |
-| Mock engine / registry | `services/mock_engine.py`, `services/registry.py` | Global engine registry is only support for legacy paper/mock architecture. Replace through explicit active runtime ownership if paper trading is rebuilt. |
-| Old replication service | `services/replication.py` | Active SQLModel replication uses `services/agent_replication.py`. |
-| Auth implementation | `routers/auth.py`, Mongo-backed auth service/models once dependencies are removed | Current product is local and auth is unmounted/Mongo-backed; implementation is incomplete (for example register calls an undefined `get_password_hash`). If multi-user auth becomes a requirement, design it for the active persistence model rather than reviving this code. |
-| Payments implementation | `routers/payments.py` and payment-specific legacy configuration/dependencies | Unmounted, Mongo-backed and tied to historical Stripe/Emergent integration. Payments are not part of the current product contract. Rebuild only after a monetization requirement exists. |
-| Chat / LLM legacy surface | `routers/chat.py`, old Chat page and LLM-specific configuration not used elsewhere | Not present in the active product. Reintroduce only as a new scoped feature with an explicit contract. |
-| Memory legacy UI | `frontend/src/pages/Memory.jsx` and related unused components | Not registered by the active application and not part of the current trading runtime. |
-| Replaced pages | `DashboardPage.jsx`, `Dashboard.jsx`, `Agents.jsx`, `Settings.jsx`, `Trades.jsx`, `CryptoPage.jsx` and other pages superseded by the five routes in `App.jsx` | Duplicate historical UI. Delete after a final import/reference check. |
-| Wallet/Login pages | `WalletPage.jsx`, `LoginPage.jsx` | Depend conceptually on payments/auth capabilities that are not active. Rebuild only if those product requirements return. |
-| Mongo infrastructure | `.devops/docker-compose.yml` and Mongo-only settings/dependencies | Delete after no remaining MIGRATE candidate imports Mongo. |
+## Special Phase 1 warning
 
-## Dependency cleanup after migration decisions
+Do not import `BinanceService` as the new Market Data adapter merely because it already exposes `get_price`, `get_klines` or orderbook methods. Its current contract converts missing credentials and provider exceptions into generated data. That is incompatible with `docs/MARKET_DATA.md` and would recreate the original Paper-vs-synthetic defect.
 
-Do not remove Python dependencies before their final consumers disappear. After the MIGRATE/DELETE work, re-scan imports and then remove legacy-only packages such as `motor`, `pymongo`, `python-binance`, JWT/auth packages or other integration libraries only when no retained code imports them.
+## Dependency cleanup
 
-Likewise prune legacy settings from `core/config.py` only after the corresponding code has been deleted or migrated. At present the configuration file still contains Mongo, JWT, Stripe, Live/Paper, notification and risk settings that do not govern `AgentEngine`.
+Do not remove a dependency until its final retained consumer disappears. `core/config.py` and `backend/requirements.txt` still contain legacy Mongo/auth/Binance/risk settings/packages because legacy source remains versioned. Prune them during the later destructive cleanup, not during Market Data unless the relevant dependency becomes actively redesigned.
 
 ## Ordered next work
 
-1. **Resolve STRATEGY-04**: define S4 or stop exposing it; add regression coverage so no strategy silently aliases another.
-2. **Execution certification**: run backend tests, frontend tests and frontend build on the exact resulting HEAD once an execution environment is available.
-3. **Paper/risk migration design**: specify a SQLModel-compatible execution interface, persistence semantics, market-data boundary and safety rules. Extract only validated logic from legacy engines.
-4. **Advanced strategy review**: compare S1-S3 active strategies with Alpha/Beta/Gamma legacy algorithms; port only evidence-backed logic and add deterministic tests/backtests.
-5. **Notifications/activity migration** if retained.
-6. **Destructive pruning**: delete DatabaseService, legacy aggregator, rejected routers/services/pages and then remove unused dependencies/configuration.
-7. **Fresh full audit + executable gate** after pruning.
+1. Obtain fresh execution certification for the Phase 0.1 HEAD when an execution environment is available.
+2. Begin Phase 1 with a provider-neutral, fail-closed Real Market Data contract.
+3. Build accounting before Paper execution.
+4. Add Risk before unattended Paper operation.
+5. Add reproducible Backtesting/Evidence before evidence-driven automatic agent evolution.
+6. Review/migrate legacy advanced strategies only after those foundations exist.
+7. Perform destructive legacy pruning only after selected migration value has been extracted.
 
 ## Stop conditions
 
-- Do not mount `api/api.py` or Mongo routers to make tests/UI pass.
-- Do not implement Live trading as part of cleanup.
-- Do not silently invent S4 behavior.
-- Do not delete a legacy module while a selected MIGRATE capability still imports it.
-- Do not claim tests/build are green without fresh execution on the reported HEAD.
+- Do not reconnect `AgentEngine` to normal startup.
+- Do not treat `legacy_unclassified` rows as strategy evidence.
+- Do not use mock/generated provider fallback in Paper-capable paths.
+- Do not mount `api/api.py` or Mongo routers as shortcuts.
+- Do not implement Live trading during cleanup/Market Data.
+- Do not claim tests/build green without fresh execution on the reported HEAD.

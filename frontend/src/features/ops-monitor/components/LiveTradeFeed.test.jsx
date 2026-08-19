@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { normalizeTradeFeed } from './LiveTradeFeed.jsx';
 
 describe('operations monitor normalization', () => {
-  it('maps persisted SQLModel trades without inventing live market fields', () => {
+  it('preserves legacy records while exposing their invalid evidence status', () => {
     const result = normalizeTradeFeed([
       {
         id: 4,
@@ -13,6 +13,8 @@ describe('operations monitor normalization', () => {
         tipo: 'LONG',
         resultado: 5,
         timestamp: '2026-08-18T10:00:00+00:00',
+        evidence_mode: 'legacy_unclassified',
+        evidence_valid: false,
       },
       {
         id: 5,
@@ -23,11 +25,20 @@ describe('operations monitor normalization', () => {
         tipo: 'LONG',
         resultado: null,
         timestamp: '2026-08-18T10:01:00+00:00',
+        evidence_mode: 'legacy_unclassified',
+        evidence_valid: false,
       },
     ]);
 
-    expect(result[0]).toMatchObject({ id: 4, agentId: 2, status: 'CLOSED', pnl: 5 });
-    expect(result[1]).toMatchObject({ id: 5, agentId: 2, status: 'OPEN', pnl: null, exit: null });
+    expect(result[0]).toMatchObject({
+      id: 4,
+      agentId: 2,
+      status: 'CLOSED',
+      pnl: 5,
+      evidenceMode: 'legacy_unclassified',
+      evidenceValid: false,
+    });
+    expect(result[1]).toMatchObject({ id: 5, status: 'OPEN', pnl: null, exit: null, evidenceValid: false });
     expect(result[0]).not.toHaveProperty('pair');
     expect(result[0]).not.toHaveProperty('current');
   });

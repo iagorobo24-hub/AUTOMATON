@@ -16,7 +16,10 @@ export function normalizeAgents(rawAgents = []) {
   return rawAgents.map((agent) => {
     const initial = Number(agent.presupuesto_inicial ?? 0);
     const current = Number(agent.presupuesto_actual ?? 0);
-    const roi = initial > 0 ? ((current - initial) / initial) * 100 : 0;
+    const evidenceValid = agent.performance_evidence_valid === true;
+    const roi = evidenceValid && agent.profit_percent != null
+      ? Number(agent.profit_percent) * 100
+      : null;
 
     return {
       id: agent.id,
@@ -28,10 +31,15 @@ export function normalizeAgents(rawAgents = []) {
         initial_capital: initial,
         current_balance: current,
       },
-      performance: { roi_percent: roi },
+      performance: {
+        roi_percent: roi,
+        evidence_valid: evidenceValid,
+        evidence_mode: agent.evidence_mode || 'unknown',
+      },
       trading_stats: {
-        total_trades: Number(agent.trades_count ?? 0),
-        winning_trades: Number(agent.successful_trades ?? 0),
+        total_trades: evidenceValid && agent.trades_count != null ? Number(agent.trades_count) : null,
+        winning_trades: evidenceValid && agent.successful_trades != null ? Number(agent.successful_trades) : null,
+        legacy_records: Number(agent.legacy_trades_count ?? 0),
       },
       lineage: {
         parent_id: agent.padre_id ?? null,

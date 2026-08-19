@@ -21,7 +21,11 @@ Synthetic prices, random fills or mock telemetry must never be presented as Pape
 
 The active runtime is FastAPI + SQLModel + SQLite with React/Vite. `backend/app/main.py` and `frontend/src/App.jsx` remain the authority for what runs today.
 
-The current `AgentEngine` still contains synthetic price generation and therefore is **not the target Paper engine**. It is transition/test infrastructure to be replaced or isolated as the real-market Paper stack is built.
+The legacy `AgentEngine` still exists as explicit Synthetic/Test utility code, but **the normal application runtime no longer starts it**. `/health` and `/api/estado` identify the runtime as `transition`, report the synthetic engine as disabled and do not publish synthetic price/PnL telemetry.
+
+Historical `Trade` rows created before evidence provenance existed are preserved but classified as `legacy_unclassified`. They are excluded from verified PnL, Win Rate, ROI and trade-count metrics instead of being silently promoted into future Paper evidence.
+
+Paper Trading itself is **not implemented yet**. The next phase is Real Market Data.
 
 ## Target architecture
 
@@ -85,4 +89,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Never describe a HEAD as verified without fresh command output for that exact HEAD.
+Never describe a HEAD as execution-verified without fresh command output for that exact HEAD.

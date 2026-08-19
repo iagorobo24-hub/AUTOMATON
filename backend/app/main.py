@@ -1,10 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import init_db
-from app.services.agent_engine import AgentEngine
 from app.routers import agents, trades, crypto
 
 logging.basicConfig(
@@ -12,30 +12,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-agent_engine: AgentEngine = None
+RUNTIME_MODE = "transition"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global agent_engine
     logger.info("[MAIN] Starting up...")
     init_db()
     logger.info("[MAIN] Database initialized")
-    agent_engine = AgentEngine()
-    await agent_engine.start()
-    app.state.agent_engine = agent_engine
-    logger.info("[MAIN] AgentEngine started")
+    app.state.runtime_mode = RUNTIME_MODE
+    logger.info("[MAIN] Synthetic AgentEngine is disabled in the normal runtime")
     yield
-    logger.info("[MAIN] Shutting down...")
-    if agent_engine:
-        await agent_engine.stop()
     logger.info("[MAIN] Shutdown complete")
 
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.2.0",
-    description="Agentes de trading crypto autónomos",
+    version="2.3.0",
+    description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
 
@@ -56,22 +50,31 @@ app.include_router(crypto.router, prefix="/api/crypto", tags=["crypto"])
 def root():
     return {
         "message": "AUTOMATON v2 API",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "status": "operational",
+        "runtime_mode": RUNTIME_MODE,
     }
 
 
 @app.get("/health")
 def health():
-    engine_status = "running" if agent_engine and agent_engine.running else "stopped"
-    return {"status": "ok", "agent_engine": engine_status}
+    return {
+        "status": "ok",
+        "runtime_mode": RUNTIME_MODE,
+        "synthetic_engine": "disabled",
+        "paper_trading": "not_implemented",
+    }
 
 
 @app.get("/api/estado")
 def get_estado():
-    if not agent_engine:
-        return {"error": "AgentEngine not running"}, 503
-    return agent_engine.get_estado()
+    return {
+        "runtime_mode": RUNTIME_MODE,
+        "synthetic_engine": "disabled",
+        "paper_trading": "not_implemented",
+        "market_data_mode": "ui_only_real_data",
+        "financial_evidence": "unavailable",
+    }
 
 
 if __name__ == "__main__":
