@@ -14,6 +14,7 @@ from app.models import (
     PaperRuntimeAgent,
     PaperRuntimeCycle,
     PaperRuntimeSession,
+    PaperRuntimeStrategyEvidence,
     ResearchEvaluation,
     ResearchStudy,
     ResearchWindow,
@@ -128,6 +129,7 @@ class ResearchEvaluator:
         qualifying_account_ids: set[int] = set()
         qualifying_execution_ids_by_account: dict[int, set[int]] = {}
         closing_execution_ids: set[int] = set()
+        source_evidence_mismatch = False
 
         for runtime in stopped:
             if runtime.stopped_at is None:
@@ -142,6 +144,20 @@ class ResearchEvaluator:
             for attachment in attachments:
                 agent = self.session.get(Agent, attachment.agent_id)
                 if agent is None or agent.estrategia.value != study.strategy_id:
+                    continue
+                runtime_source = self.session.exec(
+                    select(PaperRuntimeStrategyEvidence).where(
+                        PaperRuntimeStrategyEvidence.session_id == runtime.id,
+                        PaperRuntimeStrategyEvidence.agent_id == agent.id,
+                    )
+                ).first()
+                if (
+                    runtime_source is None
+                    or runtime_source.strategy_id != study.strategy_id
+                    or runtime_source.strategy_version != study.strategy_version
+                    or runtime_source.strategy_source_sha256 != study.strategy_source_sha256
+                ):
+                    source_evidence_mismatch = True
                     continue
                 account = self.session.exec(select(Account).where(Account.agente_id == agent.id)).first()
                 if account is None:
@@ -177,6 +193,12 @@ class ResearchEvaluator:
                 qualifying_session_ids.append(runtime.id)
 
         if not qualifying_session_ids:
+            if source_evidence_mismatch:
+                return ResearchGateResult(
+                    False,
+                    "FORWARD_SOURCE_EVIDENCE_MISMATCH",
+                    "completed forward session lacks matching strategy version/source fingerprint evidence",
+                )
             return ResearchGateResult(False, "FORWARD_SESSION_REQUIRED", "a completed STOPPED Phase 7 session on the same market/timeframe is required")
 
         for account_id in qualifying_account_ids:
