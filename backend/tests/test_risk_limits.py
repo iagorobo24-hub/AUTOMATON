@@ -94,3 +94,30 @@ def test_sell_reducing_existing_long_bypasses_size_and_loss_caps_but_not_integri
         oversell = RiskService(session, clock=lambda: NOW).evaluate(account_id=account.id, symbol="BTC/USDT", side="SELL",
             quantity=Decimal("4"), quote=_quote(), market_prices={"BTC/USDT": Decimal("100")}, profile=profile)
         assert oversell.reason_code == "OVERSELL"
+
+
+def test_buy_cash_reserve_matches_compounded_paper_v1_slippage_and_fee():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        account, profile = _setup(session)
+        account.initial_capital = Decimal("100.2")
+        account.funded_capital = Decimal("100.2")
+        account.cash = Decimal("100.2")
+        session.add(account)
+        profile.max_order_notional = Decimal("1000")
+        profile.max_order_equity_pct = Decimal("2")
+        profile.max_total_exposure_pct = Decimal("2")
+        profile.max_symbol_exposure_pct = Decimal("2")
+        session.add(profile)
+        session.commit()
+
+        decision = RiskService(session, clock=lambda: NOW).evaluate(
+            account_id=account.id,
+            symbol="BTC/USDT",
+            side="BUY",
+            quantity=Decimal("1"),
+            quote=_quote(),
+            market_prices={"BTC/USDT": Decimal("100")},
+            profile=profile,
+        )
+        assert decision.reason_code == "INSUFFICIENT_CASH_RESERVE"
