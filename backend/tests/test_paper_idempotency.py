@@ -157,3 +157,27 @@ async def test_rejected_financial_request_is_idempotent_and_links_rejection(setu
         assert requests[0].execution_id == executions[0].id
         assert requests[0].status == "COMPLETED"
         assert requests[0].http_status == 409
+
+
+@pytest.mark.asyncio
+async def test_whitespace_request_id_is_rejected_before_market_or_financial_state(setup_app):
+    engine, provider, account_id = setup_app
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/api/paper/orders/market",
+            params={
+                "request_id": "   ",
+                "account_id": account_id,
+                "symbol": "BTC-USDT",
+                "side": "BUY",
+                "quantity": "1",
+            },
+        )
+
+    assert response.status_code == 422
+    assert provider.calls == 0
+    with Session(engine) as session:
+        assert session.exec(select(PaperRequest)).all() == []
+        assert session.exec(select(PaperExecution)).all() == []
+        assert session.exec(select(Fill)).all() == []
