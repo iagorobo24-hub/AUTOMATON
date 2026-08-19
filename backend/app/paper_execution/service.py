@@ -64,8 +64,10 @@ class PaperExecutionService:
     """Deterministic virtual execution against validated real quotes.
 
     Phase 4 requires a persisted, current-profile Risk ALLOW decision for every
-    normal execution. Recovery methods reconcile persisted state; they do not
-    submit a new order and therefore do not require a fresh decision.
+    normal execution. Phase 7 permits the controlled `strategy_runtime` origin
+    in addition to manual operator commands; both consume the same Risk and
+    Accounting boundaries. Recovery methods reconcile persisted state and do
+    not submit a new order.
     """
 
     def __init__(
@@ -186,10 +188,8 @@ class PaperExecutionService:
         request: PaperRequest | None = None,
         risk_decision: RiskDecision | None = None,
     ) -> PaperExecutionResult:
-        if origin != "operator":
-            raise PaperExecutionError(
-                "Phase 4 remains operator-only; automated strategy execution is not enabled"
-            )
+        if origin not in {"operator", "strategy_runtime"}:
+            raise PaperExecutionError("unsupported Paper execution origin")
         side = side.strip().upper()
         if side not in {"BUY", "SELL"}:
             raise PaperExecutionError("only BUY and SELL market orders are supported")
