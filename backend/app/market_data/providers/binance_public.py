@@ -29,7 +29,7 @@ class BinancePublicMarketDataProvider:
     """
 
     name = "binance_public"
-    default_base_url = "https://api.binance.com"
+    default_base_url = "https://data-api.binance.vision"
 
     def __init__(
         self,
@@ -40,15 +40,19 @@ class BinancePublicMarketDataProvider:
         sleep: Sleep = asyncio.sleep,
         max_attempts: int = 3,
         timeout_seconds: float = 10.0,
+        max_retry_after_seconds: float = 10.0,
     ):
         if max_attempts < 1:
             raise ValueError("max_attempts must be at least 1")
+        if max_retry_after_seconds < 0:
+            raise ValueError("max_retry_after_seconds cannot be negative")
         self._client = client
         self._base_url = (base_url or self.default_base_url).rstrip("/")
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._sleep = sleep
         self._max_attempts = max_attempts
         self._timeout_seconds = timeout_seconds
+        self._max_retry_after_seconds = max_retry_after_seconds
 
     def _now_utc(self) -> datetime:
         value = self._clock()
@@ -56,9 +60,27 @@ class BinancePublicMarketDataProvider:
             raise MarketDataQualityError("provider clock must be timezone-aware")
         return value.astimezone(timezone.utc)
 
+    def _retry_delay(self, response: httpx.Response, attempt: int) -> float:
+        if response.status_code == 429:
+            raw = response.headers.get("Retry-After")
+            if raw is not None:
+                try:
+                    delay = max(0.0, float(raw))
+                except ValueError as exc:
+                    raise MarketDataUnavailable(
+                        "Binance returned an invalid Retry-After header"
+                    ) from exc
+                if delay > self._max_retry_after_seconds:
+                    raise MarketDataUnavailable(
+                        "Binance rate-limit wait exceeds bounded retry window"
+                    )
+                return delay
+        return 0.25 * (2 ** (attempt - 1))
+
     async def _send(self, path: str, params: dict) -> httpx.Response:
         last_error: Exception | None = None
         for attempt in range(1, self._max_attempts + 1):
+            retry_delay: float | None = None
             try:
                 if self._client is not None:
                     response = await self._client.get(
@@ -74,10 +96,15 @@ class BinancePublicMarketDataProvider:
                             timeout=self._timeout_seconds,
                         )
 
+                if response.status_code == 418:
+                    raise MarketDataUnavailable(
+                        "Binance market-data IP access is temporarily banned"
+                    )
                 if response.status_code == 429 or response.status_code >= 500:
                     last_error = MarketDataUnavailable(
                         f"Binance public API returned HTTP {response.status_code}"
                     )
+                    retry_delay = self._retry_delay(response, attempt)
                 elif response.is_error:
                     raise MarketDataQualityError(
                         f"Binance public API rejected request with HTTP {response.status_code}"
@@ -86,9 +113,10 @@ class BinancePublicMarketDataProvider:
                     return response
             except (httpx.TimeoutException, httpx.TransportError) as exc:
                 last_error = exc
+                retry_delay = 0.25 * (2 ** (attempt - 1))
 
-            if attempt < self._max_attempts:
-                await self._sleep(0.25 * (2 ** (attempt - 1)))
+            if attempt < self._max_attempts and retry_delay is not None:
+                await self._sleep(retry_delay)
 
         raise MarketDataUnavailable("Binance public market data unavailable") from last_error
 
