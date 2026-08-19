@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 @pytest.mark.integration
 class TestAPI:
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_phase_6_evolution_contract(self):
+    async def test_health_endpoint_reports_phase_7_runtime_contract(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -25,10 +25,11 @@ class TestAPI:
             "market_data": "real_contract_available",
             "accounting": "authoritative_phase_2",
             "risk": "authoritative_phase_4",
-            "paper_trading": "operator_only_phase_4",
+            "paper_trading": "autonomous_phase_7",
             "backtesting": "evidence_phase_5",
             "agent_evolution": "evidence_phase_6",
-            "automated_trading": "blocked_until_phase_7_runtime",
+            "paper_runtime": "runtime_phase_7",
+            "automated_trading": "paper_enabled_phase_7",
             "live_execution": "disabled",
         }
 
@@ -47,15 +48,16 @@ class TestAPI:
         assert payload["market_data_mode"] == "real_contract_available"
         assert payload["accounting_mode"] == "authoritative_phase_2"
         assert payload["risk_mode"] == "authoritative_phase_4"
-        assert payload["paper_trading"] == "operator_only_phase_4"
+        assert payload["paper_trading"] == "autonomous_phase_7"
         assert payload["backtesting"] == "evidence_phase_5"
         assert payload["agent_evolution"] == "evidence_phase_6"
-        assert payload["automated_trading"] == "blocked_until_phase_7_runtime"
+        assert payload["paper_runtime"] == "runtime_phase_7"
+        assert payload["automated_trading"] == "paper_enabled_phase_7"
         assert payload["live_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_include_evolution_backtesting_and_risk_gated_paper_but_not_live_or_automation(self):
+    def test_active_api_routes_include_phase_7_runtime_but_not_live_or_auto_replication(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -66,26 +68,24 @@ class TestAPI:
         assert "/api/market-data/status" in routes
         assert "/api/accounting/agents/{agent_id}" in routes
         assert "/api/risk/status" in routes
-        assert "/api/risk/profiles/active" in routes
-        assert "/api/risk/decisions" in routes
-        assert "/api/risk/pause" in routes
-        assert "/api/risk/resume" in routes
         assert "/api/paper/status" in routes
         assert "/api/paper/orders/market" in routes
         assert "/api/paper/executions" in routes
         assert "/api/backtests/status" in routes
-        assert "/api/backtests/datasets" in routes
-        assert "/api/backtests/datasets/{dataset_id}" in routes
-        assert "/api/backtests/runs" in routes
-        assert "/api/backtests/runs/{run_id}" in routes
         assert "/api/evolution/status" in routes
-        assert "/api/evolution/policies/active" in routes
-        assert "/api/evolution/agents/{agent_id}/fitness" in routes
-        assert "/api/evolution/agents/{agent_id}/lineage" in routes
-        assert "/api/paper/automation/start" not in routes
+        assert "/api/runtime/status" in routes
+        assert "/api/runtime/sessions" in routes
+        assert "/api/runtime/sessions/{session_id}" in routes
+        assert "/api/runtime/sessions/{session_id}/cycles" in routes
+        assert "/api/runtime/sessions/{session_id}/start" in routes
+        assert "/api/runtime/sessions/{session_id}/pause" in routes
+        assert "/api/runtime/sessions/{session_id}/resume" in routes
+        assert "/api/runtime/sessions/{session_id}/recover" in routes
+        assert "/api/runtime/sessions/{session_id}/stop" in routes
         assert "/api/paper/live" not in routes
         assert "/api/backtests/optimize" not in routes
         assert "/api/evolution/automation/start" not in routes
+        assert "/api/evolution/automation/replicate" not in routes
         assert "/api/estado" in routes
 
     def test_legacy_system_and_trading_routers_stay_out_of_sqlmodel_runtime(self):
