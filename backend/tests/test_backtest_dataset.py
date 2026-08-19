@@ -50,6 +50,20 @@ def test_dataset_hash_is_stable_for_identical_normalized_content():
     assert len(canonical_dataset_sha256(candles_a)) == 64
 
 
+def test_dataset_hash_normalizes_decimal_scale_not_only_string_representation():
+    base = [_candle(0), _candle(1)]
+    equivalent = list(base)
+    equivalent[1] = equivalent[1].model_copy(update={
+        "open": Decimal("101.0000"),
+        "high": Decimal("102.000"),
+        "low": Decimal("100.00"),
+        "close": Decimal("101.5000"),
+        "volume": Decimal("11.000"),
+    })
+
+    assert canonical_dataset_sha256(base) == canonical_dataset_sha256(equivalent)
+
+
 def test_dataset_hash_changes_when_market_content_changes():
     candles = [_candle(0), _candle(1)]
     changed = list(candles)
@@ -58,7 +72,7 @@ def test_dataset_hash_changes_when_market_content_changes():
     assert canonical_dataset_sha256(candles) != canonical_dataset_sha256(changed)
 
 
-def test_persist_dataset_rejects_gap_duplicate_and_out_of_order_series():
+def test_persist_dataset_rejects_gap_duplicate_out_of_order_and_mixed_provider_series():
     engine = _engine()
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
@@ -92,6 +106,21 @@ def test_persist_dataset_rejects_gap_duplicate_and_out_of_order_series():
                 requested_start=START,
                 requested_end=START + timedelta(minutes=3),
                 candles=out_of_order,
+            )
+
+        mixed_provider = [_candle(0), _candle(1)]
+        mixed_provider[1] = mixed_provider[1].model_copy(update={
+            "provider": "other_real_provider",
+            "provider_symbol": "BTCUSDT",
+        })
+        with pytest.raises(DatasetValidationError, match="provider"):
+            persist_dataset(
+                session,
+                symbol="BTC/USDT",
+                interval="1m",
+                requested_start=START,
+                requested_end=START + timedelta(minutes=2),
+                candles=mixed_provider,
             )
 
 
