@@ -83,6 +83,16 @@ export const riskAPI = {
   resume: () => api.post('/risk/resume'),
 };
 
+export const backtestsAPI = {
+  status: () => api.get('/backtests/status'),
+  datasets: (params = {}) => api.get('/backtests/datasets', { params }),
+  dataset: (id) => api.get(`/backtests/datasets/${id}`),
+  createDataset: (params) => api.post('/backtests/datasets', null, { params }),
+  runs: (params = {}) => api.get('/backtests/runs', { params }),
+  run: (id) => api.get(`/backtests/runs/${id}`),
+  createRun: (params) => api.post('/backtests/runs', null, { params }),
+};
+
 export const stateAPI = {
   status: () => api.get('/estado'),
 };
