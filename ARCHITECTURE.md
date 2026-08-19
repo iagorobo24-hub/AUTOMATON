@@ -9,130 +9,110 @@ AUTOMATON researches autonomous crypto-trading agents using **real market data a
 1. Synthetic data is test-only and explicitly labelled.
 2. Backtest and Paper use real market data and virtual capital.
 3. Live is a separate future execution adapter.
-4. Evidence always preserves mode/provenance.
+4. Evidence preserves mode/provenance.
 5. SQLModel/SQLite is the active persistence baseline.
-6. Legacy Mongo/trading services are not reactivated as shortcuts.
-7. Accounting is the only active Paper financial authority.
-8. Normal Paper execution requires persisted current-profile Risk ALLOW.
-9. Backtest state is isolated from Paper and cannot execute before the candle after the signal observation.
-10. Agent replication may transfer capital but cannot mint/copy it.
-11. Fitness cannot promote legacy/unreconciled/stale strategy evidence.
-12. Phase 6 does not enable automatic trading, automatic replication, mutation or Live.
+6. Accounting is the only active Paper financial authority.
+7. Every normal Paper execution requires a persisted current-profile Risk ALLOW.
+8. Backtest state is isolated from Paper and uses next-candle execution.
+9. Replication transfers rather than duplicates funded liquid capital.
+10. Phase 7 autonomous trading exists only inside explicitly started Paper runtime sessions.
+11. Runtime restart never silently resumes an interrupted session or uncertain order.
+12. Phase 7 does not enable Live, auto-replication, strategy mutation or optimization.
 
 ## Active domains
 
 ### Market Data — Phase 1
 
-`backend/app/market_data/` owns current real Quote/Candle contracts and quality controls. `backend/app/backtesting/providers/binance_history.py` is the separate public read-only historical provider.
+`backend/app/market_data/` owns real current Quote/Candle contracts, provenance and quality controls. Historical Backtest access remains a separate read-only provider.
 
-### Strategy / Signals
+### Strategy — baseline S1-S4
 
-S1-S4 remain deterministic baseline implementations in `backend/app/services/strategies.py`. Their source is SHA-256 fingerprinted for Backtest evidence. Phase 6 compares fitness Backtest fingerprints against the current source so stale algorithm evidence fails closed.
+`backend/app/services/strategies.py` remains unchanged baseline logic. Phase 7 consumes close-price history from real closed candles; the runtime does not tune strategy thresholds.
 
 ### Risk — Phase 4
 
-`backend/app/risk/` owns versioned Paper authorization and circuit breaker state. Normal Paper financial state cannot be created without a persisted matching ALLOW.
+`backend/app/risk/` remains the authorization layer for both manual and autonomous Paper orders. Risk does not execute orders.
 
-### Paper Execution — Phase 3 + Risk gate
+### Paper Execution — Phases 3, 4 and 7
 
-`backend/app/paper_execution/` owns operator-originated deterministic virtual MARKET execution:
+`backend/app/paper_execution/` accepts two controlled origins:
 
-```text
-request_id -> Real Market Data -> Risk -> Paper Execution -> Accounting
-```
+- `operator`: explicit manual API command;
+- `strategy_runtime`: Phase 7 session orchestration.
 
-Paper persists provenance/idempotency/recovery state and has no Live exchange adapter.
+Both require the same real Quote, persisted one-time Risk ALLOW, deterministic `paper-v1` execution and Accounting mutation. Unknown origins are rejected. There is no Live exchange adapter.
 
-### Portfolio & Accounting — Phase 2 + Phase 6 transfer primitive
+### Portfolio & Accounting — Phase 2
 
-`backend/app/accounting/` owns Account, Order, Fill, Position and LedgerEntry. Funding is not PnL; long-only is the defined scope.
+`backend/app/accounting/` owns Account, Order, Fill, Position and LedgerEntry. Funding is separate from PnL. Phase 6 capital transfer also uses this authority.
 
-Phase 6 adds `AccountingService.transfer_to_child()`:
+### Backtesting — Phase 5
 
-- transfer only from funded liquid capital;
-- exclude reserved cash;
-- decrease parent cash/funded capital by the exact allocation;
-- create a flat child account with the exact same amount;
-- paired `CAPITAL_TRANSFER_OUT/IN` entries;
-- can participate in one larger transaction with child/lineage creation.
-
-### Backtesting & Evidence — Phase 5
-
-`backend/app/backtesting/` freezes immutable real historical datasets, persists canonical SHA-256, executes deterministic `backtest-v1` using signal-close `t` -> execution-open `t+1`, and stores run/source/trade/equity/metric evidence separately from Paper.
-
-`BacktestRunEvidence.strategy_code_sha256` identifies the exact active strategy source used by new runs. Missing fingerprints on older runs remain missing rather than being fabricated.
+`backend/app/backtesting/` owns immutable historical datasets and deterministic isolated evidence. It never mutates active Paper state.
 
 ### Agent Evolution — Phase 6
 
-`backend/app/agent_evolution/` owns evidence-aware lifecycle and replication.
+`backend/app/agent_evolution/` owns evidence-aware fitness, lineage and manual replication. Replication remains manual in Phase 7; runtime cycles cannot auto-replicate agents.
 
-#### Policy
+### Paper Runtime — Phase 7
 
-`EvolutionPolicy` persists `evolution-v1`:
+`backend/app/paper_runtime/` owns durable autonomous Paper session orchestration.
 
-- min 5 Backtest round trips;
-- Backtest net return > 0;
-- Backtest expectancy > 0;
-- max Backtest drawdown 15%;
-- min 3 agent-specific FILLED Paper SELL executions;
-- Paper realized PnL > 0;
-- child allocation fraction 25% of eligible funded liquid capital.
+Persistent records:
 
-These limits are research infrastructure, not profitability claims.
+- `PaperRuntimeSession`: session identity, market/timeframe, status, heartbeat and operational failure state;
+- `PaperRuntimeAgent`: agent attachment plus last processed candle/signal/outcome;
+- `PaperRuntimeCycle`: unique `(session, agent, candle close)` evaluation evidence and links to Risk/Paper;
+- `PaperRuntimeEvent`: lifecycle/recovery/operational events.
 
-#### Fitness
+The live worker is an in-process asyncio scheduler. It is **not** authoritative: SQLite state is. The local/single-process baseline prevents two tasks in the current process for one session, while persistent ownership rules reject conflicting sessions for the same agent/symbol/interval.
 
-Every replication attempt creates a fresh `AgentFitnessEvaluation`.
+#### `runtime-v1` loop
 
-Fitness requires:
+```text
+new real closed candle
+        ↓
+S1-S4 close-price history
+        ↓
+BUY / SELL / HOLD
+        ↓
+position-aware intent
+        ↓
+real current quote + marks
+        ↓
+RiskDecision
+        ↓
+PaperExecution(origin=strategy_runtime)
+        ↓
+Accounting
+        ↓
+PaperRuntimeCycle evidence
+```
 
-- ACTIVE agent;
-- completed Backtest for the same strategy;
-- Backtest source fingerprint present and equal to current strategy source;
-- Backtest metrics within `evolution-v1` gates;
-- Paper closes represented by actual `PaperExecution` FILLED SELL records for that agent/account;
-- positive authoritative Account.realized_pnl;
-- structural Accounting integrity;
-- no `PaperRequest.status=RECOVERY_REQUIRED`.
+Rules:
 
-Legacy `Trade` and unprovenanced Paper-labelled Fill rows do not count.
+- a candle is evaluated once per session/agent;
+- HOLD creates no order;
+- BUY while long creates no order;
+- BUY while flat targets 25% of available cash, reserving exact `paper-v1` compounded cost;
+- SELL while long requests the full current position;
+- SELL while flat creates no order;
+- request id derives deterministically from runtime/session/agent/symbol/candle/signal;
+- replay cannot duplicate an execution.
 
-#### Replication / lineage
+#### Resilience and recovery
 
-`AgentEvolutionService.replicate()`:
+Operational provider/data failures do not fabricate observations. Repeated failures increment a persistent counter and can move a session to `DEGRADED`.
 
-1. obtains a fresh fitness evaluation;
-2. rejects without creating child state if fitness != PASS;
-3. computes `eligible=min(cash-reserved_cash, funded_capital)`;
-4. allocates 25% under `evolution-v1`;
-5. creates a child with the same strategy;
-6. transfers rather than duplicates capital;
-7. persists `AgentLineage`, strategy version/source SHA, generation and allocation;
-8. persists `REPLICATED_TO` / `REPLICATED_FROM` events;
-9. commits child + financial transfer + lineage/events together.
+Financial ambiguity moves the session to `RECOVERY_REQUIRED`. Start/recover also fail closed while any attached account has unresolved `PaperRequest` or `PaperExecution` recovery state.
 
-The parent remains ACTIVE. Replication is history/evidence, not a terminal execution state.
+Startup ordering includes Paper recovery, then reconciliation of interrupted runtime cycles **without submitting a new order**, then converts persisted RUNNING/DEGRADED sessions to `RECOVERY_REQUIRED`. No task is auto-spawned after restart.
 
-#### Lifecycle
+## Active API/UI boundary
 
-`AgentLifecycleEvent` records CREATED, LEGACY_BASELINE, REPLICATED_TO, REPLICATED_FROM and KILLED with explicit reasons. Killing an agent never zeroes or deletes Accounting state.
+Phase 7 adds `/api/runtime/*` create/read/start/pause/resume/recover/stop/cycles surfaces. Ops Monitor displays runtime session heartbeat/failure state. Settings displays the current runtime contract.
 
-## Runtime/API boundary
-
-Active research/trading APIs include:
-
-- `/api/market-data/*`
-- `/api/accounting/*`
-- `/api/risk/*`
-- `/api/paper/*`
-- `/api/backtests/*`
-- `/api/evolution/status`
-- `/api/evolution/policies/active`
-- `/api/evolution/agents/{agent_id}/fitness`
-- `/api/evolution/agents/{agent_id}/lineage`
-- `/api/agents/{agent_id}/replicate`
-
-No autonomous-trading-start, auto-replication, optimizer or Live endpoint exists.
+No Live execution, auto-replication or optimizer endpoint exists.
 
 ## Current runtime
 
@@ -142,27 +122,15 @@ No autonomous-trading-start, auto-replication, optimizer or Live endpoint exists
 - `market_data=real_contract_available`;
 - `accounting=authoritative_phase_2`;
 - `risk=authoritative_phase_4`;
-- `paper_trading=operator_only_phase_4`;
+- `paper_trading=autonomous_phase_7`;
 - `backtesting=evidence_phase_5`;
 - `agent_evolution=evidence_phase_6`;
-- `automated_trading=blocked_until_phase_7_runtime`;
+- `paper_runtime=runtime_phase_7`;
+- `automated_trading=paper_enabled_phase_7`;
 - `live_execution=disabled`.
 
-Startup initializes tables, Accounting baseline, `evolution-v1`/lifecycle baselines, `risk-v1`, invalidates interrupted Backtests and reconciles Paper recovery.
-
-## Next automated Paper boundary — Phase 7
-
-```text
-Long-running Session
-        |
-        v
-Market Data -> Strategy Intent -> Risk -> Paper Execution -> Accounting
-                                      |               |
-                                      +----------> Evidence
-```
-
-Phase 7 may activate that controlled loop with virtual capital. Agent Evolution never bypasses Risk/Paper/Accounting.
+`paper_enabled_phase_7` means autonomous Paper is available **inside an explicitly started session**; the application does not start trading merely because it boots.
 
 ## Verification
 
-Static review establishes source/contract coherence only. Runtime correctness, S1-S4 performance and fitness quality require fresh exact-HEAD backend/frontend execution and real-provider evidence.
+Static review establishes source/contract coherence only. Runtime correctness requires fresh exact-HEAD backend/frontend execution, and Phase 7 operational certification additionally requires a sustained real-provider Paper smoke with restart/recovery observation.
