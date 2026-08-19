@@ -26,6 +26,8 @@ export function normalizeDashboardData(agents = [], tradeStats = {}, health = {}
     syntheticDisabled: health.synthetic_engine === 'disabled',
     riskMode: health.risk || 'unknown',
     paperTrading: health.paper_trading || 'unknown',
+    paperRuntime: health.paper_runtime || 'unknown',
+    automatedTrading: health.automated_trading || 'unknown',
   };
 }
 
@@ -56,8 +58,8 @@ export function BentoGrid() {
     ? 'Consultando'
     : isError
       ? 'Desconocido'
-      : metrics.paperTrading === 'operator_only_phase_4' && metrics.riskMode === 'authoritative_phase_4'
-        ? 'Paper operador · Risk activo'
+      : metrics.paperRuntime === 'runtime_phase_7' && metrics.automatedTrading === 'paper_enabled_phase_7'
+        ? 'Paper autónomo · Risk activo'
         : metrics.syntheticDisabled
           ? 'Transición · sintético desactivado'
           : 'Revisar runtime';
@@ -72,8 +74,8 @@ export function BentoGrid() {
       <Card className="md:col-span-3 md:row-span-2 p-6 min-h-[300px]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Runtime Paper de transición</h3>
-            <p className="text-[10px] text-gray-500 font-mono mt-1">Paper manual con Risk obligatorio · métricas legacy excluidas · automatización de estrategias aún desactivada</p>
+            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Runtime Paper autónomo</h3>
+            <p className="text-[10px] text-gray-500 font-mono mt-1">Phase 7 · sesiones explícitas · Risk obligatorio · capital virtual · Live deshabilitado</p>
           </div>
           <span className="font-mono text-[#3b82f6] text-lg font-bold">{metrics.totalTrades == null ? 'N/D trades válidos' : `${metrics.totalTrades} trades`}</span>
         </div>
