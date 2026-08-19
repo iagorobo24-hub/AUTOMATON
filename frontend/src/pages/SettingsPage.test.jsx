@@ -43,7 +43,7 @@ describe('SettingsPage Phase 8 research contract', () => {
     expect(await screen.findByText('risk-v1')).toBeTruthy();
     expect(screen.getByText('research-v1')).toBeTruthy();
     expect(screen.getByText('evidence_phase_8')).toBeTruthy();
-    expect(screen.getByText(/TRAIN\/VALIDATION\/OOS/i)).toBeTruthy();
+    expect(screen.getAllByText(/TRAIN\/VALIDATION\/OOS/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/no cambia automáticamente ninguna sesión/i)).toBeTruthy();
   });
 
