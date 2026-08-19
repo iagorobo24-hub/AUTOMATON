@@ -4,65 +4,55 @@ Use `docs/PRODUCT_CONTRACT.md`, `ARCHITECTURE.md` and `docs/ROADMAP.md` as produ
 
 ## Objective
 
-AUTOMATON targets autonomous Paper Trading on **real market data with virtual capital**, supported by reproducible Backtest/Paper evidence and explicit risk/evolution gates.
+AUTOMATON targets autonomous Paper Trading on **real market data with virtual capital**, supported by reproducible evidence and explicit Risk/evolution/recovery gates.
 
 ## Current state
 
 - FastAPI + SQLModel + SQLite; React/Vite.
 - Synthetic AgentEngine disabled.
-- Phase 1 real-only Market Data.
-- Phase 2 authoritative Accounting.
-- Phase 3 deterministic operator-only Paper.
-- Phase 4 mandatory persistent Risk.
-- Phase 5 immutable historical Backtesting with strategy source fingerprinting.
-- Phase 6 evidence-aware Agent Evolution.
-- Runtime: `agent_evolution=evidence_phase_6`, `automated_trading=blocked_until_phase_7_runtime`, `live_execution=disabled`.
+- Phases 1–6 active as real Market Data, Accounting, deterministic Paper, Risk, Backtesting and Agent Evolution boundaries.
+- Phase 7 persistent autonomous Paper Runtime is active as a capability.
+- Runtime: `paper_trading=autonomous_phase_7`, `paper_runtime=runtime_phase_7`, `automated_trading=paper_enabled_phase_7`, `agent_evolution=evidence_phase_6`, `live_execution=disabled`.
+
+Autonomous capability is session-controlled: booting the app does not start or resume a session.
 
 ## Mode separation
 
 Synthetic/Test, Backtest, Paper and Live are distinct. Never fabricate or merge market data, fills, PnL or evidence across modes.
 
-## Paper architecture
+## Phase 7 Paper Runtime
 
-Future autonomous path is `Market Data -> Strategy Intent -> Risk -> Paper Execution -> Accounting -> Evidence`.
-Phase 6 does not activate Strategy Intent automatically. Risk and Paper cannot be bypassed.
+`backend/app/paper_runtime/` orchestrates:
 
-## Backtesting
+`new real closed candle -> S1-S4 -> intent -> Risk -> PaperExecution(strategy_runtime) -> Accounting -> runtime evidence`.
 
-Historical data is real, immutable and SHA-256 identified. Signal on candle `t` executes no earlier than `t+1`. New runs persist the active strategy source SHA. Backtest state never mutates Paper state. S1-S4 remain baseline code, not profitability evidence.
+Rules:
 
-## Agent Evolution
+- persistent session/cycle/event state is authoritative; asyncio task state is not;
+- one evaluation per session/agent/candle;
+- S1-S4 remain unchanged;
+- HOLD and position guards create no Paper order;
+- BUY targets 25% available cash with exact Paper cost reserve; SELL closes the current long;
+- deterministic runtime request IDs prevent duplicate execution;
+- every action requires real market data and persisted Risk ALLOW;
+- no synthetic fallback;
+- repeated operational failures may mark DEGRADED;
+- financial ambiguity marks RECOVERY_REQUIRED;
+- restart reconciliation never resubmits an uncertain order and never auto-resumes an interrupted session;
+- start/recover is blocked by unresolved PaperRequest/PaperExecution recovery;
+- automatic replication remains disabled.
 
-`backend/app/agent_evolution/` owns `evolution-v1`, fitness, lineage and lifecycle evidence.
+## Backtesting / Evolution
 
-Replication is manual and requires a fresh PASS with:
-
-- ACTIVE agent;
-- same-strategy completed Backtest;
-- Backtest source SHA still equal to current strategy source;
-- >=5 round trips, positive return/expectancy, drawdown <=15%;
-- >=3 FILLED agent-specific Paper SELL executions with PaperExecution provenance;
-- positive authoritative Paper realized PnL;
-- Accounting integrity;
-- no PaperRequest `RECOVERY_REQUIRED`.
-
-Legacy Trade rows or standalone Paper-labelled fills do not count.
-
-Successful replication transfers, never duplicates, capital:
-
-`eligible = min(cash-reserved_cash, funded_capital)`
-
-`evolution-v1` currently allocates 25%. Parent cash/funded capital decrease exactly by child initial/funded cash, paired ledger entries are required, child starts flat, strategy is inherited unchanged, lineage/generation/source fingerprint are persisted, parent stays ACTIVE.
-
-A fitness PASS is permission for one replication attempt, not a profitability or safety claim. No strategy mutation, auto-replication or automatic trading in Phase 6.
+Backtest data remains real, immutable and source-fingerprinted. Evolution fitness remains evidence-gated and replication remains manual with conserving Accounting transfer. Phase 7 does not change fitness thresholds or strategy code.
 
 ## Live / legacy
 
-No Live adapter or real-order route is active. Mongo/old engines/mock fallbacks remain legacy and must not be reactivated as shortcuts.
+No Live adapter or real-order route is active. Phase 7 must never import exchange credentials. Mongo/old engines/mock fallbacks remain legacy and must not be reactivated as shortcuts.
 
 ## Evidence discipline
 
-Fixture tests prove software behavior, not trading performance. No profitable/optimized/validated/safe claim without observed reproducible evidence.
+Fixture tests prove software behavior, not trading performance. Running autonomously does not prove a strategy is useful. No profitability/safety claim without observed reproducible evidence.
 
 ## Validation
 
@@ -72,4 +62,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Never claim verification without fresh execution on the exact HEAD.
+Never claim verification without fresh exact-HEAD execution. Phase 7 operational certification additionally requires a sustained real-provider Paper runtime smoke including restart/recovery behavior.
