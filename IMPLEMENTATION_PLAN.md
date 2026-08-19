@@ -11,11 +11,11 @@ Build a verifiable Paper Trading platform: **real market data, virtual capital, 
 - Historical Mongo/Paper/TradingEngine code is not mounted by `app.main`.
 - Synthetic `AgentEngine` is not started by normal runtime.
 - Phase 1 Market Data is real-only and fail-closed.
-- Phase 2 Accounting is authoritative for financial state.
+- Phase 2 Accounting is authoritative for active Paper financial state.
 - Phase 3 Paper Execution is operator-only, deterministic and idempotent.
-- Phase 4 Risk is mounted at `/api/risk`, persists `risk-v1` profiles/decisions and is mandatory for normal Paper execution.
-- Risk rejection creates no Paper Order/Fill; ALLOW is one-time consumable and linked to Paper execution.
-- Automated strategy/agent execution remains disabled until a later explicit integration step.
+- Phase 4 Risk is mandatory for normal Paper execution.
+- Phase 5 Backtesting uses immutable real historical datasets, next-candle execution and isolated evidence records.
+- Automated strategy/agent execution remains disabled.
 - Live execution remains disabled.
 - Fresh full test/build execution is still required for exact resulting HEADs.
 
@@ -67,35 +67,38 @@ See `docs/PAPER_TRADING.md`.
 
 ### 4. Risk Engine
 See `docs/RISK_MANAGEMENT.md`.
-- [x] Add persistent `RiskProfile` and `RiskDecision` records.
-- [x] Bootstrap versioned `risk-v1` profile idempotently.
-- [x] Add absolute order-notional and order/equity limits.
-- [x] Add projected total exposure and symbol-concentration limits.
-- [x] Add maximum open-position limit.
-- [x] Add realized-loss and drawdown limits.
-- [x] Reject stale/non-real data, inactive agents, currency mismatch, incomplete real marks for BUY, accounting mismatch and unresolved Paper recovery.
-- [x] Preserve SELL risk-reduction path with valuation-free structural accounting integrity while still rejecting oversells.
-- [x] Add persistent global pause/resume circuit breaker.
-- [x] Require persisted current-profile Risk ALLOW before normal Paper execution.
-- [x] Make Risk ALLOW decisions one-time consumable and payload/provider-observation bound.
-- [x] Invalidate unconsumed ALLOW when the profile is paused before Paper consumption.
-- [x] Match BUY cash reserve exactly to `paper-v1` compounded execution cost (20.01 bps).
-- [x] Ensure Risk rejection completes the Paper request idempotently without Order/Fill creation.
-- [x] Make missing account/agent failures idempotent and fail-closed instead of leaving ambiguous PROCESSING state.
-- [x] Expose `/api/risk/status`, `/profiles/active`, `/decisions`, `/pause`, `/resume`.
-- [x] Update runtime/UI/docs to report `authoritative_phase_4` while autonomous trading remains disabled.
-- [x] Complete exact-HEAD static audit and reconcile code/documentation drift.
-- [ ] Execute targeted Risk/Paper tests plus full backend/frontend/build gate on exact Phase 4 HEAD.
-- [ ] Run a real-provider virtual-capital smoke and inspect RiskDecision -> PaperExecution -> Accounting reconciliation.
+- [x] Persist versioned RiskProfile/RiskDecision.
+- [x] Implement order/equity/exposure/concentration/open-position/loss/drawdown gates.
+- [x] Enforce market-data, agent, currency, Accounting and recovery integrity.
+- [x] Preserve safe risk-reducing SELL semantics.
+- [x] Add pause/resume circuit breaker.
+- [x] Require one-time current-profile ALLOW before normal Paper execution.
+- [x] Match BUY cash reserve to `paper-v1` compounded cost.
+- [x] Complete exact-HEAD static audit.
+- [ ] Execute Risk/Paper tests and real-provider virtual-capital smoke.
 
-**Phase 4 source/contract/static gate:** complete. Execution certification remains pending until the executable gates above are observed on the exact HEAD.
+**Phase 4 source/contract/static gate:** complete. Execution certification remains pending.
 
 ### 5. Backtesting & Evidence
 See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
-- [ ] Build reproducible historical runner using real datasets.
-- [ ] Add fee/slippage and bias controls.
-- [ ] Evaluate S1-S4 baselines.
-- [ ] Produce machine-readable run metadata/comparable reports.
+- [x] Add immutable `BacktestDataset` + `BacktestCandle` snapshots with canonical SHA-256.
+- [x] Add read-only paginated historical Binance provider with no synthetic fallback.
+- [x] Reject empty/gapped/duplicate/out-of-order/out-of-window historical data.
+- [x] Preserve UTC semantics across SQLite persistence.
+- [x] Add isolated long-only `BacktestLedger`; do not mutate Paper accounts/evidence.
+- [x] Add deterministic `backtest-v1`: next-candle execution, no pyramiding, 10 bps adverse slippage, 10 bps fee, 25% default allocation.
+- [x] Explicitly force-close final open positions with `DATASET_END_EXIT`.
+- [x] Persist `BacktestRun`, `BacktestTrade` and `BacktestEquityPoint` evidence.
+- [x] Compute return/PnL, round trips, win/loss, expectancy, profit factor where defined, drawdown, fees and exposure.
+- [x] Keep undefined metrics null; no Sharpe convention invented.
+- [x] Invalidate interrupted RUNNING backtests on restart.
+- [x] Mount `/api/backtests` dataset/run/status/read surfaces with no optimizer/Live capability.
+- [x] Keep S1-S4 algorithms unchanged and version them as `baseline-v1` evidence inputs.
+- [x] Update Settings/client/docs for `backtesting=evidence_phase_5` without profitability claims.
+- [ ] Execute targeted backtest tests plus full backend/frontend/build gate on exact Phase 5 HEAD.
+- [ ] Run one real historical dataset through S1-S4 under identical `backtest-v1` assumptions and persist/report observed baseline results.
+
+**Phase 5 source/contract implementation:** complete pending final exact-HEAD static audit. Execution certification and observed S1-S4 baseline evidence remain pending until executable/provider gates are available.
 
 ### 6. Agent Lifecycle
 See `docs/AGENT_LIFECYCLE.md`.
@@ -132,4 +135,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Static review is not a substitute for fresh execution evidence.
+Static review is not a substitute for fresh execution evidence. Backtest performance numbers are not evidence unless they come from persisted reproducible runs over a documented immutable dataset.
