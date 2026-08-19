@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
+from app.market_data.quality import MarketDataQualityError, interval_timedelta, normalize_symbol
 from app.models import (
     Account,
     Agent,
@@ -115,14 +116,15 @@ class PaperRuntimeService:
         max_consecutive_failures: int = 5,
     ) -> PaperRuntimeSession:
         normalized_name = name.strip()
-        normalized_symbol = symbol.strip().upper()
-        normalized_interval = interval.strip()
         if not normalized_name:
             raise PaperRuntimeError("runtime session name is required")
-        if "/" not in normalized_symbol:
-            raise PaperRuntimeError("runtime symbol must use BASE/QUOTE format")
-        if not normalized_interval:
-            raise PaperRuntimeError("runtime interval is required")
+        try:
+            normalized_symbol = normalize_symbol(symbol)
+            normalized_interval = interval.strip()
+            interval_timedelta(normalized_interval)
+        except MarketDataQualityError as exc:
+            raise PaperRuntimeError(f"invalid runtime market configuration: {exc}") from exc
+
         unique_ids = list(dict.fromkeys(agent_ids))
         if not unique_ids:
             raise PaperRuntimeError("runtime session requires at least one agent")
