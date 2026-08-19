@@ -10,6 +10,12 @@ from app.models.backtesting import (
     BacktestTrade,
     BacktestEquityPoint,
 )
+from app.models.agent_evolution import (
+    EvolutionPolicy,
+    AgentFitnessEvaluation,
+    AgentLineage,
+    AgentLifecycleEvent,
+)
 
 __all__ = [
     "Agent",
@@ -32,4 +38,8 @@ __all__ = [
     "BacktestRunEvidence",
     "BacktestTrade",
     "BacktestEquityPoint",
+    "EvolutionPolicy",
+    "AgentFitnessEvaluation",
+    "AgentLineage",
+    "AgentLifecycleEvent",
 ]
