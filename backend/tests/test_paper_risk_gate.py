@@ -10,7 +10,7 @@ from app.market_data.contracts import Quote
 from app.models import Agent, StrategyEnum
 from app.models.accounting import Fill, Order
 from app.models.paper_execution import PaperRequest
-from app.models.risk import RiskDecision
+from app.models.risk import RiskDecision, RiskProfile
 from app.paper_execution.service import PaperExecutionError, PaperExecutionService
 from app.risk.bootstrap import ensure_active_risk_profile
 from app.risk.service import RiskService
@@ -75,7 +75,7 @@ def test_rejected_or_mismatched_risk_decision_cannot_execute():
                 quantity=Decimal("2"), quote=_quote(), origin="operator", risk_decision=allowed)
 
 
-def test_request_backed_paper_execution_cannot_bypass_risk():
+def test_paper_execution_cannot_bypass_risk():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         account = _account(session)
@@ -99,5 +99,33 @@ def test_request_backed_paper_execution_cannot_bypass_risk():
                 risk_decision=None,
             )
 
+        assert session.exec(select(Order)).all() == []
+        assert session.exec(select(Fill)).all() == []
+
+
+def test_pause_after_allow_invalidates_unconsumed_risk_authorization():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        account = _account(session)
+        decision = _allow(session, account.id)
+        profile = session.get(RiskProfile, decision.profile_id)
+        profile.paused = True
+        session.add(profile)
+        session.commit()
+
+        with pytest.raises(PaperExecutionError, match="no longer active"):
+            PaperExecutionService(session, clock=lambda: NOW).execute_market_order(
+                account_id=account.id,
+                symbol="BTC/USDT",
+                side="BUY",
+                quantity=Decimal("1"),
+                quote=_quote(),
+                origin="operator",
+                risk_decision=decision,
+            )
+
+        session.refresh(decision)
+        assert decision.consumed_at is None
+        assert decision.paper_execution_id is None
         assert session.exec(select(Order)).all() == []
         assert session.exec(select(Fill)).all() == []
