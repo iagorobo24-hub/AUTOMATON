@@ -16,7 +16,9 @@ BPS_DENOMINATOR = Decimal("10000")
 
 
 class PaperExecutionError(ValueError):
-    pass
+    def __init__(self, message: str, *, execution_id: int | None = None):
+        super().__init__(message)
+        self.execution_id = execution_id
 
 
 @dataclass(frozen=True)
@@ -213,7 +215,7 @@ class PaperExecutionService:
             self.session.add(order)
             self.session.add(execution)
             self.session.commit()
-            raise PaperExecutionError(str(exc)) from exc
+            raise PaperExecutionError(str(exc), execution_id=execution.id) from exc
 
         execution.fill_id = fill.id
         execution.status = "FILLED"
