@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPaperMarketOrderParams, normalizeApiBase } from './api';
+import { buildPaperMarketOrderParams, normalizeApiBase, researchAPI } from './api';
 import { normalizeMarketData } from '../features/crypto/hooks/useMarketData';
 
 describe('active API integration helpers', () => {
@@ -11,40 +11,32 @@ describe('active API integration helpers', () => {
 
   it('builds Paper market-order params with the required idempotency key', () => {
     expect(buildPaperMarketOrderParams({
-      requestId: 'operator-001',
-      accountId: 7,
-      symbol: 'BTC-USDT',
-      side: 'BUY',
-      quantity: '0.01',
-    })).toEqual({
-      request_id: 'operator-001',
-      account_id: 7,
-      symbol: 'BTC-USDT',
-      side: 'BUY',
-      quantity: '0.01',
-    });
+      requestId: 'operator-001', accountId: 7, symbol: 'BTC-USDT', side: 'BUY', quantity: '0.01',
+    })).toEqual({ request_id: 'operator-001', account_id: 7, symbol: 'BTC-USDT', side: 'BUY', quantity: '0.01' });
+  });
+
+  it('exports the manual evidence-gated Phase 8 research client without optimizer helpers', () => {
+    expect(typeof researchAPI.status).toBe('function');
+    expect(typeof researchAPI.activePolicy).toBe('function');
+    expect(typeof researchAPI.createStudy).toBe('function');
+    expect(typeof researchAPI.addWindow).toBe('function');
+    expect(typeof researchAPI.evaluate).toBe('function');
+    expect(typeof researchAPI.promote).toBe('function');
+    expect(typeof researchAPI.candidates).toBe('function');
+    expect(researchAPI.optimize).toBeUndefined();
+    expect(researchAPI.mutate).toBeUndefined();
+    expect(researchAPI.live).toBeUndefined();
   });
 
   it('normalizes CoinGecko responses without inventing missing RSI values', () => {
     const result = normalizeMarketData(
       [{ id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' }],
-      [{
-        id: 'bitcoin',
-        symbol: 'BTC',
-        name: 'Bitcoin',
-        current_price: 65000,
-        price_change_24h: 2.5,
-      }],
+      [{ id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', current_price: 65000, price_change_24h: 2.5 }],
     );
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
-      id: 'bitcoin',
-      symbol: 'BTC',
-      name: 'Bitcoin',
-      price: 65000,
-      change24h: 2.5,
-      rsi: null,
+      id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', price: 65000, change24h: 2.5, rsi: null,
     });
   });
 });
