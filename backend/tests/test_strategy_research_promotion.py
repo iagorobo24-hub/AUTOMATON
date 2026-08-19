@@ -44,6 +44,7 @@ def test_promotion_creates_fresh_evaluation_each_attempt_and_only_one_candidate(
         assert len(session.exec(select(ResearchEvaluation)).all()) == 2
         assert len(session.exec(select(StrategyCandidate)).all()) == 1
         assert first.status == "PROMOTED"
+        assert session.get(ResearchStudy, study.id).status == "PROMOTED"
 
 
 def test_rejected_fresh_evaluation_creates_no_candidate(monkeypatch):
