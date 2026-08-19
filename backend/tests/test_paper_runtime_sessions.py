@@ -1,8 +1,8 @@
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlalchemy.pool import StaticPool
 
 from app.accounting.service import AccountingService
-from app.models import Agent, AgentStatus, PaperRequest, StrategyEnum
+from app.models import Agent, AgentStatus, PaperRequest, PaperRuntimeSession, StrategyEnum
 from app.paper_runtime.service import PaperRuntimeError, PaperRuntimeService, recover_interrupted_runtime_sessions
 
 
@@ -40,6 +40,33 @@ def test_session_lifecycle_and_single_active_assignment():
         assert session.get(type(runtime), runtime.id).status == "RUNNING"
         service.stop(runtime.id)
         assert session.get(type(runtime), runtime.id).status == "STOPPED"
+
+
+def test_create_session_canonicalizes_symbol_with_market_data_contract():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        agent, _ = _agent(session)
+        runtime = PaperRuntimeService(session).create_session(
+            name="canonical", symbol="btc-usdt", interval="1m", agent_ids=[agent.id]
+        )
+        assert runtime.symbol == "BTC/USDT"
+        assert runtime.interval == "1m"
+
+
+def test_create_session_rejects_unsupported_market_configuration_before_persistence():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        agent, _ = _agent(session)
+        service = PaperRuntimeService(session)
+
+        for symbol, interval in [("BTC/EUR", "1m"), ("BTC/USDT", "7m")]:
+            try:
+                service.create_session(name="invalid", symbol=symbol, interval=interval, agent_ids=[agent.id])
+                assert False, "unsupported runtime market configuration must fail"
+            except PaperRuntimeError as exc:
+                assert "runtime market configuration" in str(exc)
+
+        assert session.exec(select(PaperRuntimeSession)).all() == []
 
 
 def test_start_fails_closed_when_attached_account_has_unresolved_paper_request():
