@@ -104,6 +104,18 @@ class PaperExecutionService:
             return market_price * (Decimal("1") + slippage)
         return market_price * (Decimal("1") - slippage)
 
+    def _assert_recovery_clear(self, account_id: int) -> None:
+        unresolved = self.session.exec(
+            select(PaperExecution).where(
+                PaperExecution.account_id == account_id,
+                PaperExecution.status == "RECOVERY_REQUIRED",
+            )
+        ).first()
+        if unresolved is not None:
+            raise PaperExecutionError(
+                "account has unresolved Paper recovery state; execution is blocked"
+            )
+
     def execute_market_order(
         self,
         *,
@@ -128,6 +140,7 @@ class PaperExecutionService:
         account = self.session.get(Account, account_id)
         if account is None:
             raise PaperExecutionError("account not found")
+        self._assert_recovery_clear(account_id)
 
         now = self._now_utc()
         canonical = self._validate_quote(symbol, quote, now)
