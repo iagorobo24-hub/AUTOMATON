@@ -63,10 +63,9 @@ class PaperExecutionResult:
 class PaperExecutionService:
     """Deterministic virtual execution against already-validated real quotes.
 
-    Public production callers must supply a matching persisted RiskDecision.
-    Direct calls without one remain only as a low-level execution seam for
-    legacy unit tests/recovery construction and must not be exposed by HTTP or
-    future autonomous orchestration.
+    Any request-backed production mutation requires a matching persisted Risk
+    ALLOW decision. Calls without PaperRequest remain only a low-level seam for
+    deterministic unit tests and restart/recovery construction.
     """
 
     def __init__(
@@ -188,6 +187,8 @@ class PaperExecutionService:
         if request is not None:
             if request.account_id != account_id or request.status != "PROCESSING":
                 raise PaperExecutionError("Paper request reservation is not executable")
+            if risk_decision is None:
+                raise PaperExecutionError("active Paper request requires Risk authorization")
         self._assert_recovery_clear(account_id)
 
         now = self._now_utc()
