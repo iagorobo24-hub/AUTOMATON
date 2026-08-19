@@ -2,9 +2,7 @@
 
 ## Current Phase 4 role
 
-Risk is now an independent persistent approval layer between Paper order intent and Paper Execution. It never mutates cash/positions and never places orders. Every active `POST /api/paper/orders/market` command must receive a persisted `ALLOW` decision before Paper creates an Order or Fill.
-
-Current flow:
+Risk is an independent persistent approval layer between order intent and Paper Execution. It never mutates cash/positions and never places orders. Every normal `PaperExecutionService.execute_market_order()` call now requires a **persisted current-profile `ALLOW` RiskDecision**, and every active `POST /api/paper/orders/market` command is evaluated before Paper creates Order/Fill state.
 
 ```text
 Operator intent -> real Market Data -> RiskService -> ALLOW/REJECT
@@ -15,15 +13,11 @@ ALLOW -> PaperExecutionService -> AccountingService
 REJECT -> no Paper Order/Fill
 ```
 
-Automated strategy/agent execution is still disabled. Phase 4 builds the safety gate first; later work may connect strategy intents to it.
+Automated strategy/agent submission is still disabled. Phase 4 establishes the gate; later integration must use it rather than bypass it.
 
-## Persistence
+## `risk-v1`
 
-### `RiskProfile`
-
-`risk-v1` is bootstrapped idempotently and is the active initial profile.
-
-Defaults:
+The initial profile is bootstrapped idempotently and persisted.
 
 | Limit | `risk-v1` |
 |---|---:|
@@ -36,98 +30,102 @@ Defaults:
 | Maximum drawdown | 15% |
 | Maximum quote age | 30 s |
 
-These are conservative operational defaults, **not claims that these values are profitable or optimal**. Any future change that affects experiment comparability requires a new profile/version.
+These are conservative operational defaults, **not profitability or optimality claims**. A materially different policy used for evidence must receive a different version.
 
-### `RiskDecision`
+## Persisted RiskDecision
 
-Every evaluation persists:
+Each evaluation records:
 
-- account and agent;
-- profile/version;
-- symbol, side and quantity;
-- quote provider, timestamp and market price;
+- account/agent and profile/version;
+- symbol, side, quantity;
+- real provider, quote time and market price;
 - requested notional;
-- equity/funded capital;
-- exposure before/projected;
-- symbol concentration before/projected;
+- funded capital/equity context;
+- total/symbol exposure before and projected;
 - open-position count before/projected;
-- realized PnL and drawdown;
+- realized PnL and drawdown context;
 - `ALLOW` or `REJECT`;
-- machine-readable reason code and human-readable reason;
-- one-time consumption timestamp and linked Paper execution when used.
+- machine-readable reason code and readable reason;
+- one-time consumption time and linked Paper execution when consumed.
 
-A decision cannot be reused for another Paper execution or another payload.
+At Paper consumption time the decision must:
 
-## Fail-closed gates
+- exist in authoritative SQLite persistence;
+- still be `ALLOW` and unconsumed;
+- belong to an active, unpaused matching profile/version;
+- match account, symbol, side, quantity, provider, quote timestamp and market price.
 
-Risk rejects new orders when it cannot establish trustworthy state.
+This prevents in-memory fabricated approvals, payload reuse and approvals surviving a circuit-breaker pause.
 
-Common gates include:
+## Common fail-closed gates
+
+Risk rejects when it cannot establish safe state, including:
 
 - inactive/paused profile;
 - inactive agent;
 - invalid side/quantity/price;
-- non-real or provider-less quote;
+- non-real/provider-less quote;
 - stale/future quote;
 - symbol/currency mismatch;
-- unresolved Paper recovery state;
-- missing real marks for open positions;
-- Accounting reconciliation failure.
+- unresolved Paper recovery;
+- Accounting integrity failure.
 
-### BUY limits
+## BUY
 
-BUY also checks:
+BUY additionally requires **real marks for every open position** and full `AccountingService.reconcile()` before risk limits are calculated.
+
+It then checks:
 
 - absolute order notional;
-- order/equity ratio;
+- order/equity percentage;
 - projected total exposure;
 - projected symbol concentration;
 - projected open-position count;
 - realized-loss limit;
 - drawdown limit;
-- cash sufficient for requested notional plus a conservative 20 bps Paper execution cost reserve.
+- cash for notional plus a conservative 20 bps Paper execution-cost reserve.
 
-The reserve matches the current `paper-v1` 10 bps adverse slippage + 10 bps fee assumptions. Accounting remains the final financial authority.
+The reserve corresponds to current `paper-v1`: 10 bps adverse slippage + 10 bps fee. Accounting remains the final financial authority and can still reject if state changes after Risk approval.
 
-### SELL risk reduction
+## Risk-reducing SELL
 
-A valid SELL that reduces an existing long position is not blocked by order-size, exposure, concentration, realized-loss or drawdown caps. This prevents Risk from trapping an already risky account.
+A SELL reducing an existing long is intentionally not blocked by order-size, exposure, concentration, realized-loss or drawdown caps. Risk must not trap an already risky position.
 
 SELL still requires:
 
-- real/fresh market data;
-- active agent/account;
+- real/fresh quote for the symbol being sold;
+- active account/agent;
 - currency consistency;
-- Accounting reconciliation;
-- no unresolved recovery;
+- no unresolved Paper recovery;
+- **valuation-free structural Accounting integrity** (`AccountingIntegrityService`);
 - sufficient existing long quantity.
 
-Oversells are rejected.
+It does **not** require a real mark for unrelated open positions. This means equity/total-exposure fields persisted on a SELL decision may be partial when unrelated marks are unavailable. Those fields are authorization context, not a portfolio-performance snapshot. BUY decisions continue to require complete marks and fully reconciled valuation.
 
-## Drawdown definition in `risk-v1`
+Oversells remain rejected.
 
-Phase 4 does not yet have a persisted equity time series. `risk-v1` therefore uses a documented conservative approximation:
+## Drawdown in `risk-v1`
+
+Phase 4 does not yet persist a historical equity high-water series.
+
+For BUY:
 
 - high-water baseline = `max(funded_capital, funded_capital + realized_pnl)`;
-- current equity = authoritative Accounting snapshot marked with current real prices for every open position;
-- drawdown = `(high_water - current_equity) / high_water` when current equity is below high water.
+- current equity = fully marked authoritative Accounting snapshot;
+- drawdown = `(high_water - current_equity) / high_water` when below high water.
 
-If real marks for all open positions are unavailable, Risk rejects instead of fabricating equity. A future persisted equity-high-water model must use a new Risk version.
+Missing marks fail closed rather than fabricating equity. A future persisted equity-high-water model must use a new Risk profile version.
 
 ## Circuit breaker
 
-The active profile has a persistent `paused` flag.
-
-Active controls:
+The active RiskProfile has persistent `paused` state.
 
 - `POST /api/risk/pause`
 - `POST /api/risk/resume`
 
-While paused, new Paper orders receive `RISK_PAUSED`. Pause/resume does not start or stop autonomous trading because autonomous trading is not enabled.
+A pause rejects new Risk evaluation and also invalidates a previously produced but not-yet-consumed authorization at Paper consumption time. Pause/resume does not enable or disable autonomous trading because autonomous trading is not active.
 
 ## API
-
-Read/control endpoints:
 
 - `GET /api/risk/status`
 - `GET /api/risk/profiles/active`
@@ -135,40 +133,40 @@ Read/control endpoints:
 - `POST /api/risk/pause`
 - `POST /api/risk/resume`
 
-There is deliberately no public endpoint that allows a client to manufacture an `ALLOW` decision. Approval is produced internally by `RiskService.evaluate()` from authoritative state.
+There is deliberately **no public approve endpoint**. Approval comes only from `RiskService.evaluate()` using authoritative state.
 
 ## Paper integration and idempotency
 
-Paper request flow is:
+Active API flow:
 
-1. reserve required `request_id`;
-2. obtain real quote and real marks for open positions;
-3. evaluate/persist Risk;
-4. REJECT -> complete request with 409 and create no Paper Order/Fill;
-5. ALLOW -> pass one-time `RiskDecision` to Paper Execution;
-6. Paper validates account/symbol/side/quantity/quote/provider against the decision;
-7. Paper consumes/links the decision when the Paper execution record is created.
+1. reserve `request_id`;
+2. obtain real requested-symbol quote;
+3. for BUY, obtain real marks for all open positions;
+4. evaluate and persist Risk;
+5. REJECT -> complete request with 409, no Paper Order/Fill;
+6. ALLOW -> Paper independently validates/consumes that persisted decision;
+7. Paper creates execution provenance and delegates fill mutation to Accounting.
 
-A completed idempotent replay is resolved before Market Data/Risk, so it cannot create a second Risk decision or fill.
+For SELL, unrelated position marks are not fetched because safe position reduction must not depend on an unrelated provider observation.
 
-Provider failures before Risk create no Risk decision and remain retryable because no financial state was created.
+A completed idempotent replay resolves before Market Data/Risk and cannot create another RiskDecision or Fill. Provider failure before Risk creates no decision and remains retryable. Missing account/agent lookup is completed idempotently with a fail-closed error instead of leaving `PROCESSING` state.
 
 ## Current boundaries
 
 Not implemented in Phase 4:
 
-- strategy/agent automatic order submission;
-- ATR or volatility sizing;
+- strategy/agent automatic submission;
+- ATR/volatility sizing;
 - stop-loss/take-profit orchestration;
 - shorts/leverage/margin;
 - Live execution;
 - exchange trading credentials.
 
-Historical legacy `RiskManager` code is not reactivated as the active contract.
+The legacy RiskManager remains non-authoritative.
 
 ## Completion status
 
-**Phase 4 source/contract gate:** implemented in source and subject to final static audit.
+**Phase 4 source/contract implementation:** present and undergoing final exact-HEAD audit.
 
 **Execution certification:** requires fresh output on the exact final HEAD:
 
@@ -178,4 +176,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-A real-provider virtual-capital smoke run must also confirm RiskDecision -> PaperExecution -> Accounting reconciliation before operational validation is claimed.
+A real-provider virtual-capital smoke must also confirm `RiskDecision -> PaperExecution -> Accounting` reconciliation before operational validation is claimed.
