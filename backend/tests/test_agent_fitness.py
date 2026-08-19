@@ -15,6 +15,7 @@ from app.models import (
     BacktestRun,
     BacktestRunEvidence,
     Fill,
+    Order,
     StrategyEnum,
     Trade,
     TradeType,
@@ -35,11 +36,12 @@ def _agent(session: Session, strategy=StrategyEnum.S1):
 
 
 def _backtest(session: Session, strategy_id="S1", *, round_trips=5, net_return="0.05", expectancy="2", drawdown="0.10", with_fingerprint=True):
+    digest_char = {"S1": "1", "S2": "2", "S3": "3", "S4": "4"}.get(strategy_id, "9")
     dataset = BacktestDataset(
         symbol="BTC/USDT", interval="1h", provider="fixture_real_history",
         requested_start=datetime(2026, 1, 1, tzinfo=UTC), requested_end=datetime(2026, 2, 1, tzinfo=UTC),
         actual_start=datetime(2026, 1, 1, tzinfo=UTC), actual_end=datetime(2026, 1, 31, 23, tzinfo=UTC),
-        candle_count=744, content_sha256=(strategy_id.lower()[0] * 64), status="READY",
+        candle_count=744, content_sha256=(digest_char * 64), status="READY",
     )
     session.add(dataset); session.commit(); session.refresh(dataset)
     run = BacktestRun(
@@ -59,8 +61,17 @@ def _backtest(session: Session, strategy_id="S1", *, round_trips=5, net_return="
 
 def _paper_closes(session: Session, account_id: int, count: int):
     for i in range(count):
+        order = Order(
+            account_id=account_id,
+            symbol="BTC/USDT",
+            side="SELL",
+            status="FILLED",
+            requested_quantity=Decimal("0.01"),
+            filled_quantity=Decimal("0.01"),
+        )
+        session.add(order); session.flush()
         session.add(Fill(
-            order_id=1000 + i, account_id=account_id, symbol="BTC/USDT", side="SELL",
+            order_id=order.id, account_id=account_id, symbol="BTC/USDT", side="SELL",
             quantity=Decimal("0.01"), price=Decimal("110"), fee=Decimal("0.01"),
             observed_at=datetime(2026, 3, 1, 12, i, tzinfo=UTC), evidence_mode="paper",
         ))
@@ -109,6 +120,24 @@ def test_fitness_passes_only_with_matching_backtest_and_agent_specific_paper_evi
         assert evaluation.paper_closed_trades == 4
         assert evaluation.paper_realized_pnl == Decimal("12")
         assert evaluation.reason_codes == "PASS"
+
+
+def test_fitness_rejects_structurally_invalid_paper_accounting():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        bootstrap_evolution_policy(session)
+        agent, account = _agent(session)
+        _backtest(session, "S1")
+        account.realized_pnl = Decimal("12"); session.add(account); session.commit(); _paper_closes(session, account.id, 3)
+        session.add(Fill(
+            order_id=99999, account_id=account.id, symbol="BTC/USDT", side="SELL",
+            quantity=Decimal("0.01"), price=Decimal("110"), fee=Decimal("0"),
+            observed_at=datetime(2026, 3, 2, tzinfo=UTC), evidence_mode="paper",
+        )); session.commit()
+
+        evaluation = FitnessService(session).evaluate(agent.id)
+        assert evaluation.decision == "REJECT"
+        assert "ACCOUNTING_INTEGRITY_FAILED" in evaluation.reason_codes
 
 
 def test_legacy_trade_rows_never_satisfy_paper_fitness():
