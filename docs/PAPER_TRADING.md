@@ -69,11 +69,12 @@ Every mutating Paper API request requires a non-blank `request_id`.
 
 Rules:
 
-- replaying the same `request_id` with the same payload returns the same completed execution and cannot create a second fill;
+- replaying the same `request_id` with the same completed payload returns the same execution and cannot create a second fill;
 - reusing a `request_id` with a different payload fails with conflict;
 - financial rejections are also idempotent and stay linked to their rejected execution;
-- provider/quality failures are `RETRYABLE` because no financial state was created;
-- requests interrupted by restart are recovered before new work is accepted.
+- provider/quality failures before any financial order is created are `RETRYABLE`;
+- requests interrupted by restart are recovered before new work is accepted;
+- an interrupted `PROCESSING` request with no execution linkage is **not** automatically retryable, because the crash may have happened after an `Order` was persisted. It becomes `RECOVERY_REQUIRED` and fails closed.
 
 ## State and recovery
 
@@ -88,17 +89,19 @@ On startup:
 Recovery never blindly re-submits an uncertain order.
 
 - If accounting already contains the full fill, the pending `PaperExecution` is linked to it and marked `FILLED`.
-- If no fill exists, the pending order/execution is conservatively cancelled.
-- Ambiguous partial state becomes `RECOVERY_REQUIRED` and that account is blocked from new Paper execution until resolved.
-- A request interrupted before any execution becomes `RETRYABLE`.
+- If no fill exists for a linked pending execution, the pending order/execution is conservatively cancelled.
+- Ambiguous partial execution state becomes `RECOVERY_REQUIRED` and that account is blocked from new Paper execution until resolved.
+- A `PROCESSING` request with no execution linkage becomes `RECOVERY_REQUIRED` rather than `RETRYABLE`; automatic retry is blocked because persistent order creation may already have occurred.
+- A request whose linked execution record is missing also becomes `RECOVERY_REQUIRED`.
 
 ## Failure semantics
 
 Paper fails closed:
 
-- unavailable real-market provider -> HTTP 503, no financial order/fill;
+- unavailable real-market provider -> HTTP 503, no financial order/fill; request may be retried with the same id because failure happened before financial state;
 - invalid/stale market data -> HTTP 502/409 as appropriate, no synthetic replacement;
 - insufficient cash, oversell, inactive agent, currency mismatch or unresolved recovery -> rejection/conflict;
+- ambiguous crash/idempotency state -> conflict/manual recovery, never automatic re-execution;
 - no random opening/closing behavior is reachable from the active Paper path.
 
 ## API and UI
@@ -121,7 +124,7 @@ Future Live execution must be a separate adapter behind `docs/LIVE_TRADING_GATE.
 
 ## Completion status
 
-**Phase 3 source/contract gate:** implemented and statically reviewed.
+**Phase 3 source/contract gate:** implemented and statically reviewed, including fail-closed execution/request recovery and persistent idempotency.
 
 **Execution certification:** pending until the exact Phase 3 HEAD successfully runs:
 
