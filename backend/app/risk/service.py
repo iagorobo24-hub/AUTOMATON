@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlmodel import Session, select
 
+from app.accounting.integrity import AccountingIntegrityService
 from app.accounting.service import AccountingError, AccountingService
 from app.market_data.contracts import Quote
 from app.models import Agent, AgentStatus
@@ -26,6 +27,7 @@ class RiskService:
     def __init__(self, session: Session, *, clock=None):
         self.session = session
         self.accounting = AccountingService(session)
+        self.integrity = AccountingIntegrityService(session)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
     def _now(self) -> datetime:
@@ -125,7 +127,8 @@ class RiskService:
             else ZERO
         )
 
-        # Conservative placeholders let every rejection remain persistently inspectable.
+        # Conservative placeholders keep every rejection inspectable even before
+        # a complete Accounting valuation is available.
         equity = account.cash + sum(
             (p.quantity * Decimal(market_prices[p.symbol]) for p in positions if p.symbol in market_prices),
             ZERO,
@@ -193,6 +196,41 @@ class RiskService:
         if unresolved is not None:
             return reject("PAPER_RECOVERY_REQUIRED", "Paper execution recovery is unresolved")
 
+        # A risk-reducing SELL must remain possible when an unrelated market mark
+        # is temporarily unavailable. Structural Accounting integrity is still
+        # mandatory, and the position being reduced is marked by the current real quote.
+        if side == "SELL":
+            issues = self.integrity.issues(account.id)
+            if issues:
+                return reject("ACCOUNTING_INVALID", ",".join(issues))
+            if current_position is None or current_position.quantity < quantity:
+                return reject("OVERSELL", "sell quantity exceeds the existing long position")
+            symbol_before = current_position.quantity * price
+            requested_notional = quantity * price
+            projected_symbol = max(ZERO, symbol_before - requested_notional)
+            projected_open = max(0, open_before - (1 if quantity == current_position.quantity else 0))
+            return self._persist(
+                account=account,
+                agent=agent,
+                profile=profile,
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                quote=quote,
+                requested_notional=requested_notional,
+                equity=equity,
+                total_exposure_before=total_before,
+                projected_total_exposure=max(ZERO, total_before - requested_notional),
+                symbol_exposure_before=symbol_before,
+                projected_symbol_exposure=projected_symbol,
+                open_positions_before=open_before,
+                projected_open_positions=projected_open,
+                drawdown_pct=drawdown,
+                decision="ALLOW",
+                reason_code="ALLOW",
+                reason="risk-reducing SELL passed structural accounting, data and recovery gates",
+            )
+
         if any(p.symbol not in market_prices for p in positions):
             return reject("ACCOUNTING_MARKS_INCOMPLETE", "real marks are required for every open position")
         try:
@@ -209,23 +247,6 @@ class RiskService:
         requested_notional = quantity * price
         high_water = max(account.funded_capital, account.funded_capital + account.realized_pnl)
         drawdown = ZERO if high_water <= ZERO or equity >= high_water else (high_water - equity) / high_water
-
-        if side == "SELL":
-            if current_position is None or current_position.quantity < quantity:
-                return reject("OVERSELL", "sell quantity exceeds the existing long position")
-            return self._persist(
-                account=account, agent=agent, profile=profile, symbol=symbol, side=side,
-                quantity=quantity, quote=quote, requested_notional=requested_notional,
-                equity=equity, total_exposure_before=total_before,
-                projected_total_exposure=max(ZERO, total_before-requested_notional),
-                symbol_exposure_before=symbol_before,
-                projected_symbol_exposure=max(ZERO, symbol_before-requested_notional),
-                open_positions_before=open_before,
-                projected_open_positions=max(0, open_before-(1 if quantity == current_position.quantity else 0)),
-                drawdown_pct=drawdown, decision="ALLOW", reason_code="ALLOW",
-                reason="risk-reducing SELL passed integrity and recovery gates",
-            )
-
         projected_total = total_before + requested_notional
         projected_symbol = symbol_before + requested_notional
         projected_open = open_before + (1 if current_position is None else 0)
