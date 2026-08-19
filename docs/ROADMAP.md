@@ -34,7 +34,7 @@ Implemented: persistent PaperExecution provenance, operator-only MARKET BUY/SELL
 
 ## Phase 4 — Risk Engine
 
-**Goal:** place an independent, persistent, fail-closed approval layer before active Paper order creation.
+**Goal:** place an independent, persistent, fail-closed approval layer before normal Paper order creation.
 
 Implemented:
 
@@ -46,21 +46,24 @@ Implemented:
 - realized-loss and drawdown gates;
 - real/fresh market-data requirement;
 - active-agent/account-currency checks;
-- complete real marks for open positions;
-- Accounting reconciliation gate;
+- complete real marks plus full Accounting reconciliation for BUY;
+- valuation-free structural Accounting integrity for risk-reducing SELL;
 - unresolved Paper recovery gate;
 - risk-reducing SELL exception without allowing oversells;
 - persistent global pause/resume circuit breaker;
-- mandatory Risk evaluation inside active Paper API flow;
-- one-time payload-bound ALLOW decision consumption;
+- mandatory persisted Risk ALLOW for normal Paper execution;
+- one-time payload/provider-observation-bound ALLOW consumption;
+- ALLOW invalidation if the active profile is paused before consumption;
+- exact `paper-v1` compounded BUY cost reserve of 20.01 bps;
 - idempotent Risk rejection with no Paper Order/Fill;
+- fail-closed/idempotent missing account/agent handling;
 - `/api/risk/status`, `/profiles/active`, `/decisions`, `/pause`, `/resume`;
-- Settings visibility for Risk profile/state;
-- runtime reports `risk=authoritative_phase_4`, Paper operator-only and autonomous trading still disabled.
+- Settings/Dashboard/runtime visibility for Phase 4 state;
+- exact-HEAD static code/documentation audit.
 
-**Exit condition:** unsafe, unreconciled or unapproved active Paper orders cannot create Paper financial state, and every successful active Paper API order carries a persisted consumed Risk decision.
+**Exit condition:** unsafe, unreconciled or unapproved normal Paper orders cannot create Paper financial state, and every successful normal Paper execution consumes a matching persisted Risk decision.
 
-**Status:** source/contract implementation complete pending final static audit. Fresh backend/frontend/build execution and a real-provider virtual-capital smoke are still required for execution certification.
+**Status:** source/contract/static gate satisfied. Fresh backend/frontend/build execution and a real-provider virtual-capital smoke are still required for execution certification.
 
 ## Phase 5 — Backtesting & Evidence
 
