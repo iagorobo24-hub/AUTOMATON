@@ -58,6 +58,7 @@ export default function SettingsPage() {
 
   const apiOperational = runtime?.status === "ok";
   const syntheticDisabled = runtime?.synthetic_engine === "disabled";
+  const backtestingReady = runtime?.backtesting === "evidence_phase_5";
   const runtimeLabel = loading
     ? "Consultando…"
     : !runtime
@@ -72,7 +73,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1>
-            <p className="text-sm text-muted-foreground mt-1">Estado del runtime Paper con Risk obligatorio</p>
+            <p className="text-sm text-muted-foreground mt-1">Runtime Paper con Risk y evidencia histórica reproducible</p>
           </div>
           <button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar estado del runtime">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -89,6 +90,7 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <StatusCard label="API" value={loading ? "Consultando…" : apiOperational ? "Operativa" : "No disponible"} description="Endpoint /health del backend activo" active={!loading && apiOperational} />
           <StatusCard label="Risk" value={loading ? "Consultando…" : riskProfile?.paused ? "Pausado" : riskProfile?.version || "Desconocido"} description="Perfil persistido que autoriza o rechaza cada orden Paper activa." active={!loading && Boolean(riskProfile) && !riskProfile?.paused} />
+          <StatusCard label="Backtesting" value={loading ? "Consultando…" : backtestingReady ? "Phase 5" : "No disponible"} description="Datasets históricos reales e inmutables con ejecución determinista; no implica rentabilidad validada." active={!loading && backtestingReady} />
           <StatusCard label="Synthetic/Test" value={runtimeLabel} description="El generador aleatorio no participa en el runtime normal ni produce evidencia financiera." active={!loading && syntheticDisabled} />
         </div>
 
@@ -98,12 +100,13 @@ export default function SettingsPage() {
             <h2 className="evo-section-title">Runtime efectivo</h2>
           </div>
           <div className="px-5">
-            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Accounting es la fuente financiera autoritativa; Trade legacy queda fuera de la evidencia Paper." />
+            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Accounting es la fuente financiera autoritativa; Backtest guarda evidencia aislada y Trade legacy queda fuera de Paper/Backtest válido." />
             <RuntimeRow label="Modo" value={runtime?.runtime_mode || "transition"} description="Runtime de transición sin motor autónomo de trading." />
-            <RuntimeRow label="Market Data" value={runtime?.market_data || "unknown"} description="Quotes reales y fail-closed para la frontera Paper." />
-            <RuntimeRow label="Accounting" value={runtime?.accounting || "unknown"} description="Cash, posiciones, fills, fees y reconciliación persistentes." />
+            <RuntimeRow label="Market Data" value={runtime?.market_data || "unknown"} description="Quotes reales y fail-closed para Paper; histórico real separado para Backtesting." />
+            <RuntimeRow label="Accounting" value={runtime?.accounting || "unknown"} description="Cash, posiciones, fills, fees y reconciliación persistentes para Paper." />
             <RuntimeRow label="Risk Engine" value={runtime?.risk || "unknown"} description={`Perfil ${riskProfile?.version || "desconocido"}; circuit breaker ${riskProfile?.paused ? "PAUSADO" : "activo"}.`} />
             <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "unknown"} description="Ejecución virtual manual sobre mercado real, siempre detrás de Risk." />
+            <RuntimeRow label="Backtesting" value={runtime?.backtesting || "unknown"} description="Snapshots históricos SHA-256, señal en t y ejecución no antes de t+1; métricas separadas de Paper." />
             <RuntimeRow label="Trading automático" value={runtime?.automated_trading || "blocked_until_strategy_integration"} description="Risk ya existe, pero los agentes todavía no están conectados a ejecución automática." />
             <RuntimeRow label="Live" value={runtime?.live_execution || "disabled"} description="Sin adaptador Live ni ruta capaz de enviar órdenes reales." />
           </div>
@@ -117,6 +120,7 @@ export default function SettingsPage() {
           <div className="px-5 py-4 text-sm text-muted-foreground space-y-2">
             <p>La API Risk dispone de pause/resume como circuit breaker explícito. No activa trading automático.</p>
             <p>La API Paper mantiene órdenes MARKET manuales de operador contra quotes reales; cada orden debe recibir ALLOW de Risk antes de crear estado financiero.</p>
+            <p>La API Backtesting permite congelar datasets históricos reales y ejecutar S1-S4 con `backtest-v1`; no existe optimizador ni promoción automática de estrategias.</p>
             <p>La replicación de agentes sigue bloqueada hasta definir transferencia de capital y fitness en Agent Evolution.</p>
           </div>
         </div>
@@ -126,7 +130,7 @@ export default function SettingsPage() {
             <ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
             <div>
               <p className="text-sm font-medium text-foreground">Legacy preservado, no operativo</p>
-              <p className="text-xs text-muted-foreground mt-1">MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no participan en Market Data, Accounting, Risk o Paper activos.</p>
+              <p className="text-xs text-muted-foreground mt-1">MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no participan en Market Data, Accounting, Risk, Paper o Backtesting activos.</p>
             </div>
           </div>
         </div>
