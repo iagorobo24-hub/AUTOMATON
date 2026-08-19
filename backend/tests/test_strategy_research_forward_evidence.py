@@ -8,7 +8,7 @@ from app.accounting.service import AccountingService
 from app.models import (
     Agent, AgentStatus, BacktestDataset, BacktestRun, BacktestRunEvidence,
     Fill, Order, PaperExecution, PaperRequest, PaperRuntimeAgent, PaperRuntimeCycle,
-    PaperRuntimeSession, StrategyEnum,
+    PaperRuntimeSession, PaperRuntimeStrategyEvidence, StrategyEnum,
 )
 from app.strategy_research.evaluator import ResearchEvaluator
 from app.strategy_research.service import StrategyResearchService
@@ -39,7 +39,7 @@ def _historical_study(session):
     return study
 
 
-def _forward_session(session, *, status="STOPPED", origin="strategy_runtime", sells=3, pnl="25", interval="1h"):
+def _forward_session(session, *, status="STOPPED", origin="strategy_runtime", sells=3, pnl="25", interval="1h", source="a" * 64):
     agent = Agent(nombre="forward-agent", presupuesto_inicial=1000, presupuesto_actual=1000,
         estrategia=StrategyEnum.S1, estado=AgentStatus.ACTIVO)
     session.add(agent); session.commit(); session.refresh(agent)
@@ -48,7 +48,11 @@ def _forward_session(session, *, status="STOPPED", origin="strategy_runtime", se
     runtime = PaperRuntimeSession(name="forward-paper", symbol="BTC/USDT", interval=interval, status=status,
         started_at=datetime(2026, 4, 1, tzinfo=timezone.utc), stopped_at=datetime(2026, 4, 2, tzinfo=timezone.utc) if status == "STOPPED" else None)
     session.add(runtime); session.commit(); session.refresh(runtime)
-    session.add(PaperRuntimeAgent(session_id=runtime.id, agent_id=agent.id)); session.commit()
+    session.add(PaperRuntimeAgent(session_id=runtime.id, agent_id=agent.id))
+    if source is not None:
+        session.add(PaperRuntimeStrategyEvidence(session_id=runtime.id, agent_id=agent.id,
+            strategy_id="S1", strategy_version="baseline-v1", strategy_source_sha256=source))
+    session.commit()
     for index in range(sells):
         order = Order(account_id=account.id, symbol="BTC/USDT", side="SELL", status="FILLED",
             requested_quantity=Decimal("0.1"), filled_quantity=Decimal("0.1"))
@@ -84,18 +88,20 @@ def test_forward_gate_requires_stopped_runtime_and_three_provenanced_closing_sel
         assert result.metrics["forward_session_ids"] == [runtime.id]
 
 
-def test_forward_gate_rejects_incomplete_or_unprovenanced_evidence():
+def test_forward_gate_rejects_incomplete_unprovenanced_or_source_mismatched_evidence():
     cases = [
-        {"status": "RUNNING", "origin": "strategy_runtime", "sells": 3, "pnl": "25", "code": "FORWARD_SESSION_REQUIRED"},
-        {"status": "STOPPED", "origin": "operator", "sells": 3, "pnl": "25", "code": "FORWARD_ATTRIBUTION_AMBIGUOUS"},
-        {"status": "STOPPED", "origin": "strategy_runtime", "sells": 2, "pnl": "25", "code": "FORWARD_CLOSE_SAMPLE_TOO_SMALL"},
-        {"status": "STOPPED", "origin": "strategy_runtime", "sells": 3, "pnl": "0", "code": "FORWARD_PNL_NON_POSITIVE"},
+        {"status": "RUNNING", "origin": "strategy_runtime", "sells": 3, "pnl": "25", "source": "a" * 64, "code": "FORWARD_SESSION_REQUIRED"},
+        {"status": "STOPPED", "origin": "operator", "sells": 3, "pnl": "25", "source": "a" * 64, "code": "FORWARD_ATTRIBUTION_AMBIGUOUS"},
+        {"status": "STOPPED", "origin": "strategy_runtime", "sells": 2, "pnl": "25", "source": "a" * 64, "code": "FORWARD_CLOSE_SAMPLE_TOO_SMALL"},
+        {"status": "STOPPED", "origin": "strategy_runtime", "sells": 3, "pnl": "0", "source": "a" * 64, "code": "FORWARD_PNL_NON_POSITIVE"},
+        {"status": "STOPPED", "origin": "strategy_runtime", "sells": 3, "pnl": "25", "source": None, "code": "FORWARD_SOURCE_EVIDENCE_MISMATCH"},
+        {"status": "STOPPED", "origin": "strategy_runtime", "sells": 3, "pnl": "25", "source": "b" * 64, "code": "FORWARD_SOURCE_EVIDENCE_MISMATCH"},
     ]
     for case in cases:
         engine = _engine(); SQLModel.metadata.create_all(engine)
         with Session(engine) as session:
             study = _historical_study(session)
-            _forward_session(session, status=case["status"], origin=case["origin"], sells=case["sells"], pnl=case["pnl"])
+            _forward_session(session, status=case["status"], origin=case["origin"], sells=case["sells"], pnl=case["pnl"], source=case["source"])
             result = ResearchEvaluator(session).forward_gate(study.id)
             assert result.passed is False
             assert result.reason_code == case["code"]
