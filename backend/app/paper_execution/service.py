@@ -8,7 +8,7 @@ from app.accounting.service import AccountingError, AccountingService
 from app.market_data.contracts import Quote
 from app.models import Agent, AgentStatus
 from app.models.accounting import Account, Fill, Order
-from app.models.paper_execution import PaperExecution
+from app.models.paper_execution import PaperExecution, PaperRequest
 
 
 ZERO = Decimal("0")
@@ -141,6 +141,7 @@ class PaperExecutionService:
         quantity: Decimal,
         quote: Quote,
         origin: str = "operator",
+        request: PaperRequest | None = None,
     ) -> PaperExecutionResult:
         if origin != "operator":
             raise PaperExecutionError(
@@ -156,6 +157,9 @@ class PaperExecutionService:
         account = self.session.get(Account, account_id)
         if account is None:
             raise PaperExecutionError("account not found")
+        if request is not None:
+            if request.account_id != account_id or request.status != "PROCESSING":
+                raise PaperExecutionError("Paper request reservation is not executable")
         self._assert_recovery_clear(account_id)
 
         now = self._now_utc()
@@ -193,6 +197,11 @@ class PaperExecutionService:
             status="PENDING",
         )
         self.session.add(execution)
+        self.session.flush()
+        if request is not None:
+            request.execution_id = execution.id
+            request.updated_at = now
+            self.session.add(request)
         self.session.commit()
         self.session.refresh(execution)
 
@@ -288,3 +297,49 @@ class PaperExecutionService:
 
         self.session.commit()
         return {"filled": recovered_filled, "cancelled": cancelled}
+
+    def recover_requests(self) -> dict[str, int]:
+        """Recover idempotency reservations left PROCESSING across a restart."""
+        now = self._now_utc()
+        completed = 0
+        retryable = 0
+        requests = self.session.exec(
+            select(PaperRequest).where(PaperRequest.status == "PROCESSING")
+        ).all()
+
+        for request in requests:
+            if request.execution_id is None:
+                request.status = "RETRYABLE"
+                request.http_status = 503
+                request.error_detail = "request interrupted before financial execution"
+                request.updated_at = now
+                self.session.add(request)
+                retryable += 1
+                continue
+
+            execution = self.session.get(PaperExecution, request.execution_id)
+            if execution is None:
+                request.status = "RETRYABLE"
+                request.http_status = 503
+                request.error_detail = "request execution record missing after restart"
+                request.updated_at = now
+                self.session.add(request)
+                retryable += 1
+                continue
+
+            request.status = "COMPLETED"
+            if execution.status == "FILLED":
+                request.http_status = 200
+                request.error_detail = None
+            else:
+                request.http_status = 409
+                request.error_detail = (
+                    execution.rejection_reason
+                    or f"Paper execution recovered with status {execution.status}"
+                )[:256]
+            request.updated_at = now
+            self.session.add(request)
+            completed += 1
+
+        self.session.commit()
+        return {"completed": completed, "retryable": retryable}
