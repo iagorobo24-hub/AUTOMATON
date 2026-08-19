@@ -146,7 +146,7 @@ def get_cycles(
 
 
 @router.post("/sessions/{session_id}/start")
-def start_session(
+async def start_session(
     session_id: int,
     session: Session = Depends(get_session),
     scheduler: PaperRuntimeScheduler = Depends(get_runtime_scheduler),
@@ -160,7 +160,7 @@ def start_session(
 
 
 @router.post("/sessions/{session_id}/pause")
-def pause_session(
+async def pause_session(
     session_id: int,
     session: Session = Depends(get_session),
     scheduler: PaperRuntimeScheduler = Depends(get_runtime_scheduler),
@@ -174,7 +174,7 @@ def pause_session(
 
 
 @router.post("/sessions/{session_id}/resume")
-def resume_session(
+async def resume_session(
     session_id: int,
     session: Session = Depends(get_session),
     scheduler: PaperRuntimeScheduler = Depends(get_runtime_scheduler),
@@ -200,7 +200,7 @@ def recover_session(
 
 
 @router.post("/sessions/{session_id}/stop")
-def stop_session(
+async def stop_session(
     session_id: int,
     session: Session = Depends(get_session),
     scheduler: PaperRuntimeScheduler = Depends(get_runtime_scheduler),
