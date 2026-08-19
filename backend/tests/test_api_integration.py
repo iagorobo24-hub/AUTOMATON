@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 @pytest.mark.integration
 class TestAPI:
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_phase_7_runtime_contract(self):
+    async def test_health_endpoint_reports_phase_8_research_contract(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -29,6 +29,7 @@ class TestAPI:
             "backtesting": "evidence_phase_5",
             "agent_evolution": "evidence_phase_6",
             "paper_runtime": "runtime_phase_7",
+            "strategy_research": "evidence_phase_8",
             "automated_trading": "paper_enabled_phase_7",
             "live_execution": "disabled",
         }
@@ -52,12 +53,13 @@ class TestAPI:
         assert payload["backtesting"] == "evidence_phase_5"
         assert payload["agent_evolution"] == "evidence_phase_6"
         assert payload["paper_runtime"] == "runtime_phase_7"
+        assert payload["strategy_research"] == "evidence_phase_8"
         assert payload["automated_trading"] == "paper_enabled_phase_7"
         assert payload["live_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_include_phase_7_runtime_but_not_live_or_auto_replication(self):
+    def test_active_api_routes_include_phase_8_research_but_not_optimizer_mutation_or_live(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -75,15 +77,18 @@ class TestAPI:
         assert "/api/evolution/status" in routes
         assert "/api/runtime/status" in routes
         assert "/api/runtime/sessions" in routes
-        assert "/api/runtime/sessions/{session_id}" in routes
-        assert "/api/runtime/sessions/{session_id}/cycles" in routes
-        assert "/api/runtime/sessions/{session_id}/start" in routes
-        assert "/api/runtime/sessions/{session_id}/pause" in routes
-        assert "/api/runtime/sessions/{session_id}/resume" in routes
-        assert "/api/runtime/sessions/{session_id}/recover" in routes
-        assert "/api/runtime/sessions/{session_id}/stop" in routes
+        assert "/api/research/status" in routes
+        assert "/api/research/policies/active" in routes
+        assert "/api/research/studies" in routes
+        assert "/api/research/studies/{study_id}/windows" in routes
+        assert "/api/research/studies/{study_id}/evaluate" in routes
+        assert "/api/research/studies/{study_id}/promote" in routes
+        assert "/api/research/candidates" in routes
         assert "/api/paper/live" not in routes
         assert "/api/backtests/optimize" not in routes
+        assert "/api/research/optimize" not in routes
+        assert "/api/research/mutate" not in routes
+        assert "/api/research/live" not in routes
         assert "/api/evolution/automation/start" not in routes
         assert "/api/evolution/automation/replicate" not in routes
         assert "/api/estado" in routes
