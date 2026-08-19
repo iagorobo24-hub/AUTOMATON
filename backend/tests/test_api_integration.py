@@ -12,7 +12,7 @@ class TestAPI:
     """API endpoint tests"""
 
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_synthetic_isolation(self):
+    async def test_health_endpoint_reports_synthetic_isolation_and_market_data_contract(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -24,6 +24,7 @@ class TestAPI:
             "status": "ok",
             "runtime_mode": "transition",
             "synthetic_engine": "disabled",
+            "market_data": "real_contract_available",
             "paper_trading": "not_implemented",
         }
 
@@ -39,6 +40,7 @@ class TestAPI:
         payload = response.json()
         assert payload["runtime_mode"] == "transition"
         assert payload["synthetic_engine"] == "disabled"
+        assert payload["market_data_mode"] == "real_contract_available"
         assert payload["financial_evidence"] == "unavailable"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
@@ -57,6 +59,9 @@ class TestAPI:
         assert "/api/trades/stats" in routes
         assert "/api/crypto/top-coins" in routes
         assert "/api/crypto/trending" in routes
+        assert "/api/market-data/status" in routes
+        assert "/api/market-data/quote/{symbol}" in routes
+        assert "/api/market-data/candles/{symbol}" in routes
         assert "/api/estado" in routes
 
     def test_legacy_system_and_trading_routers_stay_out_of_sqlmodel_runtime(self):
