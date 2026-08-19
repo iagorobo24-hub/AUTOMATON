@@ -17,9 +17,6 @@ from app.models.accounting import Fill, Position
 from app.models.paper_execution import PaperExecution
 
 
-NOW = datetime.now(timezone.utc)
-
-
 class RealFixtureMarketData:
     name = "fixture_real"
 
@@ -32,11 +29,12 @@ class RealFixtureMarketData:
         }
 
     async def get_quote(self, _symbol: str) -> Quote:
+        now = datetime.now(timezone.utc)
         return Quote(
             symbol="BTC/USDT",
             price=Decimal("100"),
-            observed_at=NOW,
-            received_at=NOW + timedelta(milliseconds=10),
+            observed_at=now,
+            received_at=now + timedelta(milliseconds=10),
             provider=self.name,
             provider_symbol="BTCUSDT",
             timestamp_source="provider",
@@ -96,6 +94,7 @@ async def test_operator_market_order_fetches_real_quote_and_persists_virtual_fil
         response = await client.post(
             "/api/paper/orders/market",
             params={
+                "request_id": "paper-api-001",
                 "account_id": account_id,
                 "symbol": "BTC-USDT",
                 "side": "BUY",
@@ -111,6 +110,7 @@ async def test_operator_market_order_fetches_real_quote_and_persists_virtual_fil
     assert payload["symbol"] == "BTC/USDT"
     assert payload["market_price"] == "100"
     assert payload["policy_version"] == "paper-v1"
+    assert payload["idempotent_replay"] is False
 
     with Session(app_db) as session:
         assert len(session.exec(select(PaperExecution)).all()) == 1
@@ -127,6 +127,7 @@ async def test_provider_failure_returns_503_and_creates_no_financial_state(app_d
         response = await client.post(
             "/api/paper/orders/market",
             params={
+                "request_id": "paper-api-provider-failure",
                 "account_id": account_id,
                 "symbol": "BTC-USDT",
                 "side": "BUY",
@@ -158,6 +159,7 @@ async def test_paper_api_is_operator_only_and_has_no_live_execution_surface(app_
         "policy_version": "paper-v1",
         "slippage_bps": "10",
         "fee_bps": "10",
+        "idempotency": "request_id_required",
     }
 
     routes = {route.path for route in app.routes}
