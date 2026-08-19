@@ -70,3 +70,13 @@ def test_historical_gate_rejects_small_sample_and_oos_degradation_or_risk_metric
             result = ResearchEvaluator(session).historical_gate(study.id)
             assert result.passed is False, index
             assert result.reason_code == case["code"], index
+
+
+def test_promotion_evaluation_fails_closed_when_active_strategy_source_drifted(monkeypatch):
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        study = _study(session, [_run(session, day=1), _run(session, day=4), _run(session, day=7)])
+        monkeypatch.setattr("app.strategy_research.evaluator.strategy_source_sha256", lambda: "b" * 64)
+        evaluation = ResearchEvaluator(session).evaluate(study.id, require_current_source=True)
+        assert evaluation.decision == "REJECT"
+        assert evaluation.reason_code == "CURRENT_SOURCE_DRIFT"
