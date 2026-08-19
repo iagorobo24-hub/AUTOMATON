@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Database, RefreshCw, ShieldAlert } from "lucide-react";
-import { healthAPI, riskAPI } from "@/lib/api";
+import { evolutionAPI, healthAPI, riskAPI } from "@/lib/api";
 
 function StatusCard({ label, value, description, active }) {
   return (
@@ -30,6 +30,7 @@ function RuntimeRow({ label, value, description }) {
 export default function SettingsPage() {
   const [runtime, setRuntime] = useState(null);
   const [riskProfile, setRiskProfile] = useState(null);
+  const [evolutionPolicy, setEvolutionPolicy] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -37,103 +38,59 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [healthResponse, riskResponse] = await Promise.all([
-        healthAPI.health(),
-        riskAPI.activeProfile(),
+      const [healthResponse, riskResponse, evolutionResponse] = await Promise.all([
+        healthAPI.health(), riskAPI.activeProfile(), evolutionAPI.activePolicy(),
       ]);
       setRuntime(healthResponse.data);
       setRiskProfile(riskResponse.data);
+      setEvolutionPolicy(evolutionResponse.data);
     } catch (err) {
-      setRuntime(null);
-      setRiskProfile(null);
+      setRuntime(null); setRiskProfile(null); setEvolutionPolicy(null);
       setError(err?.message || "No se pudo consultar el runtime");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    fetchRuntime();
-  }, [fetchRuntime]);
+  useEffect(() => { fetchRuntime(); }, [fetchRuntime]);
 
   const apiOperational = runtime?.status === "ok";
   const syntheticDisabled = runtime?.synthetic_engine === "disabled";
   const backtestingReady = runtime?.backtesting === "evidence_phase_5";
-  const runtimeLabel = loading
-    ? "Consultando…"
-    : !runtime
-      ? "Desconocido"
-      : syntheticDisabled
-        ? "Sintético desactivado"
-        : "Revisar configuración";
+  const evolutionReady = runtime?.agent_evolution === "evidence_phase_6";
+  const runtimeLabel = loading ? "Consultando…" : !runtime ? "Desconocido" : syntheticDisabled ? "Sintético desactivado" : "Revisar configuración";
 
   return (
     <div className="min-h-screen bg-background" data-testid="settings-page">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1>
-            <p className="text-sm text-muted-foreground mt-1">Runtime Paper con Risk y evidencia histórica reproducible</p>
-          </div>
-          <button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar estado del runtime">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            <span className="ml-2 hidden sm:inline">Actualizar</span>
-          </button>
-        </div>
-
-        {error && (
-          <div className="glass-card rounded-xl p-4 border border-red-500/20 text-sm text-red-400" role="alert">
-            {error}
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-4"><div><h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1><p className="text-sm text-muted-foreground mt-1">Paper con Risk, Backtesting reproducible y evolución de agentes basada en evidencia</p></div><button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm" aria-label="Actualizar estado del runtime"><RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /><span className="ml-2 hidden sm:inline">Actualizar</span></button></div>
+        {error && <div className="glass-card rounded-xl p-4 border border-red-500/20 text-sm text-red-400" role="alert">{error}</div>}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <StatusCard label="API" value={loading ? "Consultando…" : apiOperational ? "Operativa" : "No disponible"} description="Endpoint /health del backend activo" active={!loading && apiOperational} />
-          <StatusCard label="Risk" value={loading ? "Consultando…" : riskProfile?.paused ? "Pausado" : riskProfile?.version || "Desconocido"} description="Perfil persistido que autoriza o rechaza cada orden Paper activa." active={!loading && Boolean(riskProfile) && !riskProfile?.paused} />
-          <StatusCard label="Backtesting" value={loading ? "Consultando…" : backtestingReady ? "Phase 5" : "No disponible"} description="Datasets históricos reales e inmutables con ejecución determinista; no implica rentabilidad validada." active={!loading && backtestingReady} />
-          <StatusCard label="Synthetic/Test" value={runtimeLabel} description="El generador aleatorio no participa en el runtime normal ni produce evidencia financiera." active={!loading && syntheticDisabled} />
+          <StatusCard label="Risk" value={loading ? "Consultando…" : riskProfile?.paused ? "Pausado" : riskProfile?.version || "Desconocido"} description="Autoriza o rechaza cada orden Paper." active={!loading && Boolean(riskProfile) && !riskProfile?.paused} />
+          <StatusCard label="Backtesting" value={loading ? "Consultando…" : backtestingReady ? "Phase 5" : "No disponible"} description="Evidencia histórica reproducible; no implica rentabilidad validada." active={!loading && backtestingReady} />
+          <StatusCard label="Agent Evolution" value={loading ? "Consultando…" : evolutionPolicy?.version || "Desconocido"} description="Fitness + lineage + transferencia de capital. Replicación manual, no automática." active={!loading && evolutionReady && evolutionPolicy?.active} />
+          <StatusCard label="Synthetic/Test" value={runtimeLabel} description="El generador aleatorio no participa en evidencia financiera." active={!loading && syntheticDisabled} />
         </div>
 
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
-            <Database className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-            <h2 className="evo-section-title">Runtime efectivo</h2>
-          </div>
-          <div className="px-5">
-            <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Accounting es la fuente financiera autoritativa; Backtest guarda evidencia aislada y Trade legacy queda fuera de Paper/Backtest válido." />
-            <RuntimeRow label="Modo" value={runtime?.runtime_mode || "transition"} description="Runtime de transición sin motor autónomo de trading." />
-            <RuntimeRow label="Market Data" value={runtime?.market_data || "unknown"} description="Quotes reales y fail-closed para Paper; histórico real separado para Backtesting." />
-            <RuntimeRow label="Accounting" value={runtime?.accounting || "unknown"} description="Cash, posiciones, fills, fees y reconciliación persistentes para Paper." />
-            <RuntimeRow label="Risk Engine" value={runtime?.risk || "unknown"} description={`Perfil ${riskProfile?.version || "desconocido"}; circuit breaker ${riskProfile?.paused ? "PAUSADO" : "activo"}.`} />
-            <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "unknown"} description="Ejecución virtual manual sobre mercado real, siempre detrás de Risk." />
-            <RuntimeRow label="Backtesting" value={runtime?.backtesting || "unknown"} description="Snapshots históricos SHA-256, señal en t y ejecución no antes de t+1; métricas separadas de Paper." />
-            <RuntimeRow label="Trading automático" value={runtime?.automated_trading || "blocked_until_strategy_integration"} description="Risk ya existe, pero los agentes todavía no están conectados a ejecución automática." />
-            <RuntimeRow label="Live" value={runtime?.live_execution || "disabled"} description="Sin adaptador Live ni ruta capaz de enviar órdenes reales." />
-          </div>
-        </div>
+        <div className="glass-card rounded-xl overflow-hidden"><div className="px-5 py-3 border-b border-white/5 flex items-center gap-2"><Database className="w-4 h-4 text-cyan-400" /><h2 className="evo-section-title">Runtime efectivo</h2></div><div className="px-5">
+          <RuntimeRow label="Persistencia" value="SQLModel + SQLite" description="Accounting sigue siendo la única autoridad financiera activa." />
+          <RuntimeRow label="Market Data" value={runtime?.market_data || "unknown"} description="Mercado real y fail-closed." />
+          <RuntimeRow label="Risk Engine" value={runtime?.risk || "unknown"} description={`Perfil ${riskProfile?.version || "desconocido"}; circuit breaker ${riskProfile?.paused ? "PAUSADO" : "activo"}.`} />
+          <RuntimeRow label="Paper Trading" value={runtime?.paper_trading || "unknown"} description="Ejecución virtual manual sobre mercado real detrás de Risk." />
+          <RuntimeRow label="Backtesting" value={runtime?.backtesting || "unknown"} description="Datasets SHA-256 y ejecución determinista t→t+1." />
+          <RuntimeRow label="Agent Evolution" value={runtime?.agent_evolution || "unknown"} description={`Política ${evolutionPolicy?.version || "desconocida"}; asignación hija ${(Number(evolutionPolicy?.child_allocation_fraction || 0) * 100).toFixed(0)}% del capital elegible.`} />
+          <RuntimeRow label="Trading automático" value={runtime?.automated_trading || "blocked_until_phase_7_runtime"} description="Phase 6 no activa loops autónomos; eso pertenece al runtime 24/7 de Phase 7." />
+          <RuntimeRow label="Live" value={runtime?.live_execution || "disabled"} description="Sin adaptador Live ni órdenes reales." />
+        </div></div>
 
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/5 flex items-center gap-2">
-            <Activity className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-            <h2 className="evo-section-title">Controles disponibles</h2>
-          </div>
-          <div className="px-5 py-4 text-sm text-muted-foreground space-y-2">
-            <p>La API Risk dispone de pause/resume como circuit breaker explícito. No activa trading automático.</p>
-            <p>La API Paper mantiene órdenes MARKET manuales de operador contra quotes reales; cada orden debe recibir ALLOW de Risk antes de crear estado financiero.</p>
-            <p>La API Backtesting permite congelar datasets históricos reales y ejecutar S1-S4 con `backtest-v1`; no existe optimizador ni promoción automática de estrategias.</p>
-            <p>La replicación de agentes sigue bloqueada hasta definir transferencia de capital y fitness en Agent Evolution.</p>
-          </div>
-        </div>
+        <div className="glass-card rounded-xl overflow-hidden"><div className="px-5 py-3 border-b border-white/5 flex items-center gap-2"><Activity className="w-4 h-4 text-cyan-400" /><h2 className="evo-section-title">Controles disponibles</h2></div><div className="px-5 py-4 text-sm text-muted-foreground space-y-2">
+          <p>Risk dispone de pause/resume; no activa trading automático.</p>
+          <p>Paper mantiene órdenes MARKET manuales contra quotes reales.</p>
+          <p>Backtesting evalúa S1-S4 sobre históricos reproducibles; no existe optimizador automático.</p>
+          <p>La replicación Phase 6 exige Backtest con fingerprint vigente y evidencia Paper del propio agente; si pasa, transfiere capital financiado del padre al hijo y nunca lo duplica.</p>
+        </div></div>
 
-        <div className="glass-card rounded-xl p-5 border border-amber-500/15">
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" aria-hidden="true" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Legacy preservado, no operativo</p>
-              <p className="text-xs text-muted-foreground mt-1">MongoDB, TradingEngine, PaperTradingEngine y BinanceService legacy siguen versionados para auditoría/migración, pero no participan en Market Data, Accounting, Risk, Paper o Backtesting activos.</p>
-            </div>
-          </div>
-        </div>
+        <div className="glass-card rounded-xl p-5 border border-amber-500/15"><div className="flex items-start gap-3"><ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" /><div><p className="text-sm font-medium text-foreground">Legacy preservado, no operativo</p><p className="text-xs text-muted-foreground mt-1">MongoDB y motores legacy siguen versionados para auditoría/migración, pero no participan en Market Data, Accounting, Risk, Paper, Backtesting o Agent Evolution activos.</p></div></div></div>
       </div>
     </div>
   );
