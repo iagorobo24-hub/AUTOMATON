@@ -32,12 +32,19 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Database initialized")
     with SessionLocal() as session:
         bootstrapped_accounts = ensure_accounting_baseline(session)
-        recovered_paper = PaperExecutionService(session).recover_pending()
+        paper_service = PaperExecutionService(session)
+        recovered_paper = paper_service.recover_pending()
+        recovered_requests = paper_service.recover_requests()
     logger.info("[MAIN] Accounting baseline ready (%s accounts bootstrapped)", bootstrapped_accounts)
     logger.info(
         "[MAIN] Paper recovery complete (filled=%s cancelled=%s)",
         recovered_paper["filled"],
         recovered_paper["cancelled"],
+    )
+    logger.info(
+        "[MAIN] Paper request recovery complete (completed=%s retryable=%s)",
+        recovered_requests["completed"],
+        recovered_requests["retryable"],
     )
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
