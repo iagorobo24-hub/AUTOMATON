@@ -10,7 +10,8 @@ Build a verifiable autonomous Paper Trading research platform: **real market dat
 - Synthetic `AgentEngine` and legacy Mongo/trading engines are outside normal runtime.
 - Phases 1–7 source/static contracts are present.
 - Phase 7 provides explicit persistent autonomous Paper sessions; no session starts or resumes merely because the process boots.
-- Phase 8 Strategy Research is implemented in source as an evidence/orchestration layer; it does not mutate strategies or auto-deploy candidates.
+- Phase 8 Strategy Research is implemented as an evidence/orchestration layer; it does not mutate strategies or auto-deploy candidates.
+- Phase 7 now captures strategy/version/source-SHA evidence at first session start so Phase 8 can prove forward-source identity; sessions started before that contract cannot receive provenance retroactively.
 - Live remains disabled.
 - Fresh exact-HEAD execution evidence remains required.
 
@@ -38,6 +39,8 @@ Market Data, Accounting, Paper Execution, Risk, Backtesting/Evidence and their s
 - [x] Unchanged S1-S4 -> Risk -> PaperExecution(strategy_runtime) -> Accounting.
 - [x] Deterministic request ids, recovery, ownership and no auto-resume.
 - [x] Async scheduler controls execute on an active event loop.
+- [x] Capture per-session/agent strategy ID/version/source SHA at first start; block resume/recovery on strategy/source drift.
+- [x] Never fabricate source evidence for sessions that had already started before the fingerprint contract.
 - [x] Ops Monitor/Settings/Dashboard observability.
 - [x] No auto-replication, optimizer or Live.
 - [x] Exact-HEAD static audit/documentation reconciliation.
@@ -57,8 +60,9 @@ See `docs/superpowers/specs/2026-08-19-phase-8-strategy-research-design.md` and 
 - [x] Require positive VALIDATION/OOS net return and expectancy.
 - [x] Enforce OOS max drawdown <=15%, profit factor >=1.05 when defined and <=50% relative return degradation.
 - [x] Require STOPPED Phase 7 forward sessions on the same symbol/timeframe with matching-strategy agents and persisted runtime cycles.
+- [x] Require Phase 7 captured strategy/version/source SHA to match the frozen historical study identity; legacy sessions without captured provenance are ineligible.
 - [x] Require >=3 unique FILLED closing SELL Paper executions with `origin=strategy_runtime`.
-- [x] Reject unresolved Paper recovery and forward accounts contaminated by FILLED non-runtime Paper execution.
+- [x] Reject unresolved Paper recovery and any qualifying-account FILLED execution outside the exact Research-selected sessions.
 - [x] Require positive authoritative account-level realized PnL context.
 - [x] Persist immutable PASS/REJECT ResearchEvaluation snapshots with historical/forward evidence ids and metrics.
 - [x] Re-check current active strategy source SHA on every promotion attempt.
@@ -67,10 +71,10 @@ See `docs/superpowers/specs/2026-08-19-phase-8-strategy-research-design.md` and 
 - [x] Mount `/api/research` studies/windows/evaluate/promote/candidates surfaces.
 - [x] Keep `/optimize`, source mutation, auto-deployment and Live absent.
 - [x] Update backend runtime/client/Settings for `strategy_research=evidence_phase_8`.
-- [ ] Complete final exact-HEAD static audit and documentation drift search.
+- [x] Complete final exact-HEAD static audit and documentation drift search.
 - [ ] Execute exact-HEAD backend/frontend/build gate plus observed historical/forward research smoke.
 
-**Phase 8 implementation/source contracts:** present. Formal source/static closure depends on the final exact-HEAD audit. Promotion remains an evidence classification, not a profitability or deployment guarantee.
+**Phase 8 source/contract/static gate:** complete. Execution certification and observed real historical/forward research evidence remain pending. Promotion remains an evidence classification, not a profitability or deployment guarantee.
 
 ### 9. Legacy Pruning
 See `docs/LEGACY_AUDIT.md`.
