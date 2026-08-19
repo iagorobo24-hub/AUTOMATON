@@ -39,7 +39,6 @@ export const agentsAPI = {
   list: () => api.get('/agents/'),
   create: (data) => api.post('/agents/', null, { params: data }),
   get: (id) => api.get(`/agents/${id}`),
-  replicate: (id) => api.post(`/agents/${id}/replicate`),
   delete: (id) => api.delete(`/agents/${id}`),
   deposit: (id, amount) => api.post(`/agents/${id}/deposit`, null, { params: { amount } }),
 };
