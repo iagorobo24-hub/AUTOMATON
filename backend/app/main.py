@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.accounting.router import router as accounting_router
 from app.database import init_db
 from app.market_data.router import router as market_data_router
 from app.routers import agents, trades, crypto
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 RUNTIME_MODE = "transition"
 MARKET_DATA_MODE = "real_contract_available"
+ACCOUNTING_MODE = "authoritative_phase_2"
 
 
 @asynccontextmanager
@@ -24,15 +26,17 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Database initialized")
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
+    app.state.accounting_mode = ACCOUNTING_MODE
     logger.info("[MAIN] Synthetic AgentEngine is disabled in the normal runtime")
     logger.info("[MAIN] Real read-only market-data contract is available")
+    logger.info("[MAIN] Authoritative portfolio accounting is available")
     yield
     logger.info("[MAIN] Shutdown complete")
 
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.4.0",
+    version="2.5.0",
     description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
@@ -53,16 +57,22 @@ app.include_router(
     prefix="/api/market-data",
     tags=["market-data"],
 )
+app.include_router(
+    accounting_router,
+    prefix="/api/accounting",
+    tags=["accounting"],
+)
 
 
 @app.get("/")
 def root():
     return {
         "message": "AUTOMATON v2 API",
-        "version": "2.4.0",
+        "version": "2.5.0",
         "status": "operational",
         "runtime_mode": RUNTIME_MODE,
         "market_data": MARKET_DATA_MODE,
+        "accounting": ACCOUNTING_MODE,
     }
 
 
@@ -73,6 +83,7 @@ def health():
         "runtime_mode": RUNTIME_MODE,
         "synthetic_engine": "disabled",
         "market_data": MARKET_DATA_MODE,
+        "accounting": ACCOUNTING_MODE,
         "paper_trading": "not_implemented",
     }
 
@@ -84,6 +95,7 @@ def get_estado():
         "synthetic_engine": "disabled",
         "paper_trading": "not_implemented",
         "market_data_mode": MARKET_DATA_MODE,
+        "accounting_mode": ACCOUNTING_MODE,
         "financial_evidence": "unavailable",
     }
 
