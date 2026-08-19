@@ -39,13 +39,13 @@ def _historical_study(session):
     return study
 
 
-def _forward_session(session, *, status="STOPPED", origin="strategy_runtime", sells=3, pnl="25"):
+def _forward_session(session, *, status="STOPPED", origin="strategy_runtime", sells=3, pnl="25", interval="1h"):
     agent = Agent(nombre="forward-agent", presupuesto_inicial=1000, presupuesto_actual=1000,
         estrategia=StrategyEnum.S1, estado=AgentStatus.ACTIVO)
     session.add(agent); session.commit(); session.refresh(agent)
     account = AccountingService(session).create_account(agent.id, Decimal("1000"))
     account.realized_pnl = Decimal(pnl); session.add(account); session.commit()
-    runtime = PaperRuntimeSession(name="forward-paper", symbol="BTC/USDT", interval="1m", status=status,
+    runtime = PaperRuntimeSession(name="forward-paper", symbol="BTC/USDT", interval=interval, status=status,
         started_at=datetime(2026, 4, 1, tzinfo=timezone.utc), stopped_at=datetime(2026, 4, 2, tzinfo=timezone.utc) if status == "STOPPED" else None)
     session.add(runtime); session.commit(); session.refresh(runtime)
     session.add(PaperRuntimeAgent(session_id=runtime.id, agent_id=agent.id)); session.commit()
@@ -65,7 +65,7 @@ def _forward_session(session, *, status="STOPPED", origin="strategy_runtime", se
             slippage_bps=Decimal("10"), fee_bps=Decimal("10"), fee=Decimal("0.01"), status="FILLED")
         session.add(execution); session.commit(); session.refresh(execution)
         cycle = PaperRuntimeCycle(session_id=runtime.id, agent_id=agent.id, account_id=account.id,
-            symbol="BTC/USDT", interval="1m", candle_close=observed, signal="SELL", outcome="FILLED",
+            symbol="BTC/USDT", interval=interval, candle_close=observed, signal="SELL", outcome="FILLED",
             paper_execution_id=execution.id)
         session.add(cycle); session.commit()
     return runtime, agent, account
@@ -87,7 +87,7 @@ def test_forward_gate_requires_stopped_runtime_and_three_provenanced_closing_sel
 def test_forward_gate_rejects_incomplete_or_unprovenanced_evidence():
     cases = [
         {"status": "RUNNING", "origin": "strategy_runtime", "sells": 3, "pnl": "25", "code": "FORWARD_SESSION_REQUIRED"},
-        {"status": "STOPPED", "origin": "operator", "sells": 3, "pnl": "25", "code": "FORWARD_CLOSE_SAMPLE_TOO_SMALL"},
+        {"status": "STOPPED", "origin": "operator", "sells": 3, "pnl": "25", "code": "FORWARD_ATTRIBUTION_AMBIGUOUS"},
         {"status": "STOPPED", "origin": "strategy_runtime", "sells": 2, "pnl": "25", "code": "FORWARD_CLOSE_SAMPLE_TOO_SMALL"},
         {"status": "STOPPED", "origin": "strategy_runtime", "sells": 3, "pnl": "0", "code": "FORWARD_PNL_NON_POSITIVE"},
     ]
@@ -101,7 +101,15 @@ def test_forward_gate_rejects_incomplete_or_unprovenanced_evidence():
             assert result.reason_code == case["code"]
 
 
-def test_forward_gate_fails_closed_on_unresolved_paper_recovery():
+def test_forward_gate_rejects_different_timeframe_and_unresolved_paper_recovery():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        study = _historical_study(session)
+        _forward_session(session, interval="1m")
+        result = ResearchEvaluator(session).forward_gate(study.id)
+        assert result.passed is False
+        assert result.reason_code == "FORWARD_SESSION_REQUIRED"
+
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         study = _historical_study(session)
