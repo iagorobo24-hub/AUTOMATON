@@ -21,9 +21,9 @@ Never present synthetic/random/mock results as Paper, Backtest or Live evidence.
 
 - FastAPI + SQLModel + SQLite.
 - React 19 + Vite; Electron optional.
-- `app.main` mounts agents/trades/crypto and **does not start a trading engine**.
+- `app.main` does **not** start a trading engine.
 - The old `AgentEngine` remains versioned only as explicit Synthetic/Test utility code.
-- `/health` reports `runtime_mode=transition`, `synthetic_engine=disabled`, `paper_trading=not_implemented`.
+- `/health` reports transition mode, synthetic disabled, real Market Data available, Phase 2 accounting authoritative and Paper not implemented.
 - Pre-provenance `Trade` rows are `legacy_unclassified` and excluded from verified financial metrics.
 - Active HTTP client: `frontend/src/lib/api.js`.
 
@@ -35,9 +35,23 @@ New trading work follows:
 
 Agent lifecycle consumes these contracts; UI observes them. Strategy code must not directly mutate balances or place real orders. Risk must be able to reject execution. Paper must be structurally isolated from any future Live adapter.
 
-## Phase 1 constraint
+## Market Data constraint
 
-Do not reuse legacy `BinanceService` as the real-data provider without redesign: it silently returns mock/generated prices, candles and orderbook data on missing credentials/provider errors. A Paper-capable Market Data adapter must fail closed instead.
+Do not reuse legacy `BinanceService` as the real-data provider without redesign: it silently returns mock/generated data on failures. Paper-capable Market Data must fail closed.
+
+## Phase 2 accounting constraint
+
+`backend/app/accounting/` and `backend/app/models/accounting.py` are authoritative for new financial state.
+
+- Do not mutate `Agent.presupuesto_actual` as trading PnL.
+- `Agent.presupuesto_*` are compatibility mirrors only.
+- Deposits are ledger funding events, never profit.
+- Fills must flow through `AccountingService`.
+- Phase 2 is long-only; do not invent short/margin semantics.
+- Do not expose order/fill execution mutations before Paper Execution.
+- Do not erase account balances when an agent is killed/retired.
+- Replication is blocked until Phase 6 defines a capital-transfer policy; never duplicate parent capital into a child.
+- Existing agents are bootstrapped from initial/funded capital only; do not promote legacy current balance because it may contain synthetic PnL.
 
 ## Legacy
 
@@ -50,7 +64,6 @@ Mongo `DatabaseService`, old Trading/Paper engines, registry, auth/payments/chat
 - No `optimized`, `validated`, `profitable` or `safe` claim without reproducible evidence.
 - Unknown strategy IDs must fail explicitly.
 - Financial telemetry must carry mode/provenance; missing data stays missing.
-- Deposits/funding are capital flows, not trading profit.
 
 ## Validation
 
