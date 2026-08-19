@@ -2,90 +2,73 @@
 
 ## Read first
 
-Canonical product direction is defined by `docs/PRODUCT_CONTRACT.md`, `ARCHITECTURE.md` and `docs/ROADMAP.md`. Inspect `backend/app/main.py` and `frontend/src/App.jsx` before claiming current implementation status.
+Canonical direction: `docs/PRODUCT_CONTRACT.md`, `ARCHITECTURE.md`, `docs/ROADMAP.md`. Inspect `backend/app/main.py` before claiming runtime status.
 
-## Product objective
+## Objective
 
-Build a trustworthy autonomous-agent trading platform whose immediate target is **Paper Trading on real market data with virtual capital**, supported by reproducible historical evidence.
-
-Never present synthetic/random/mock results as Backtest, Paper or Live evidence.
+Build autonomous Paper Trading on **real market data + virtual capital**, supported by reproducible Backtest/Paper evidence. Never present synthetic/mock results as financial evidence.
 
 ## Current runtime
 
-- FastAPI + SQLModel + SQLite.
-- React/Vite frontend.
-- Synthetic `AgentEngine` is not started by normal runtime.
-- Phase 1 Market Data is real-only and fail-closed.
-- Phase 2 Accounting is authoritative for active Paper financial state.
-- Phase 3 Paper MARKET execution is operator-only, deterministic and idempotent.
-- Phase 4 Risk is active and mandatory for normal Paper execution.
-- Phase 5 Backtesting is active as an isolated historical-evidence subsystem.
-- Runtime reports `risk=authoritative_phase_4`, `paper_trading=operator_only_phase_4`, `backtesting=evidence_phase_5`, `automated_trading=blocked_until_strategy_integration`, `live_execution=disabled`.
-- Historical Trade rows remain `legacy_unclassified`.
+- FastAPI + SQLModel + SQLite; React/Vite.
+- Synthetic AgentEngine disabled.
+- Phase 1 real-only Market Data.
+- Phase 2 authoritative Accounting.
+- Phase 3 operator-only deterministic Paper.
+- Phase 4 mandatory persistent Risk.
+- Phase 5 isolated reproducible Backtesting.
+- Phase 6 evidence-aware Agent Evolution.
+- Runtime: `backtesting=evidence_phase_5`, `agent_evolution=evidence_phase_6`, `automated_trading=blocked_until_phase_7_runtime`, `live_execution=disabled`.
 
-## Trading architecture
+## Boundaries
 
-Active/future Paper path:
+Paper path: `Market Data -> Risk -> Paper Execution -> Accounting`.
+Future Phase 7 automation inserts Strategy Intent before Risk; it may never bypass Risk/Paper/Accounting.
+Backtest is a parallel historical path and never mutates Paper state.
 
-`Market Data -> Strategy Intent -> Risk -> Paper Execution -> Portfolio/Accounting -> Metrics/Evidence`.
+## Accounting / replication
 
-Current Backtest path:
+- Accounting owns all active financial state; Agent budget fields are mirrors.
+- Funding is not profit.
+- Long-only; do not invent shorts/margin/leverage.
+- Phase 6 replication transfers funded liquid capital; it never copies/mints balances.
+- Eligible transfer base is `min(cash-reserved_cash, funded_capital)`; `evolution-v1` currently allocates 25%.
+- Parent cash/funded decrease exactly by child initial/funded cash; paired transfer ledger entries are required.
+- Child starts flat and inherits the same strategy.
 
-`real historical dataset -> S1-S4 -> next-candle backtest execution -> isolated ledger -> persisted Backtest evidence`.
+## Agent Evolution
 
-Backtesting does not enable autonomous Paper trading.
+`backend/app/agent_evolution/` owns `evolution-v1`, fitness, lineage and lifecycle evidence.
 
-## Market Data constraint
+A replication attempt must create a fresh evaluation and PASS only when:
 
-Real-data providers fail closed. Never copy legacy `BinanceService` mock/generated fallback behavior into active current or historical market-data paths.
+- agent is ACTIVE;
+- completed same-strategy Backtest exists;
+- Backtest source fingerprint exists and still matches current strategy source;
+- >=5 Backtest round trips;
+- Backtest return/expectancy > 0 and drawdown <=15%;
+- >=3 agent-specific FILLED Paper SELL executions with PaperExecution provenance;
+- authoritative Paper realized PnL >0;
+- Accounting structural integrity holds;
+- no PaperRequest is `RECOVERY_REQUIRED`.
 
-## Accounting constraint
+Legacy Trade rows or standalone Paper-labelled fills do not count. A PASS is permission for one replication attempt, not a profitability/safety claim. No strategy mutation, auto-replication or auto-trading in Phase 6.
 
-- `backend/app/accounting/` owns active Paper financial state.
-- `Agent.presupuesto_*` are compatibility mirrors only.
-- Deposits are funding, never profit.
-- Paper fills go through `AccountingService`.
-- Long-only is the defined scope; do not invent short/margin/leverage semantics.
-- Replication stays blocked until explicit non-duplicating capital transfer exists.
+## Backtesting
 
-## Paper/Risk constraint
+Historical datasets are real/immutable/SHA-256 identified; mixed/gapped/duplicate/out-of-order data is rejected. Signal on candle `t` executes no earlier than `t+1`. New runs persist strategy source SHA-256. Never modify S1-S4 to make evaluated results look better.
 
-- Paper is operator-only MARKET BUY/SELL.
-- Price comes from real current Market Data, never client input.
-- `paper-v1` is deterministic/versioned and request-id idempotent.
-- Every normal Paper execution requires a persisted current-profile one-time Risk ALLOW.
-- REJECT creates no Paper Order/Fill.
-- Risk pause/resume is a circuit breaker only; it does not enable autonomous trading.
-- Ambiguous Paper recovery fails closed.
-- Paper has no Live credentials/adapter.
+## Paper / Risk
 
-## Phase 5 Backtesting constraint
-
-`backend/app/backtesting/` and `backend/app/models/backtesting.py` own historical evidence.
-
-- Historical datasets must be real, immutable and SHA-256 identified.
-- Historical Binance access is public/read-only and never falls back to generated candles.
-- Reject empty, duplicate, out-of-order, gapped or out-of-window datasets.
-- Persist explicit UTC semantics across SQLite.
-- A signal computed from candle `t` may execute no earlier than candle `t+1` open.
-- `backtest-v1` is long-only, no pyramiding, default 25% allocation, 10 bps adverse slippage and 10 bps fee.
-- Final open positions are explicitly liquidated as `DATASET_END_EXIT`.
-- Backtest financial state must not mutate Paper Account/Order/Fill/Position, PaperExecution, PaperRequest or RiskDecision rows.
-- Persist BacktestRun/Trade/EquityPoint evidence and keep undefined metrics null.
-- Interrupted RUNNING runs become INVALID; never silently resume or promote them.
-- Do not add an optimizer or modify S1-S4 to improve evaluated results during Phase 5.
-- Current S1-S4 are `baseline-v1` Backtest inputs. They remain performance-unverified until valid real-provider runs exist.
+Paper prices come from real Market Data. Normal execution requires persisted one-time current-profile Risk ALLOW. Ambiguous recovery fails closed. No Live credentials/adapter.
 
 ## Legacy
 
-Mongo DatabaseService, old Trading/Paper engines, legacy RiskManager, auth/payments/chat/notifications and unmounted pages are not active contracts. Migrate only useful concepts compatible with the current architecture.
+Mongo/old Trading/Paper engines/mock fallbacks and unmounted product areas are not active contracts. Migrate useful concepts only; never reactivate them as shortcuts.
 
-## Evidence rules
+## Evidence
 
-- Never mix Synthetic, Backtest, Paper and Live performance histories silently.
-- No profitable/optimized/validated/safe claim without reproducible evidence and explicit criteria.
-- Fixture tests prove software behavior, not trading performance.
-- Backtest numbers must reference immutable dataset/config/run evidence.
+Never merge Synthetic/Backtest/Paper/Live silently. Fixture tests prove software behavior, not trading performance. No profitable/optimized/validated/safe claim without reproducible observed evidence.
 
 ## Validation
 
@@ -95,4 +78,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Never report green status without fresh output for the exact HEAD.
+Never report green status without fresh exact-HEAD output.
