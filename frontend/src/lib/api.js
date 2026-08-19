@@ -102,6 +102,32 @@ export const evolutionAPI = {
   lineage: (agentId) => api.get(`/evolution/agents/${agentId}/lineage`),
 };
 
+export const runtimeAPI = {
+  status: () => api.get('/runtime/status'),
+  sessions: (params = {}) => api.get('/runtime/sessions', { params }),
+  session: (id) => api.get(`/runtime/sessions/${id}`),
+  cycles: (id, params = {}) => api.get(`/runtime/sessions/${id}/cycles`, { params }),
+  create: ({ name, symbol = 'BTC/USDT', interval = '1m', agentIds, pollSeconds = 15, maxConsecutiveFailures = 5 }) => api.post(
+    '/runtime/sessions',
+    null,
+    {
+      params: {
+        name,
+        symbol,
+        interval,
+        agent_ids: agentIds,
+        poll_seconds: pollSeconds,
+        max_consecutive_failures: maxConsecutiveFailures,
+      },
+    },
+  ),
+  start: (id) => api.post(`/runtime/sessions/${id}/start`),
+  pause: (id) => api.post(`/runtime/sessions/${id}/pause`),
+  resume: (id) => api.post(`/runtime/sessions/${id}/resume`),
+  recover: (id) => api.post(`/runtime/sessions/${id}/recover`),
+  stop: (id) => api.post(`/runtime/sessions/${id}/stop`),
+};
+
 export const stateAPI = {
   status: () => api.get('/estado'),
 };
