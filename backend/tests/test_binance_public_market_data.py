@@ -22,6 +22,11 @@ def _client(handler):
     )
 
 
+def test_default_base_url_is_binance_market_data_only_host():
+    provider = BinancePublicMarketDataProvider()
+    assert provider.default_base_url == "https://data-api.binance.vision"
+
+
 @pytest.mark.asyncio
 async def test_quote_uses_real_provider_timestamp_and_never_mock_data():
     def handler(request: httpx.Request):
@@ -102,6 +107,38 @@ async def test_provider_failure_fails_closed_without_generated_fallback():
             await provider.get_quote("BTC/USDT")
 
     assert attempts == 3
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_honors_retry_after_before_retrying():
+    attempts = 0
+    sleeps = []
+
+    async def record_sleep(seconds: float):
+        sleeps.append(seconds)
+
+    def handler(_request: httpx.Request):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return httpx.Response(429, headers={"Retry-After": "2"}, json={"msg": "rate limited"})
+        return httpx.Response(
+            200,
+            json=[{"a": 1, "p": "65000.25", "q": "0.01", "T": 1787141110000}],
+        )
+
+    async with _client(handler) as client:
+        provider = BinancePublicMarketDataProvider(
+            client=client,
+            clock=lambda: NOW,
+            sleep=record_sleep,
+            max_attempts=2,
+        )
+        quote = await provider.get_quote("BTC/USDT")
+
+    assert quote.price == Decimal("65000.25")
+    assert attempts == 2
+    assert sleeps == [2.0]
 
 
 @pytest.mark.asyncio
