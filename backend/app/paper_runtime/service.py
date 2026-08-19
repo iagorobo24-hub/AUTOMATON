@@ -125,6 +125,10 @@ class PaperRuntimeService:
             ).first()
             strategy_id = agent.estrategia.value
             if existing is None:
+                if runtime.started_at is not None:
+                    raise PaperRuntimeError(
+                        "runtime session was previously started without strategy source evidence; retroactive fingerprinting is forbidden"
+                    )
                 self.session.add(
                     PaperRuntimeStrategyEvidence(
                         session_id=runtime.id,
