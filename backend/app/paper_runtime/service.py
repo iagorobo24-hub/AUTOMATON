@@ -6,6 +6,7 @@ from app.models import (
     Account,
     Agent,
     AgentStatus,
+    PaperExecution,
     PaperRequest,
     PaperRuntimeAgent,
     PaperRuntimeEvent,
@@ -197,16 +198,21 @@ class PaperRuntimeService:
         agent_ids = [item.agent_id for item in attachments]
         accounts = self.session.exec(select(Account).where(Account.agente_id.in_(agent_ids))).all()
         account_ids = [account.id for account in accounts]
-        unresolved = None
         if account_ids:
-            unresolved = self.session.exec(
+            unresolved_request = self.session.exec(
                 select(PaperRequest).where(
                     PaperRequest.account_id.in_(account_ids),
                     PaperRequest.status == "RECOVERY_REQUIRED",
                 )
             ).first()
-        if unresolved is not None:
-            raise PaperRuntimeError("Paper recovery state is unresolved")
+            unresolved_execution = self.session.exec(
+                select(PaperExecution).where(
+                    PaperExecution.account_id.in_(account_ids),
+                    PaperExecution.status == "RECOVERY_REQUIRED",
+                )
+            ).first()
+            if unresolved_request is not None or unresolved_execution is not None:
+                raise PaperRuntimeError("Paper recovery state is unresolved")
         runtime.status = "PAUSED"
         runtime.consecutive_failures = 0
         runtime.last_error = None
