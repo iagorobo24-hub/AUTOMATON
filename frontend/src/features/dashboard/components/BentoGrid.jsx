@@ -55,9 +55,11 @@ export function BentoGrid() {
     ? 'Consultando'
     : isError
       ? 'Desconocido'
-      : metrics.syntheticDisabled
-        ? `Transición · sintético desactivado`
-        : 'Revisar runtime';
+      : metrics.paperTrading === 'operator_only_phase_3'
+        ? 'Paper operador · automático bloqueado'
+        : metrics.syntheticDisabled
+          ? 'Transición · sintético desactivado'
+          : 'Revisar runtime';
   const cards = [
     { title: 'Win Rate verificable', value: metricValue(metrics.winRatePercent, (v) => `${v.toFixed(1)}%`), icon: TrendingUp },
     { title: 'PnL verificable', value: metricValue(metrics.profitTotal, (v) => `€${v.toFixed(2)}`), icon: Activity },
@@ -69,8 +71,8 @@ export function BentoGrid() {
       <Card className="md:col-span-3 md:row-span-2 p-6 min-h-[300px]">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Baseline de transición</h3>
-            <p className="text-[10px] text-gray-500 font-mono mt-1">Paper aún no implementado · registros legacy excluidos de evidencia</p>
+            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Runtime Paper de transición</h3>
+            <p className="text-[10px] text-gray-500 font-mono mt-1">Paper manual sobre mercado real disponible · métricas legacy excluidas · automatización pendiente de Risk</p>
           </div>
           <span className="font-mono text-[#3b82f6] text-lg font-bold">{metrics.totalTrades == null ? 'N/D trades válidos' : `${metrics.totalTrades} trades`}</span>
         </div>
