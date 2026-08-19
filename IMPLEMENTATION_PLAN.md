@@ -13,7 +13,7 @@ Build a verifiable Paper Trading platform: **real market data, virtual capital, 
 - Phase 1 Market Data is real-only and fail-closed.
 - Phase 2 Accounting is authoritative for financial state.
 - Phase 3 Paper Execution is operator-only, deterministic and idempotent.
-- Phase 4 Risk is mounted at `/api/risk`, persists `risk-v1` profiles/decisions and is mandatory for active Paper API orders.
+- Phase 4 Risk is mounted at `/api/risk`, persists `risk-v1` profiles/decisions and is mandatory for normal Paper execution.
 - Risk rejection creates no Paper Order/Fill; ALLOW is one-time consumable and linked to Paper execution.
 - Automated strategy/agent execution remains disabled until a later explicit integration step.
 - Live execution remains disabled.
@@ -73,18 +73,22 @@ See `docs/RISK_MANAGEMENT.md`.
 - [x] Add projected total exposure and symbol-concentration limits.
 - [x] Add maximum open-position limit.
 - [x] Add realized-loss and drawdown limits.
-- [x] Reject stale/non-real data, inactive agents, currency mismatch, incomplete real marks, accounting mismatch and unresolved Paper recovery.
-- [x] Preserve SELL risk-reduction path while still rejecting oversells/integrity failures.
+- [x] Reject stale/non-real data, inactive agents, currency mismatch, incomplete real marks for BUY, accounting mismatch and unresolved Paper recovery.
+- [x] Preserve SELL risk-reduction path with valuation-free structural accounting integrity while still rejecting oversells.
 - [x] Add persistent global pause/resume circuit breaker.
-- [x] Require Risk evaluation before active Paper API order creation.
-- [x] Make Risk ALLOW decisions one-time consumable and payload-bound.
+- [x] Require persisted current-profile Risk ALLOW before normal Paper execution.
+- [x] Make Risk ALLOW decisions one-time consumable and payload/provider-observation bound.
+- [x] Invalidate unconsumed ALLOW when the profile is paused before Paper consumption.
+- [x] Match BUY cash reserve exactly to `paper-v1` compounded execution cost (20.01 bps).
 - [x] Ensure Risk rejection completes the Paper request idempotently without Order/Fill creation.
+- [x] Make missing account/agent failures idempotent and fail-closed instead of leaving ambiguous PROCESSING state.
 - [x] Expose `/api/risk/status`, `/profiles/active`, `/decisions`, `/pause`, `/resume`.
-- [x] Update runtime/UI to report `authoritative_phase_4` while autonomous trading remains disabled.
+- [x] Update runtime/UI/docs to report `authoritative_phase_4` while autonomous trading remains disabled.
+- [x] Complete exact-HEAD static audit and reconcile code/documentation drift.
 - [ ] Execute targeted Risk/Paper tests plus full backend/frontend/build gate on exact Phase 4 HEAD.
 - [ ] Run a real-provider virtual-capital smoke and inspect RiskDecision -> PaperExecution -> Accounting reconciliation.
 
-**Phase 4 source/contract gate:** implemented; final static audit must agree with code/docs. Execution certification remains pending until the executable gates above are observed.
+**Phase 4 source/contract/static gate:** complete. Execution certification remains pending until the executable gates above are observed on the exact HEAD.
 
 ### 5. Backtesting & Evidence
 See `docs/BACKTESTING.md` and `docs/METRICS_AND_EVIDENCE.md`.
