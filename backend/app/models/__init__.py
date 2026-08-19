@@ -1,6 +1,6 @@
 from app.models.sql_models import Agent, Trade, AgentStatus, StrategyEnum, TradeType
 from app.models.accounting import Account, Order, Fill, Position, LedgerEntry
-from app.models.paper_execution import PaperExecution
+from app.models.paper_execution import PaperExecution, PaperRequest
 
 __all__ = [
     "Agent",
@@ -14,4 +14,5 @@ __all__ = [
     "Position",
     "LedgerEntry",
     "PaperExecution",
+    "PaperRequest",
 ]
