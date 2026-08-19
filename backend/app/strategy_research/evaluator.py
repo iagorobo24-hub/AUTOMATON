@@ -126,6 +126,7 @@ class ResearchEvaluator:
         ).all()
         qualifying_session_ids: list[int] = []
         qualifying_account_ids: set[int] = set()
+        qualifying_execution_ids_by_account: dict[int, set[int]] = {}
         closing_execution_ids: set[int] = set()
 
         for runtime in stopped:
@@ -155,6 +156,7 @@ class ResearchEvaluator:
                     continue
                 session_qualified = True
                 qualifying_account_ids.add(account.id)
+                execution_ids = qualifying_execution_ids_by_account.setdefault(account.id, set())
                 for cycle in cycles:
                     if cycle.paper_execution_id is None:
                         continue
@@ -165,11 +167,12 @@ class ResearchEvaluator:
                         execution.agent_id == agent.id
                         and execution.account_id == account.id
                         and execution.status == "FILLED"
-                        and execution.side == "SELL"
                         and execution.origin == "strategy_runtime"
                         and execution.fill_id is not None
                     ):
-                        closing_execution_ids.add(execution.id)
+                        execution_ids.add(execution.id)
+                        if execution.side == "SELL":
+                            closing_execution_ids.add(execution.id)
             if session_qualified:
                 qualifying_session_ids.append(runtime.id)
 
@@ -191,15 +194,20 @@ class ResearchEvaluator:
             ).first()
             if unresolved_request is not None or unresolved_execution is not None:
                 return ResearchGateResult(False, "FORWARD_RECOVERY_UNRESOLVED", "forward Paper recovery evidence is unresolved")
-            contaminating_execution = self.session.exec(
+
+            allowed_ids = qualifying_execution_ids_by_account.get(account_id, set())
+            filled_executions = self.session.exec(
                 select(PaperExecution).where(
                     PaperExecution.account_id == account_id,
                     PaperExecution.status == "FILLED",
-                    PaperExecution.origin != "strategy_runtime",
                 )
-            ).first()
-            if contaminating_execution is not None:
-                return ResearchGateResult(False, "FORWARD_ATTRIBUTION_AMBIGUOUS", "forward account PnL is contaminated by non-runtime Paper execution")
+            ).all()
+            if any(execution.id not in allowed_ids for execution in filled_executions):
+                return ResearchGateResult(
+                    False,
+                    "FORWARD_ATTRIBUTION_AMBIGUOUS",
+                    "forward account PnL includes FILLED execution outside the qualifying Research sessions",
+                )
 
         closing_sells = len(closing_execution_ids)
         if closing_sells < policy.min_forward_closing_sells:
