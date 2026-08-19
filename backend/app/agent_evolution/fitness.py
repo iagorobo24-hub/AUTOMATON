@@ -10,7 +10,7 @@ from app.models import (
     AgentFitnessEvaluation,
     BacktestRun,
     BacktestRunEvidence,
-    Fill,
+    PaperExecution,
 )
 
 ZERO = Decimal("0")
@@ -53,10 +53,13 @@ class FitnessService:
         if account is not None:
             paper_closed = len(
                 self.session.exec(
-                    select(Fill).where(
-                        Fill.account_id == account.id,
-                        Fill.evidence_mode == "paper",
-                        Fill.side == "SELL",
+                    select(PaperExecution).where(
+                        PaperExecution.account_id == account.id,
+                        PaperExecution.agent_id == agent.id,
+                        PaperExecution.evidence_mode == "paper",
+                        PaperExecution.status == "FILLED",
+                        PaperExecution.side == "SELL",
+                        PaperExecution.fill_id != None,  # noqa: E711
                     )
                 ).all()
             )
