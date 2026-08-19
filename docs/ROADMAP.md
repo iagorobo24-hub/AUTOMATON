@@ -1,75 +1,73 @@
 # AUTOMATON Roadmap
 
-This roadmap defines dependency order. A later phase must not be treated as complete while a prerequisite remains materially broken.
+This roadmap defines dependency order. Source/static closure and executable certification are intentionally separate.
 
-## Phase 0 — Transition baseline
-**Status:** source gate satisfied; fresh repository execution remains pending.
+## Phases 0–4
 
-## Phase 1 — Real Market Data
-**Status:** source/contract gate satisfied; executable certification pending.
-
-## Phase 2 — Portfolio & Accounting
-**Status:** source/contract gate satisfied; executable certification pending.
-
-## Phase 3 — Paper Execution
-**Status:** source/contract gate satisfied; executable certification and real-provider smoke remain pending.
-
-## Phase 4 — Risk Engine
-**Status:** source/contract/static gate satisfied; executable certification and real-provider Paper smoke remain pending.
+Transition safety, Real Market Data, Accounting, deterministic Paper and Risk source contracts are implemented. Fresh exact-HEAD executable certification remains cross-phase debt.
 
 ## Phase 5 — Backtesting & Evidence
 
-Implemented: immutable real historical snapshots, canonical dataset SHA-256, strategy-source fingerprinting, deterministic next-candle `backtest-v1`, isolated financial state, persisted trades/equity/metrics and no optimizer/Live/automatic Paper path.
+Immutable real historical snapshots, canonical dataset/source SHA-256, next-candle deterministic execution, isolated financial evidence and metrics are implemented.
 
-**Status:** source/contract/static gate satisfied. Exact-HEAD tests/build and a real historical-provider S1-S4 baseline remain pending; no performance numbers are inferred.
+**Status:** source/contract/static gate satisfied. Exact-HEAD execution and observed real-provider S1-S4 baseline remain pending; no performance numbers are inferred.
 
 ## Phase 6 — Agent Evolution
 
-**Goal:** make lifecycle and replication evidence-aware without duplicating capital or silently enabling autonomous trading.
+`evolution-v1` implements evidence-aware fitness, lineage/lifecycle and manual child replication with conserving Accounting transfer. Current-source Backtest provenance, agent-specific PaperExecution evidence and recovery/integrity gates are mandatory.
 
-Implemented in source:
-
-- additive `EvolutionPolicy`, `AgentFitnessEvaluation`, `AgentLineage` and `AgentLifecycleEvent` records;
-- idempotent `evolution-v1` bootstrap and legacy-agent lifecycle baselines;
-- explicit CREATED/KILLED/REPLICATED lifecycle reasons;
-- fresh fitness evaluation for every replication attempt;
-- fitness requires an active agent, matching completed Backtest, current strategy-source SHA-256, >=5 Backtest round trips, positive Backtest return/expectancy and <=15% drawdown;
-- fitness also requires >=3 agent-specific FILLED Paper SELL executions, positive authoritative Paper realized PnL, Accounting structural integrity and no `RECOVERY_REQUIRED` Paper request;
-- legacy `Trade` rows and Paper-labelled fills without `PaperExecution` provenance are excluded;
-- `POST /api/agents/{id}/replicate` is manual and evidence-gated;
-- child allocation defaults to 25% of `min(cash - reserved_cash, funded_capital)`;
-- parent `cash` and `funded_capital` decrease by exactly the child's initial/funded cash;
-- paired `CAPITAL_TRANSFER_OUT/IN` ledger entries preserve money conservation;
-- the child starts flat, inherits the same strategy and records parent/generation/configuration lineage;
-- parent stays ACTIVE; replication is an event, not an execution state;
-- `/api/evolution` exposes status, active policy, fitness history/evaluation and lineage;
-- strategy mutation, automatic replication, automatic trading and Live remain disabled;
-- runtime reports `agent_evolution=evidence_phase_6` and `automated_trading=blocked_until_phase_7_runtime`.
-
-**Exit condition:** no child can be created from legacy/unreconciled/stale evidence, and successful replication transfers rather than duplicates funded liquid capital with persistent lineage.
-
-**Status:** source implementation present. Final exact-HEAD static audit and executable certification gate remain to be completed before formal source/static closure.
+**Status:** source/contract/static gate satisfied. Execution certification remains pending.
 
 ## Phase 7 — 24/7 Paper Operation
 
-Add run/session identity, the controlled Strategy -> Risk -> Paper loop, restart/reconciliation procedures, provider resilience, observability and long-running forward Paper operation. Capital remains virtual.
+**Goal:** operate S1-S4 autonomously against real current market data with virtual capital while preserving Risk, Accounting, idempotency and restart safety.
+
+Implemented in source:
+
+- additive persistent `PaperRuntimeSession`, `PaperRuntimeAgent`, `PaperRuntimeCycle`, `PaperRuntimeEvent`;
+- `runtime-v1` lifecycle: CREATED/RUNNING/PAUSED/DEGRADED/RECOVERY_REQUIRED/STOPPED;
+- explicit operator start/pause/resume/recover/stop controls;
+- persistent ownership preventing overlapping agent/symbol/interval sessions, including recovery states;
+- one evaluation per real closed candle per session/agent;
+- unchanged S1-S4 strategies;
+- HOLD/already-long/already-flat no-action evidence;
+- BUY sizing from 25% available cash with exact Paper cost reserve; full-position SELL;
+- deterministic `runtime:` request IDs;
+- autonomous path `Market Data -> Strategy -> Risk -> PaperExecution(strategy_runtime) -> Accounting`;
+- Risk remains mandatory and unsupported Paper origins fail closed;
+- in-process asyncio scheduler with SQLite as authority;
+- heartbeat, cycle outcome, failure counters and persistent events;
+- no synthetic fallback; repeated operational failures can mark DEGRADED;
+- financial ambiguity marks RECOVERY_REQUIRED;
+- startup reconciles interrupted runtime intents without submitting new orders;
+- prior RUNNING/DEGRADED sessions become RECOVERY_REQUIRED after restart and never auto-resume;
+- start/recovery is blocked while attached Paper requests/executions remain ambiguous;
+- `/api/runtime` controls and Ops Monitor/Settings/Dashboard observability;
+- no automatic replication, optimizer or Live adapter.
+
+Current runtime identifiers:
+
+- `paper_trading=autonomous_phase_7`
+- `paper_runtime=runtime_phase_7`
+- `automated_trading=paper_enabled_phase_7`
+- `live_execution=disabled`
+
+**Exit condition:** an explicitly started Paper session can evaluate each new real closed candle once, route every actionable signal through Risk/Paper/Accounting, survive polling/retry ambiguity without double execution, and fail closed across restart/recovery.
+
+**Status:** source implementation present. Final exact-HEAD static audit is the remaining source closure gate. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification.
 
 ## Phase 8 — Strategy Research
 
-Evaluate richer or revised strategies using Phase 5 reproducible Backtests plus Phase 7 forward Paper evidence. Use out-of-sample/walk-forward discipline and version every promoted configuration.
+Use Phase 5 historical evidence plus Phase 7 forward Paper evidence to evaluate and revise strategies. Establish out-of-sample/walk-forward discipline, fixed cost assumptions and configuration/source versioning before promotion.
 
 ## Phase 9 — Legacy Pruning
 
-Delete obsolete Mongo/trading/synthetic services, pages, dependencies and configuration only after reference audits prove active concepts have migrated and no required evidence/recovery path depends on them.
+Remove obsolete Mongo/trading/synthetic services, dead pages/config/dependencies and historical shortcuts only after reference/dependency audits prove no active recovery/evidence path depends on them.
 
 ## Phase 10 — Live Readiness
 
-Satisfy `LIVE_TRADING_GATE.md`: design a separate exchange execution adapter, secrets/permissions, exchange constraints, reconciliation, emergency stop and staged rollout. Real-capital activation remains a separate explicit authorization, not an automatic consequence of completing this phase.
+Design a structurally separate exchange adapter, secrets/permissions, exchange constraints, reconciliation, emergency controls and staged rollout. Real-capital activation remains a separate explicit authorization.
 
 ## Cross-phase certification debt
 
-Phases 0-6 still require fresh exact-HEAD backend tests, frontend tests/build and relevant real-provider smoke evidence when an executable environment/CI is available. Static source closure must never be reported as a green runtime gate.
-
-## Deferred product areas
-
-Auth, payments, LLM chat, public APIs, multi-user features and UI customization remain deferred unless needed to operate or validate the trading product.
+Fresh exact-HEAD backend tests, frontend tests/build and relevant real-provider smoke evidence are still required. Static closure must never be reported as a green runtime gate.
