@@ -44,15 +44,24 @@ Accounting is the active Paper financial authority.
 Evolution never owns competing balances; replication moves capital through Accounting.
 
 ### Phase 7 Paper Runtime
+- `paper_runtime_sessions`
+- `paper_runtime_agents`
+- `paper_runtime_cycles`
+- `paper_runtime_events`
 
-Additive SQLite-compatible runtime tables:
+The unique runtime-cycle constraint is a persistent idempotency boundary: the same session/agent/candle cannot create a second cycle.
 
-- `paper_runtime_sessions` (`PaperRuntimeSession`): persistent session identity/state, polling policy, heartbeat, failure counter and recovery state.
-- `paper_runtime_agents` (`PaperRuntimeAgent`): session/agent attachment and last processed candle/signal/outcome.
-- `paper_runtime_cycles` (`PaperRuntimeCycle`): one durable result per `(session_id, agent_id, candle_close)`, with request/Risk/Paper links.
-- `paper_runtime_events` (`PaperRuntimeEvent`): session lifecycle, degradation and recovery evidence.
+### Phase 8 Strategy Research
 
-The unique cycle constraint is a persistent idempotency boundary: polling the same candle again cannot create another runtime cycle for the same session/agent.
+All Research tables are additive so existing SQLite installations require no destructive column migration:
+
+- `research_policies` (`ResearchPolicy`): versioned methodology thresholds (`research-v1`).
+- `research_studies` (`ResearchStudy`): strategy research identity and frozen source/config assumptions.
+- `research_windows` (`ResearchWindow`): explicit Backtest-run references with TRAIN/VALIDATION/OOS role and ordinal.
+- `research_evaluations` (`ResearchEvaluation`): immutable PASS/REJECT evidence snapshots and referenced historical/forward ids/metrics.
+- `strategy_candidates` (`StrategyCandidate`): one manual promotion record per exact strategy/version/source-SHA identity.
+
+Research does not copy Backtest trades, Paper fills, PnL or balances. It stores references/snapshots needed to explain a decision.
 
 ## Source-of-truth rules
 
@@ -60,43 +69,43 @@ The unique cycle constraint is a persistent idempotency boundary: polling the sa
 - PaperExecution owns execution provenance.
 - PaperRequest owns Paper command idempotency/recovery.
 - RiskProfile/RiskDecision own authorization policy/evidence.
-- Backtest records own historical research evidence only.
-- Evolution records own lifecycle/fitness/lineage evidence only.
-- Paper Runtime owns orchestration/session/cycle evidence only; it never owns a second balance or direct fill path.
+- Backtest records own historical execution/input evidence.
+- Evolution records own lifecycle/fitness/lineage evidence.
+- Paper Runtime owns orchestration/session/cycle evidence only.
+- Research records own methodology/evaluation/promotion evidence only.
+- StrategyCandidate never changes source code or runtime configuration by itself.
 - The asyncio scheduler is process-local worker state, not persistent authority.
 
-## Phase 7 recovery invariants
+## Phase 8 evidence invariants
 
-On startup:
+A ResearchStudy's first attached Backtest freezes strategy version/source SHA, execution policy, fee/slippage and position fraction. Subsequent windows must match those and the first window's symbol/timeframe, initial capital and historical risk-profile version.
 
-1. initialize additive SQLModel tables;
-2. bootstrap Accounting/evolution/risk state;
-3. invalidate interrupted Backtests;
-4. reconcile pending PaperExecution records;
-5. reconcile PaperRequest records;
-6. reconcile interrupted runtime INTENT cycles against existing Paper state **without submitting another order**;
-7. mark previously RUNNING/DEGRADED runtime sessions `RECOVERY_REQUIRED`;
-8. spawn no autonomous session automatically.
+ResearchWindow sequence repeats:
 
-A runtime session may start/recover only when all attached agents are ACTIVE, their Accounting accounts exist and neither `PaperRequest` nor `PaperExecution` has unresolved recovery state.
+`TRAIN -> VALIDATION -> OOS`
 
-`RECOVERY_REQUIRED` sessions retain ownership of the same agent/symbol/interval so another session cannot start on top of uncertain state.
+Windows are chronological and non-overlapping. A complete evaluation requires full folds rather than arbitrary subsets.
 
-## Runtime cycle identity
+ResearchEvaluation snapshots do not become financial truth. They reference Backtest runs and qualifying STOPPED PaperRuntime sessions and record the metrics/reasons used by `research-v1`.
 
-Runtime request id is derived deterministically from:
+Forward account PnL context is accepted only when qualifying accounts have no FILLED non-`strategy_runtime` Paper execution and no unresolved Paper recovery. This prevents current Account.realized_pnl from being silently attributed to a Research session when manual Paper activity is mixed in.
 
-`runtime-v1 | session | agent | symbol | candle_close | signal`
+Promotion creates a fresh evaluation and then, on PASS, one StrategyCandidate for the exact strategy/version/source SHA. Candidate uniqueness prevents multiple competing promotion records for the same exact identity.
 
-The PaperRequest and unique runtime-cycle records together prevent duplicate trading after repeated polling/retries/restarts.
+## Startup and recovery
+
+Normal startup initializes additive SQLModel tables and bootstraps Accounting, Evolution, Risk and `research-v1`, then performs Backtest/Paper/Runtime recovery. Research has no long-running evaluation worker to resume: evaluations are synchronous over already persisted evidence.
+
+No startup step fabricates Research evaluations/candidates or starts a Paper session because a candidate exists.
 
 ## Current scope
 
 - long-only Paper/Backtest;
 - manual and Phase 7 session-controlled autonomous Paper;
-- S1-S4 unchanged;
+- S1-S4 unchanged by Research;
 - manual evidence-gated replication only;
-- no automatic replication/mutation;
+- manual evidence-gated Research promotion only;
+- no automatic replication/mutation/deployment;
 - no optimizer;
 - no Live execution.
 
@@ -106,4 +115,5 @@ The PaperRequest and unique runtime-cycle records together prevent duplicate tra
 - Never auto-resume interrupted financial activity.
 - Ambiguous/incomplete evidence fails closed.
 - Runtime orchestration must go through Risk -> Paper -> Accounting.
+- Research may reference financial evidence but never mutate it.
 - No new active Mongo collection is introduced.
