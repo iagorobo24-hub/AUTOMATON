@@ -7,12 +7,10 @@ The runtime uses SQLModel + SQLite through `backend/app/database.py`. MongoDB re
 ## Active records
 
 ### Legacy/transition
-
 - `Agent`: identity, strategy and lifecycle state. Budget fields are compatibility mirrors only.
-- `Trade`: historical pre-provenance record. Existing rows remain `legacy_unclassified` and are outside authoritative Paper/Backtest evidence.
+- `Trade`: historical pre-provenance record outside authoritative Paper/Backtest evidence.
 
 ### Phase 2 Accounting
-
 - `portfolio_accounts` (`Account`)
 - `portfolio_orders` (`Order`)
 - `portfolio_fills` (`Fill`)
@@ -22,26 +20,27 @@ The runtime uses SQLModel + SQLite through `backend/app/database.py`. MongoDB re
 These tables are the only active Paper financial source of truth.
 
 ### Phase 3 Paper
-
-- `paper_executions` (`PaperExecution`): real quote/fill-policy provenance linked to Accounting.
-- `paper_requests` (`PaperRequest`): request-id idempotency and recovery state.
+- `paper_executions` (`PaperExecution`)
+- `paper_requests` (`PaperRequest`)
 
 ### Phase 4 Risk
-
-- `risk_profiles` (`RiskProfile`): versioned risk policy.
-- `risk_decisions` (`RiskDecision`): persisted ALLOW/REJECT evidence and one-time Paper-consumption linkage.
+- `risk_profiles` (`RiskProfile`)
+- `risk_decisions` (`RiskDecision`)
 
 ### Phase 5 Backtesting
 
 Backtesting uses dedicated evidence tables rather than active Paper portfolio rows:
 
-- `backtest_datasets` (`BacktestDataset`): immutable dataset metadata including symbol, interval, provider, requested/actual UTC window, candle count, SHA-256 and status.
-- `backtest_candles` (`BacktestCandle`): ordered OHLCV observations keyed by dataset + ordinal/open time.
-- `backtest_runs` (`BacktestRun`): strategy/configuration/execution assumptions, run status and aggregate metrics.
-- `backtest_trades` (`BacktestTrade`): chronological historical execution evidence, signal candle, next execution candle, quantity, prices, fee, realized PnL and exit reason.
-- `backtest_equity_points` (`BacktestEquityPoint`): chronological cash/market-value/equity/exposure/drawdown series.
+- `backtest_datasets` (`BacktestDataset`): immutable dataset provenance and SHA-256.
+- `backtest_candles` (`BacktestCandle`): ordered real historical OHLCV.
+- `backtest_runs` (`BacktestRun`): strategy/config/execution assumptions, status and aggregate metrics.
+- `backtest_run_evidence` (`BacktestRunEvidence`): additive one-to-one provenance such as `strategy_code_sha256`.
+- `backtest_trades` (`BacktestTrade`): historical execution evidence.
+- `backtest_equity_points` (`BacktestEquityPoint`): chronological cash/market-value/equity/exposure/drawdown.
 
-Backtest timestamps use a UTC-preserving SQLAlchemy type so SQLite reads restore explicit UTC semantics rather than silently returning ambiguous local-naive timestamps.
+`backtest_run_evidence` is intentionally separate from `backtest_runs`. SQLite `create_all()` can safely create a new table but does not migrate columns into an already-created table. This preserves compatibility with databases that started during early Phase 5 while preventing fabricated retroactive fingerprints. Pre-fingerprint runs may therefore have no evidence row; new runs must create one before simulation proceeds.
+
+Backtest timestamps use a UTC-preserving SQLAlchemy type so SQLite reads restore explicit UTC semantics.
 
 ## Source-of-truth rules
 
@@ -51,25 +50,25 @@ Backtest timestamps use a UTC-preserving SQLAlchemy type so SQLite reads restore
 - RiskProfile owns versioned Paper risk limits.
 - RiskDecision owns Paper risk authorization evidence.
 - BacktestDataset/BacktestCandle own immutable historical input evidence.
-- BacktestRun/Trade/EquityPoint own historical experiment evidence only.
+- BacktestRun/RunEvidence/Trade/EquityPoint own historical experiment evidence only.
 - Backtest records never become a second Paper accounting system.
 - `Agent.presupuesto_*` never becomes a competing accounting source.
 
 ## Backtest immutability and reproducibility
 
-A dataset SHA-256 is computed over normalized candle content before persistence. Duplicate hashes are not overwritten as a different snapshot.
+Dataset SHA-256 is computed over normalized candle content; numerically equivalent Decimal formatting hashes identically. Mixed providers, gaps, duplicates and ordering errors are rejected.
 
-A BacktestRun references the dataset SHA and stores strategy version, execution policy, initial capital, fee/slippage/allocation and evidence status. Two identical deterministic runs may produce separate run rows but must produce identical trade/equity/metric content.
+Every new Backtest run gets a SHA-256 fingerprint of the active strategy module before run state is committed. Two deterministic runs are comparable only when dataset/configuration and source fingerprint match. A missing fingerprint on a historical pre-contract run is missing evidence, not permission to infer one.
 
-Interrupted `RUNNING` BacktestRun rows are invalidated at startup with `INTERRUPTED_RESTART`; they are not silently resumed or treated as completed evidence.
+Interrupted `RUNNING` runs are invalidated at startup with `INTERRUPTED_RESTART`; they are not silently resumed.
 
 ## Startup and recovery
 
 Normal startup:
 
-1. initializes SQLModel tables;
-2. bootstraps missing Phase 2 Paper accounts from initial/funded capital only;
-3. bootstraps `risk-v1` idempotently;
+1. initializes SQLModel tables, including newly additive evidence tables;
+2. bootstraps missing Phase 2 Paper accounts from funded capital only;
+3. bootstraps `risk-v1`;
 4. invalidates interrupted Backtest runs;
 5. reconciles pending Paper executions;
 6. reconciles Paper request reservations.
@@ -88,7 +87,7 @@ Normal startup:
 
 - Never mix evidence modes silently.
 - Every Paper order has real current-market provenance and a Risk decision.
-- Every Backtest run references immutable real historical provenance.
+- Every new Backtest run references immutable real historical provenance and strategy source fingerprint.
 - Ambiguous/incomplete evidence fails closed.
 - Existing data is migrated or quarantined explicitly; never silently promoted.
 - No new active Mongo collection is introduced.
