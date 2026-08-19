@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeApiBase } from './api';
+import { buildPaperMarketOrderParams, normalizeApiBase } from './api';
 import { normalizeMarketData } from '../features/crypto/hooks/useMarketData';
 
 describe('active API integration helpers', () => {
@@ -7,6 +7,22 @@ describe('active API integration helpers', () => {
     expect(normalizeApiBase()).toBe('http://127.0.0.1:8000/api');
     expect(normalizeApiBase('http://localhost:8000/')).toBe('http://localhost:8000/api');
     expect(normalizeApiBase('http://localhost:8000/api')).toBe('http://localhost:8000/api');
+  });
+
+  it('builds Paper market-order params with the required idempotency key', () => {
+    expect(buildPaperMarketOrderParams({
+      requestId: 'operator-001',
+      accountId: 7,
+      symbol: 'BTC-USDT',
+      side: 'BUY',
+      quantity: '0.01',
+    })).toEqual({
+      request_id: 'operator-001',
+      account_id: 7,
+      symbol: 'BTC-USDT',
+      side: 'BUY',
+      quantity: '0.01',
+    });
   });
 
   it('normalizes CoinGecko responses without inventing missing RSI values', () => {
