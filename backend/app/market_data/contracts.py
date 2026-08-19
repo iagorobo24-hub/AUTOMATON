@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Literal
 
@@ -32,11 +32,9 @@ class Quote(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _received_not_before_observed(self):
-        # Small provider clock skew is handled by freshness validation. This only
-        # protects obviously inverted records.
-        if self.received_at < self.observed_at:
-            raise ValueError("received_at cannot be before observed_at")
+    def _bounded_provider_clock_skew(self):
+        if self.observed_at - self.received_at > timedelta(seconds=5):
+            raise ValueError("observed_at is too far ahead of received_at")
         return self
 
 
