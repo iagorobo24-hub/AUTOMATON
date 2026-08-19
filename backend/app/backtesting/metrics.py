@@ -10,6 +10,7 @@ ZERO = Decimal("0")
 class EquitySample:
     equity: Decimal
     exposure: Decimal
+    counts_for_exposure: bool = True
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,7 @@ def compute_metrics(
     high_water: Decimal | None = None
     max_drawdown = ZERO
     exposed = 0
+    exposure_samples = 0
     for point in equity_points:
         equity = Decimal(point.equity)
         exposure = Decimal(point.exposure)
@@ -75,11 +77,13 @@ def compute_metrics(
             drawdown = (high_water - equity) / high_water
             if drawdown > max_drawdown:
                 max_drawdown = drawdown
-        if exposure > ZERO:
-            exposed += 1
+        if point.counts_for_exposure:
+            exposure_samples += 1
+            if exposure > ZERO:
+                exposed += 1
 
     exposure_fraction = (
-        Decimal(exposed) / Decimal(len(equity_points)) if equity_points else ZERO
+        Decimal(exposed) / Decimal(exposure_samples) if exposure_samples else ZERO
     )
     total_fees = sum((Decimal(trade.fee) for trade in trades), ZERO)
 
