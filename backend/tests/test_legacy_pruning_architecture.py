@@ -69,12 +69,15 @@ DELETED_FRONTEND_PATHS = [
     "hooks/useAppMode.js",
     "hooks/use-crypto.js",
     "hooks/usePullToRefresh.js",
+    "styles/neural-fiber.css",
 ]
 
 DELETED_LEGACY_TESTS = [
     "test_auth.py",
+    "test_bulk_actions.py",
     "test_config.py",
     "test_replication_service.py",
+    "test_security.py",
     "test_trading_engine.py",
 ]
 
@@ -145,3 +148,9 @@ def test_runtime_requirements_do_not_keep_deleted_legacy_subsystems():
         "python-binance==", "slowapi==", "pydantic-settings==",
     ):
         assert package not in requirements
+
+
+def test_dev_compose_does_not_reintroduce_mongo():
+    compose = (REPO_ROOT / ".devops" / "docker-compose.yml").read_text(encoding="utf-8").lower()
+    for forbidden in ("mongodb", "mongo-express", "mongo_url", "pymongo", "motor"):
+        assert forbidden not in compose
