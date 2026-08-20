@@ -1,46 +1,95 @@
 # Live Trading Gate
 
-## Status
+## Current status
 
-Live trading is **not an active product mode**. Real-capital execution must remain disabled until this gate is deliberately reviewed and approved.
+Phase 10 implements **Live Readiness**, not Live trading.
 
-## Required prerequisites
+Runtime contract:
+
+- `live_execution=readiness_phase_10`
+- `real_capital_execution=disabled`
+- production adapter: `DisabledLiveAdapter`
+- executable Live-order endpoint: absent
+- credential-write endpoint: absent
+
+`ARCHITECTURE_READY` means only that the current technical/pre-operational controls satisfy `live-v1`. It never authorizes real money.
+
+## Implemented Phase 10 prerequisites
 
 ### Architecture
-- Paper execution and Live execution use separate adapters.
-- No default/environment setting can accidentally route a Paper command to Live.
-- Trading credentials are unnecessary for Paper.
-- Secret handling is reviewed and credentials are least-privilege where the exchange supports it.
+- Paper and Live Readiness are separate domains; Paper cannot route into Live.
+- `DisabledLiveAdapter` has read/reconciliation methods only and no order-transmission method.
+- No environment toggle activates a real adapter.
+- Live persistence is separate and additive.
 
-### Market data and accounting
-- Real market-data ingestion is stable under disconnects, stale data and gaps.
-- Orders/fills/positions/equity reconcile across restart.
-- Fees and exchange precision/minimums are modeled correctly enough for the intended venue.
+### Market data / venue constraints
+- Live readiness verifies the current Market Data contract is real, fail-closed and non-executing.
+- Venue-rule contracts cover step size, tick size and minimum notional.
+- `live-v1` additionally caps order notional, symbol exposure, portfolio exposure and deployable capital.
 
-### Risk
-- Position/exposure limits are enforced independently of strategy code.
-- Drawdown/loss limits and circuit breakers are tested.
-- Stale data, accounting mismatch and repeated execution errors fail closed.
-- A manual emergency stop exists and is tested.
+### Risk / circuit breakers
+- Readiness requires active unpaused Risk.
+- Paper recovery ambiguity blocks readiness.
+- Persistent Live emergency stop blocks new Live intents.
+- Reconciliation ambiguity produces `RECOVERY_REQUIRED` and a circuit-breaker event.
+- Uncertainty is never replayed automatically.
 
 ### Strategy evidence
-- Candidate strategy has reproducible historical evaluation.
-- Candidate has meaningful forward Paper evidence over a deliberately chosen observation period and trade sample.
-- Results include drawdown and costs, not only return/win rate.
-- No unresolved high-severity data, accounting or execution defect affects the evidence.
+- Readiness requires an exact promoted StrategyCandidate.
+- Current active strategy source SHA must still equal the candidate SHA.
+- Candidate promotion itself never activates Live.
 
 ### Operations
-- Monitoring exposes provider/execution health and open financial state.
-- Recovery/reconciliation procedures exist for process restart and partial failures.
-- Audit records make order decisions and fills traceable.
-- A staged rollout plan uses minimal capital and defined stop conditions.
+- Reconciliation snapshots are persistent.
+- `RECOVERY_REQUIRED` remains blocking until the operator resolves the exact record with a reason.
+- Emergency stop cannot clear while any Live reconciliation is unresolved.
+- CANARY rollout and manual approval are required by `live-v1`.
 
-## Explicit authorization
+## live-v1 readiness ceilings
 
-Passing technical gates does not automatically activate Live. A separate explicit product decision must authorize implementing/enabling real-capital execution.
+- deployable capital: $100
+- order notional: $25
+- symbol exposure: $50
+- portfolio exposure: $100
+- session loss: $5
+- drawdown: 5%
+- consecutive execution errors: 3
+- stale market data: 30 seconds
+- rollout: CANARY
+- rollout capital fraction: 10%
+- manual approval: required
+
+These are conservative design ceilings. They do not represent funded or authorized capital.
+
+## Remaining prerequisites before real capital can ever be considered
+
+Phase 10 deliberately does **not** implement these:
+
+1. choose and separately approve a target exchange/venue;
+2. design and audit a concrete executable adapter for that venue;
+3. define an external secret mechanism and least-privilege credential process;
+4. ensure withdrawal permission is disabled;
+5. test exchange-specific filters, error semantics, idempotency and reconciliation against a deliberately selected non-production environment where appropriate;
+6. obtain fresh exact-HEAD backend/frontend certification;
+7. obtain meaningful real historical + forward Paper evidence for the exact candidate;
+8. run operational failure/recovery drills;
+9. review hard limits and staged-rollout values for the actual venue/account;
+10. make a **separate explicit product authorization** to permit real capital.
+
+Even satisfying items 1–9 does not perform item 10 automatically.
+
+## Explicit authorization boundary
+
+No code, config value, Research promotion, readiness result or emergency-stop clear operation may change `real_capital_execution` from `disabled` in Phase 10.
+
+A future request to implement/enable real-capital execution is a new high-risk scope and must be reviewed separately.
 
 ## Prohibited shortcuts
 
-- Do not reactivate the legacy TradingEngine/Binance paths as Live merely because code exists.
-- Do not call exchange testnet activity "Paper" unless its semantics are documented; Paper remains virtual-capital execution under our control.
-- Do not infer safety from a profitable backtest or short Paper run.
+- Do not reintroduce the deleted legacy TradingEngine/Binance implementation.
+- Do not turn Paper into Live with a mode flag.
+- Do not persist exchange secrets in SQLite.
+- Do not expose secret values in API/UI/logs.
+- Do not grant withdrawal permissions.
+- Do not auto-liquidate on emergency stop without a separately designed procedure.
+- Do not infer Live safety from a profitable backtest, Research PASS or short Paper run.
