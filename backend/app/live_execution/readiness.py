@@ -12,8 +12,8 @@ from app.models.strategy_research import StrategyCandidate
 class LiveReadinessEvaluator:
     """Fail-closed technical readiness evaluator.
 
-    This evaluator can classify architecture as ready for a future activation
-    review. It never authorizes or enables real-capital execution.
+    It may classify architecture as ready for a future activation review, but
+    every result keeps real-capital execution blocked.
     """
 
     def __init__(self, session: Session, adapter: LiveExchangeAdapter):
@@ -25,9 +25,7 @@ class LiveReadinessEvaluator:
         policy = get_active_live_policy(self.session)
         stop = ensure_emergency_stop_baseline(self.session)
 
-        candidate = None
-        if candidate_id is not None:
-            candidate = self.session.get(StrategyCandidate, candidate_id)
+        candidate = self.session.get(StrategyCandidate, candidate_id) if candidate_id is not None else None
         if candidate is None:
             reasons.append("PROMOTED_CANDIDATE_REQUIRED")
         elif candidate.status != "PROMOTED":
@@ -41,26 +39,21 @@ class LiveReadinessEvaluator:
             if current_sha is not None and current_sha != candidate.strategy_source_sha256:
                 reasons.append("STRATEGY_SOURCE_DRIFT")
 
-        risk = self.session.exec(
-            select(RiskProfile).where(RiskProfile.active == True)  # noqa: E712
-        ).first()
+        risk = self.session.exec(select(RiskProfile).where(RiskProfile.active == True)).first()  # noqa: E712
         if risk is None:
             reasons.append("ACTIVE_RISK_PROFILE_REQUIRED")
         elif risk.paused:
             reasons.append("RISK_PAUSED")
 
-        if self.session.exec(
-            select(PaperRequest).where(PaperRequest.status == "RECOVERY_REQUIRED")
-        ).first() is not None:
+        if self.session.exec(select(PaperRequest).where(PaperRequest.status == "RECOVERY_REQUIRED")).first() is not None:
             reasons.append("PAPER_REQUEST_RECOVERY_UNRESOLVED")
-        if self.session.exec(
-            select(PaperExecution).where(PaperExecution.status == "RECOVERY_REQUIRED")
-        ).first() is not None:
+        if self.session.exec(select(PaperExecution).where(PaperExecution.status == "RECOVERY_REQUIRED")).first() is not None:
             reasons.append("PAPER_EXECUTION_RECOVERY_UNRESOLVED")
+        if self.session.exec(select(LiveReconciliation).where(LiveReconciliation.status == "RECOVERY_REQUIRED")).first() is not None:
+            reasons.append("LIVE_RECOVERY_UNRESOLVED")
 
         if stop.active:
             reasons.append("EMERGENCY_STOP_ACTIVE")
-
         if policy.rollout_stage != "CANARY":
             reasons.append("ROLLOUT_STAGE_NOT_CANARY")
         if not policy.manual_approval_required:
@@ -68,13 +61,12 @@ class LiveReadinessEvaluator:
         if policy.max_deployable_capital <= 0 or policy.max_order_notional <= 0:
             reasons.append("INVALID_LIVE_LIMITS")
 
-        latest_reconciliation = self.session.exec(
-            select(LiveReconciliation).order_by(LiveReconciliation.id.desc())
-        ).first()
+        latest_reconciliation = self.session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc())).first()
         if latest_reconciliation is None:
             reasons.append("CLEAN_RECONCILIATION_REQUIRED")
-        elif latest_reconciliation.status != "CLEAN":
-            reasons.append("LIVE_RECOVERY_UNRESOLVED")
+        elif latest_reconciliation.status not in {"CLEAN", "RESOLVED"}:
+            if "LIVE_RECOVERY_UNRESOLVED" not in reasons:
+                reasons.append("LIVE_RECOVERY_UNRESOLVED")
 
         caps = self.adapter.capabilities()
         if caps.trading_enabled:
@@ -90,14 +82,8 @@ class LiveReadinessEvaluator:
             real_capital_blocked=True,
             decision="ARCHITECTURE_READY" if architecture_ready else "BLOCKED",
             reason_codes=",".join(reasons),
-            reason=(
-                "Technical Live boundary satisfies live-v1; real capital remains disabled"
-                if architecture_ready
-                else "Live readiness blocked by one or more fail-closed gates"
-            ),
+            reason=("Technical Live boundary satisfies live-v1; real capital remains disabled" if architecture_ready else "Live readiness blocked by one or more fail-closed gates"),
             strategy_source_sha256=(candidate.strategy_source_sha256 if candidate is not None else None),
         )
-        self.session.add(result)
-        self.session.commit()
-        self.session.refresh(result)
+        self.session.add(result); self.session.commit(); self.session.refresh(result)
         return result
