@@ -1,76 +1,57 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
-const { health, activeProfile, evolutionPolicy, runtimeStatus, runtimeSessions, researchPolicy } = vi.hoisted(() => ({
-  health: vi.fn(),
-  activeProfile: vi.fn(),
-  evolutionPolicy: vi.fn(),
-  runtimeStatus: vi.fn(),
-  runtimeSessions: vi.fn(),
-  researchPolicy: vi.fn(),
+const { health, activeProfile, evolutionPolicy, runtimeStatus, runtimeSessions, researchPolicy, liveStatus, livePolicy } = vi.hoisted(() => ({
+  health: vi.fn(), activeProfile: vi.fn(), evolutionPolicy: vi.fn(), runtimeStatus: vi.fn(), runtimeSessions: vi.fn(), researchPolicy: vi.fn(), liveStatus: vi.fn(), livePolicy: vi.fn(),
 }));
 
 vi.mock('@/lib/api', () => ({
-  healthAPI: { health },
-  riskAPI: { activeProfile },
-  evolutionAPI: { activePolicy: evolutionPolicy },
-  runtimeAPI: { status: runtimeStatus, sessions: runtimeSessions },
-  researchAPI: { activePolicy: researchPolicy },
+  healthAPI: { health }, riskAPI: { activeProfile }, evolutionAPI: { activePolicy: evolutionPolicy },
+  runtimeAPI: { status: runtimeStatus, sessions: runtimeSessions }, researchAPI: { activePolicy: researchPolicy },
+  liveAPI: { status: liveStatus, policy: livePolicy },
 }));
 
 import SettingsPage from './SettingsPage.jsx';
 
-describe('SettingsPage Phase 8 research contract', () => {
-  beforeEach(() => {
-    health.mockReset(); activeProfile.mockReset(); evolutionPolicy.mockReset(); runtimeStatus.mockReset(); runtimeSessions.mockReset(); researchPolicy.mockReset();
+function resolveHealthy() {
+  health.mockResolvedValue({ data: {
+    status: 'ok', runtime_mode: 'transition', synthetic_engine: 'disabled', market_data: 'real_contract_available',
+    accounting: 'authoritative_phase_2', risk: 'authoritative_phase_4', paper_trading: 'autonomous_phase_7',
+    backtesting: 'evidence_phase_5', agent_evolution: 'evidence_phase_6', paper_runtime: 'runtime_phase_7',
+    strategy_research: 'evidence_phase_8', legacy_pruning: 'pruned_phase_9', live_execution: 'readiness_phase_10',
+    real_capital_execution: 'disabled', automated_trading: 'paper_enabled_phase_7',
+  }});
+  activeProfile.mockResolvedValue({ data: { version: 'risk-v1', paused: false } });
+  evolutionPolicy.mockResolvedValue({ data: { version: 'evolution-v1', active: true, child_allocation_fraction: '0.25' } });
+  runtimeStatus.mockResolvedValue({ data: { policy_version: 'runtime-v1' } });
+  runtimeSessions.mockResolvedValue({ data: [{ id: 1, status: 'RUNNING' }] });
+  researchPolicy.mockResolvedValue({ data: { version: 'research-v1', active: true } });
+  liveStatus.mockResolvedValue({ data: { mode: 'readiness_phase_10', architecture_ready: false, real_capital_execution: 'disabled', adapter: 'disabled_read_only', emergency_stop: false } });
+  livePolicy.mockResolvedValue({ data: { version: 'live-v1', active: true, max_deployable_capital: '100' } });
+}
+
+describe('SettingsPage Phase 10 Live Readiness contract', () => {
+  beforeEach(() => { [health, activeProfile, evolutionPolicy, runtimeStatus, runtimeSessions, researchPolicy, liveStatus, livePolicy].forEach((fn) => fn.mockReset()); });
+
+  it('shows Live Readiness while explicitly keeping real capital disabled', async () => {
+    resolveHealthy(); render(<SettingsPage />);
+    expect(await screen.findByText('live-v1')).toBeTruthy();
+    expect(screen.getByText('readiness_phase_10')).toBeTruthy();
+    expect(screen.getAllByText(/REAL CAPITAL/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/disabled/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/no existe transmisión de órdenes reales/i)).toBeTruthy();
   });
 
-  it('shows evidence-gated Strategy Research without claiming deployment or Live', async () => {
-    health.mockResolvedValue({ data: {
-      status: 'ok', runtime_mode: 'transition', synthetic_engine: 'disabled',
-      market_data: 'real_contract_available', accounting: 'authoritative_phase_2', risk: 'authoritative_phase_4',
-      paper_trading: 'autonomous_phase_7', backtesting: 'evidence_phase_5', agent_evolution: 'evidence_phase_6',
-      paper_runtime: 'runtime_phase_7', strategy_research: 'evidence_phase_8', automated_trading: 'paper_enabled_phase_7', live_execution: 'disabled',
-    }});
-    activeProfile.mockResolvedValue({ data: { version: 'risk-v1', paused: false } });
-    evolutionPolicy.mockResolvedValue({ data: { version: 'evolution-v1', active: true, child_allocation_fraction: '0.25' } });
-    runtimeStatus.mockResolvedValue({ data: { policy_version: 'runtime-v1', live_execution_capability: false, auto_replication: false } });
-    runtimeSessions.mockResolvedValue({ data: [{ id: 1, status: 'RUNNING' }] });
-    researchPolicy.mockResolvedValue({ data: { version: 'research-v1', active: true } });
-
-    render(<SettingsPage />);
-
-    expect(await screen.findByText('risk-v1')).toBeTruthy();
-    expect(screen.getByText('research-v1')).toBeTruthy();
-    expect(screen.getByText('evidence_phase_8')).toBeTruthy();
-    expect(screen.getAllByText(/TRAIN\/VALIDATION\/OOS/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/no cambia automáticamente ninguna sesión/i)).toBeTruthy();
-  });
-
-  it('does not expose optimizer, automatic mutation or Live controls', async () => {
-    health.mockResolvedValue({ data: { status: 'ok', synthetic_engine: 'disabled', paper_runtime: 'runtime_phase_7', strategy_research: 'evidence_phase_8', live_execution: 'disabled' } });
-    activeProfile.mockResolvedValue({ data: { version: 'risk-v1', paused: false } });
-    evolutionPolicy.mockResolvedValue({ data: { version: 'evolution-v1', active: true, child_allocation_fraction: '0.25' } });
-    runtimeStatus.mockResolvedValue({ data: { policy_version: 'runtime-v1' } });
-    runtimeSessions.mockResolvedValue({ data: [] });
-    researchPolicy.mockResolvedValue({ data: { version: 'research-v1', active: true } });
-
-    render(<SettingsPage />);
-    await waitFor(() => expect(health).toHaveBeenCalledTimes(1));
-
-    expect(screen.queryByText('Optimizar estrategias')).toBeNull();
-    expect(screen.queryByText('Mutar estrategia')).toBeNull();
-    expect(screen.queryByText('Live (Binance)')).toBeNull();
+  it('does not expose a Live activation or trade button', async () => {
+    resolveHealthy(); render(<SettingsPage />);
+    await waitFor(() => expect(liveStatus).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('button', { name: /activar live/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /enviar orden/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /trade live/i })).toBeNull();
   });
 
   it('does not claim runtime state when dependencies cannot be read', async () => {
-    health.mockRejectedValue({ message: 'offline' });
-    activeProfile.mockRejectedValue({ message: 'offline' });
-    evolutionPolicy.mockRejectedValue({ message: 'offline' });
-    runtimeStatus.mockRejectedValue({ message: 'offline' });
-    runtimeSessions.mockRejectedValue({ message: 'offline' });
-    researchPolicy.mockRejectedValue({ message: 'offline' });
-
+    [health, activeProfile, evolutionPolicy, runtimeStatus, runtimeSessions, researchPolicy, liveStatus, livePolicy].forEach((fn) => fn.mockRejectedValue({ message: 'offline' }));
     render(<SettingsPage />);
     expect(await screen.findByText('Desconocido')).toBeTruthy();
     expect(screen.getByRole('alert').textContent).toContain('offline');
