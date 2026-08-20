@@ -32,7 +32,7 @@ The superseded Mongo/mock/trading architecture, dead UI and dependencies were ph
 
 ## Phase 10 — Live Readiness
 
-Implementation currently present:
+Implemented and statically audited:
 
 - separate additive `backend/app/live_execution/` domain;
 - versioned conservative `live-v1` readiness policy;
@@ -55,11 +55,12 @@ Implementation currently present:
   - `live_adapter=disabled_adapter`
   - `live_execution=disabled`
   - `real_capital_execution=disabled`;
-- architecture guards against real-order transport, secret storage and Paper→Live routing.
+- architecture guards against real-order transport, secret storage and Paper→Live routing;
+- exact-HEAD source/static audit completed with S1-S4 unchanged from the Phase 9 close.
 
 Phase 10 intentionally does **not** include a concrete exchange trading adapter, real credentials, real fills or real-capital activation.
 
-**Status:** implementation and documentation reconciliation are present. Final exact-HEAD static audit and executable certification gate remain before declaring source/contract/static closure.
+**Status:** source/contract/static gate satisfied. Executable certification remains pending until fresh exact-HEAD backend/frontend test/build output is observed. Venue integration certification and any real-capital authorization are separate future gates and are not part of Phase 10 closure.
 
 ## Future real-capital activation
 
