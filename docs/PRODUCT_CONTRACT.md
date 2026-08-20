@@ -9,55 +9,48 @@ The product is not a demo that appears active. Its value comes from trustworthy 
 ## Operating modes
 
 ### Synthetic/Test
-Synthetic prices and virtual funds are permitted only for deterministic technical tests, fixtures and fault injection. Synthetic results are not financial evidence.
+Synthetic data is permitted only for deterministic technical tests, fixtures and fault injection. Synthetic results are not financial evidence.
 
 ### Backtest
-Historical real market data with virtual execution. Runs must be reproducible from a defined dataset/time window, strategy version, fee/slippage model and initial capital.
+Historical real market data with virtual execution. Runs must be reproducible from a defined dataset/time window, strategy source/version, execution assumptions and initial capital.
 
 ### Paper
-Current real market data with virtual funds. Agents operate forward in time under the same explicit accounting and risk rules intended for later production evaluation.
+Current real market data with virtual funds. Agents operate forward in time behind explicit Risk and authoritative Accounting.
 
-### Live
-Current real data and real capital. Live is a future mode, disabled by default and prohibited until `LIVE_TRADING_GATE.md` is satisfied and an explicit product decision authorizes implementation/activation.
+### Live Readiness
+Phase 10 is a **technical readiness boundary**, not an execution mode. It may classify the architecture as `ARCHITECTURE_READY` while `real_capital_execution` remains `disabled`. It contains policy, venue-rule validation, idempotent future-intent records, read-only reconciliation, circuit breakers and emergency-stop state. It contains no real exchange order transport or real credential storage.
+
+### Future Live
+Current real data and real capital. Future Live remains separately prohibited until `LIVE_TRADING_GATE.md` is reviewed, a concrete venue adapter and secret-management design are audited, relevant integration/recovery evidence exists, and an explicit product decision authorizes real-capital activation.
 
 ## Truthfulness rules
 
-- Never label synthetic or mock activity as Paper.
-- Never fabricate prices, trades, PnL, win rate, RSI, balances, fills or health telemetry to make the UI look active.
-- Unknown or unavailable data is shown as `N/D`, unavailable or equivalent.
-- Every result must identify its mode and time interval.
-- A strategy is not "validated", "optimized", "profitable" or "production-ready" without recorded evidence.
+- Never label synthetic/mock activity as Paper.
+- Never label Live Readiness as Live trading.
+- Never interpret `ARCHITECTURE_READY` as permission to move money.
+- Never fabricate prices, trades, PnL, balances, fills or health telemetry.
+- Unknown/unavailable data is shown as unavailable rather than invented.
+- Every result preserves its mode/provenance.
+- A strategy is not validated/profitable/production-ready without recorded evidence.
 - Historical documentation and legacy code are not evidence of current functionality.
 
 ## Core product capabilities
 
-1. Reliable real market-data ingestion.
-2. Deterministic and versioned strategy evaluation.
-3. Explicit risk approval before execution.
+1. Reliable fail-closed real market-data ingestion.
+2. Deterministic/versioned strategy evaluation.
+3. Explicit Risk approval before Paper execution.
 4. Paper execution with realistic assumptions.
 5. Correct portfolio/accounting invariants.
 6. Backtesting and evidence generation.
 7. Agent lifecycle, lineage and controlled evolution.
 8. Monitoring, auditability and recovery for long-running Paper operation.
+9. Strategy Research with holdout + forward evidence.
+10. Live Readiness controls that remain incapable of real-capital execution until separately authorized.
 
-## Out of core scope for the current program
+## Out of core scope
 
-Authentication, billing, Stripe, crypto payments, LLM chat, public APIs, multi-user tenancy and cosmetic dashboard extensions are not current priorities. They can be reconsidered only when they support a validated product need.
-
-## Success criteria for the Paper milestone
-
-Paper is considered implemented only when:
-
-- market observations come from a real provider and carry timestamps/provenance;
-- no random price generator or random close rule participates in Paper decisions;
-- virtual orders/fills/positions reconcile to account equity;
-- fees and slippage assumptions are explicit;
-- risk limits can reject an order and stop trading;
-- strategy/version and mode are persisted with evidence;
-- the system can restart without inventing or losing open financial state;
-- UI/metrics distinguish Paper from Backtest and Synthetic;
-- fresh automated tests and an end-to-end Paper smoke test pass on the same HEAD.
+Authentication, billing, payments, LLM chat, public APIs, multi-user tenancy and cosmetic dashboard extensions are not current priorities. Real-capital execution is also outside the completed Phase 10 scope.
 
 ## Decision principle
 
-When there is tension between making the system look active and preserving evidence quality, evidence quality wins.
+When there is tension between appearing operational and preserving evidence/safety, evidence and safety win.
