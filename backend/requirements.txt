@@ -4,26 +4,14 @@
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 pydantic==2.5.3
-pydantic-settings==2.1.0
 
 # Active SQLModel / SQLite runtime
 sqlmodel==0.0.22
 aiosqlite==0.21.0
 asyncpg==0.30.0  # Preserved optional PostgreSQL support
 
-# Active HTTP client (crypto router uses httpx)
+# Active HTTP client
 httpx==0.26.0
-
-# Preserved legacy MongoDB subsystem
-motor==3.3.2
-pymongo==4.6.1
-
-# Preserved legacy auth / integration dependencies
-PyJWT==2.8.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-python-binance==1.0.19
-slowapi==0.1.9
 
 # Runtime utilities
 aiofiles==23.2.1
