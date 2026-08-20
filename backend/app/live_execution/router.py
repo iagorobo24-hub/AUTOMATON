@@ -66,3 +66,11 @@ def clear_emergency_stop(reason: str, session: Session = Depends(get_session)):
 @router.get("/reconciliations")
 def reconciliations(session: Session = Depends(get_session), limit: int = Query(default=20, ge=1, le=100)):
     return list(session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc()).limit(limit)))
+
+
+@router.post("/reconciliations/{reconciliation_id}/resolve")
+def resolve_reconciliation(reconciliation_id: int, reason: str, session: Session = Depends(get_session)):
+    try:
+        return LiveReadinessService(session, _adapter()).resolve_reconciliation(reconciliation_id, reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
