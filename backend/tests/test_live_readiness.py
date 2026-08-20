@@ -1,14 +1,15 @@
 from decimal import Decimal
 
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from app.backtesting.runner import strategy_source_sha256
-from app.live_execution.adapter import DisabledLiveAdapter
+from app.live_execution.adapter import AdapterCapabilities, DisabledLiveAdapter
 from app.live_execution.policy import bootstrap_live_policy, ensure_emergency_stop_baseline
 from app.live_execution.readiness import LiveReadinessEvaluator
 from app.models import (
     LiveReconciliation,
+    PaperRequest,
     ResearchEvaluation,
     ResearchStudy,
     RiskProfile,
@@ -16,6 +17,14 @@ from app.models import (
 )
 
 REAL_MARKET = {"provider": "test", "evidence_mode": "real", "synthetic_fallback": False, "execution_capability": False}
+
+
+class MetadataAdapter(DisabledLiveAdapter):
+    def __init__(self, *, trading=False, credentials=False, withdrawals=False, trade_permission=False):
+        self._caps = AdapterCapabilities("metadata-test", trading, credentials, withdrawals, trade_permission)
+
+    def capabilities(self):
+        return self._caps
 
 
 def _engine():
@@ -128,6 +137,57 @@ def test_readiness_fails_closed_without_candidate_and_on_emergency_stop():
         assert result.real_capital_blocked is True
         assert "PROMOTED_CANDIDATE_REQUIRED" in result.reason_codes
         assert "EMERGENCY_STOP_ACTIVE" in result.reason_codes
+
+
+def test_readiness_rejects_paused_risk_and_paper_recovery():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_common(session)
+        candidate = _candidate(session)
+        risk = session.exec(select(RiskProfile).where(RiskProfile.active == True)).first()  # noqa: E712
+        risk.paused = True
+        session.add(risk)
+        session.add(PaperRequest(
+            request_id="recovery-test",
+            request_fingerprint="f" * 64,
+            account_id=999,
+            status="RECOVERY_REQUIRED",
+            http_status=409,
+        ))
+        session.commit()
+        result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), REAL_MARKET).evaluate(candidate.id)
+        assert "RISK_PAUSED" in result.reason_codes
+        assert "PAPER_REQUEST_RECOVERY_UNRESOLVED" in result.reason_codes
+        assert result.architecture_ready is False
+
+
+def test_readiness_requires_clean_reconciliation_not_manual_resolved_label():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_common(session)
+        candidate = _candidate(session)
+        session.add(LiveReconciliation(status="RESOLVED", reason_code="OPERATOR", details="legacy shortcut"))
+        session.commit()
+        result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), REAL_MARKET).evaluate(candidate.id)
+        assert result.architecture_ready is False
+        assert "CLEAN_RECONCILIATION_REQUIRED" in result.reason_codes
+
+
+def test_readiness_rejects_forbidden_or_incoherent_adapter_permissions():
+    cases = (
+        (MetadataAdapter(trading=True), "PHASE_10_ADAPTER_MUST_NOT_TRADE"),
+        (MetadataAdapter(credentials=True, withdrawals=True, trade_permission=True), "WITHDRAWAL_PERMISSION_FORBIDDEN"),
+        (MetadataAdapter(credentials=True, trade_permission=False), "INVALID_CREDENTIAL_PERMISSION_METADATA"),
+        (MetadataAdapter(credentials=False, trade_permission=True), "INVALID_CREDENTIAL_PERMISSION_METADATA"),
+    )
+    for adapter, expected_reason in cases:
+        engine = _engine(); SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            _seed_common(session)
+            candidate = _candidate(session)
+            result = LiveReadinessEvaluator(session, adapter, REAL_MARKET).evaluate(candidate.id)
+            assert result.architecture_ready is False
+            assert expected_reason in result.reason_codes
 
 
 def test_readiness_rejects_synthetic_or_execution_capable_market_data_contract():
