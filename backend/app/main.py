@@ -38,6 +38,7 @@ BACKTESTING_MODE = "evidence_phase_5"
 AGENT_EVOLUTION_MODE = "evidence_phase_6"
 PAPER_RUNTIME_MODE = "runtime_phase_7"
 STRATEGY_RESEARCH_MODE = "evidence_phase_8"
+LEGACY_PRUNING_MODE = "pruned_phase_9"
 AUTOMATED_TRADING_MODE = "paper_enabled_phase_7"
 LIVE_EXECUTION_MODE = "disabled"
 
@@ -86,7 +87,7 @@ async def lifespan(app: FastAPI):
     app.state.agent_evolution_mode = AGENT_EVOLUTION_MODE
     app.state.paper_runtime_mode = PAPER_RUNTIME_MODE
     app.state.strategy_research_mode = STRATEGY_RESEARCH_MODE
-    logger.info("[MAIN] Synthetic AgentEngine is disabled in the normal runtime")
+    app.state.legacy_pruning_mode = LEGACY_PRUNING_MODE
     logger.info("[MAIN] Real read-only market-data contract is available")
     logger.info("[MAIN] Authoritative portfolio accounting is available")
     logger.info("[MAIN] Phase 4 Risk remains mandatory for every active Paper order")
@@ -94,6 +95,7 @@ async def lifespan(app: FastAPI):
     logger.info("[MAIN] Phase 6 evidence-gated manual replication is available")
     logger.info("[MAIN] Phase 7 autonomous Paper sessions are available but never auto-resume after restart")
     logger.info("[MAIN] Phase 8 strategy research is evidence-gated and never auto-deploys or mutates strategies")
+    logger.info("[MAIN] Phase 9 legacy Mongo/mock/trading architecture has been pruned from the active source tree")
     yield
     runtime_scheduler.cancel_all()
     logger.info("[MAIN] Shutdown complete")
@@ -101,7 +103,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.11.0",
+    version="2.12.0",
     description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
@@ -131,7 +133,7 @@ app.include_router(research_router, prefix="/api/research", tags=["research"])
 def root():
     return {
         "message": "AUTOMATON v2 API",
-        "version": "2.11.0",
+        "version": "2.12.0",
         "status": "operational",
         "runtime_mode": RUNTIME_MODE,
         "market_data": MARKET_DATA_MODE,
@@ -142,6 +144,7 @@ def root():
         "agent_evolution": AGENT_EVOLUTION_MODE,
         "paper_runtime": PAPER_RUNTIME_MODE,
         "strategy_research": STRATEGY_RESEARCH_MODE,
+        "legacy_pruning": LEGACY_PRUNING_MODE,
     }
 
 
@@ -159,6 +162,7 @@ def health():
         "agent_evolution": AGENT_EVOLUTION_MODE,
         "paper_runtime": PAPER_RUNTIME_MODE,
         "strategy_research": STRATEGY_RESEARCH_MODE,
+        "legacy_pruning": LEGACY_PRUNING_MODE,
         "automated_trading": AUTOMATED_TRADING_MODE,
         "live_execution": LIVE_EXECUTION_MODE,
     }
@@ -177,6 +181,7 @@ def get_estado():
         "agent_evolution": AGENT_EVOLUTION_MODE,
         "paper_runtime": PAPER_RUNTIME_MODE,
         "strategy_research": STRATEGY_RESEARCH_MODE,
+        "legacy_pruning": LEGACY_PRUNING_MODE,
         "automated_trading": AUTOMATED_TRADING_MODE,
         "live_execution": LIVE_EXECUTION_MODE,
         "financial_evidence": "paper_backtest_evolution_runtime_and_research_records_separated_by_explicit_provenance",
