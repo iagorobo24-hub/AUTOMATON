@@ -7,8 +7,9 @@ from sqlmodel import Session, select
 from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import LiveExchangeAdapter
 from app.live_execution.policy import ensure_emergency_stop_baseline, get_active_live_policy
+from app.live_execution.readiness import LiveReadinessEvaluator
 from app.live_execution.rules import validate_live_intent_rules
-from app.models.live_execution import LiveEmergencyStop, LiveOrderIntent, LiveReadinessEvaluation, LiveReconciliation
+from app.models.live_execution import LiveEmergencyStop, LiveOrderIntent, LiveReconciliation
 from app.models.strategy_research import StrategyCandidate
 
 
@@ -57,23 +58,29 @@ def live_intent_fingerprint(
 
 
 class LiveReadinessService:
-    def __init__(self, session: Session, adapter: LiveExchangeAdapter):
+    def __init__(self, session: Session, adapter: LiveExchangeAdapter, market_data_status: dict | None = None):
         self.session = session
         self.adapter = adapter
+        self.market_data_status = market_data_status
 
-    def _require_ready_candidate(self, candidate_id: int) -> StrategyCandidate:
+    def _require_fresh_ready_candidate(self, candidate_id: int) -> StrategyCandidate:
         candidate = self.session.get(StrategyCandidate, candidate_id)
         if candidate is None or candidate.status != "PROMOTED":
             raise ValueError("Promoted StrategyCandidate is required for Live intent preparation")
         if strategy_source_sha256() != candidate.strategy_source_sha256:
             raise ValueError("Strategy source drift blocks Live intent preparation")
-        readiness = self.session.exec(
-            select(LiveReadinessEvaluation)
-            .where(LiveReadinessEvaluation.candidate_id == candidate_id)
-            .order_by(LiveReadinessEvaluation.id.desc())
-        ).first()
-        if readiness is None or not readiness.architecture_ready:
-            raise ValueError("Fresh ARCHITECTURE_READY evaluation is required before Live intent preparation")
+        if self.market_data_status is None:
+            raise ValueError("Fresh Market Data status is required for Live intent preparation")
+
+        readiness = LiveReadinessEvaluator(
+            self.session,
+            self.adapter,
+            self.market_data_status,
+        ).evaluate(candidate_id)
+        if not readiness.architecture_ready:
+            raise ValueError(
+                f"Fresh ARCHITECTURE_READY evaluation is required before Live intent preparation: {readiness.reason_codes}"
+            )
         if readiness.real_capital_blocked is not True:
             raise ValueError("Phase 10 readiness invariant violated: real capital must remain blocked")
         return candidate
@@ -101,7 +108,7 @@ class LiveReadinessService:
         if side not in {"BUY", "SELL"}:
             raise ValueError("Live intent side must be BUY or SELL")
 
-        self._require_ready_candidate(candidate_id)
+        self._require_fresh_ready_candidate(candidate_id)
         policy = get_active_live_policy(self.session)
         client_order_id = deterministic_client_order_id(
             candidate_id=candidate_id,
