@@ -20,51 +20,36 @@ Immutable real historical snapshots, canonical dataset/source SHA-256, next-cand
 
 ## Phase 7 — 24/7 Paper Operation
 
-Persistent `runtime-v1` sessions operate unchanged S1-S4 through real Market Data -> Risk -> Paper -> Accounting with one durable cycle per closed candle, deterministic request ids, recovery/ownership controls, no synthetic fallback and no auto-resume. Phase 8 hardening adds per-session/agent strategy version/source-SHA capture at first start; later resume/recovery fails on drift, and sessions started before that provenance contract are never fingerprinted retroactively.
+Persistent `runtime-v1` sessions operate unchanged S1-S4 through real Market Data -> Risk -> Paper -> Accounting with one durable cycle per closed candle, deterministic request ids, recovery/ownership controls, no generated fallback and no auto-resume. Per-session/agent strategy version/source-SHA is captured at first start; later resume/recovery fails on drift, and older sessions are never fingerprinted retroactively.
 
 **Status:** source/contract/static gate satisfied. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification.
 
 ## Phase 8 — Strategy Research
 
-**Goal:** decide which exact strategy configurations deserve continued research using reproducible historical holdout evidence plus forward Paper evidence, without optimizing and scoring on the same window or auto-deploying results.
-
-Implemented in source:
-
-- additive `ResearchPolicy`, `ResearchStudy`, `ResearchWindow`, `ResearchEvaluation`, `StrategyCandidate` records;
-- idempotent `research-v1` policy bootstrap;
-- explicit repeating chronological TRAIN/VALIDATION/OOS folds;
-- first-window freeze of strategy version/source SHA, execution policy, fees, slippage and position fraction;
-- identical symbol/timeframe, initial capital and historical risk-profile requirements across study windows;
-- completed Backtest + source-fingerprint requirements;
-- minimum VALIDATION/OOS round-trip sample;
-- positive VALIDATION/OOS return and expectancy gates;
-- OOS drawdown/profit-factor/relative-degradation limits;
-- forward evidence from STOPPED Phase 7 sessions on the same market/timeframe;
-- matching strategy ID/version/source SHA captured by Phase 7 at first session start;
-- legacy Phase 7 sessions without captured provenance are ineligible for promotion evidence;
-- matching-strategy runtime cycles and unique FILLED `strategy_runtime` closing SELL provenance;
-- unresolved Paper recovery rejection;
-- rejection when a qualifying account contains any FILLED execution outside the exact Research-selected sessions;
-- positive authoritative account-level realized-PnL context;
-- immutable PASS/REJECT evaluation snapshots with referenced historical and forward evidence;
-- current-source SHA check on promotion, giving historical SHA == forward captured SHA == current SHA;
-- a fresh evaluation for every manual promotion attempt;
-- one candidate identity per exact strategy/version/source SHA;
-- `/api/research` status/policy/studies/windows/evaluate/promote/candidates surfaces;
-- `strategy_research=evidence_phase_8` runtime/UI status;
-- no optimizer, automatic strategy mutation, auto-deployment or Live capability.
-
-Promotion means only that the exact source/config satisfied `research-v1` against the evidence referenced by that evaluation. It is not a future-profitability guarantee or Live eligibility.
+`research-v1` uses comparable chronological TRAIN/VALIDATION/OOS Backtest evidence plus fingerprinted stopped Phase 7 forward Paper evidence. Promotion is manual, creates a fresh evaluation and never mutates source or auto-deploys.
 
 **Status:** source/contract/static gate satisfied. Fresh executable tests/build plus observed real historical and forward Paper research evidence remain pending; no strategy performance is inferred from source or fixtures.
 
 ## Phase 9 — Legacy Pruning
 
-Remove obsolete Mongo/trading/synthetic services, dead pages/config/dependencies and historical shortcuts only after reference/dependency audits prove no active recovery/evidence path depends on them.
+Phase 9 removes the superseded second architecture after reference/dependency audits:
+
+- Mongo service/injection/config/seed/models/dependencies and Mongo dev containers;
+- old simulation/Paper/trading/risk/mock/replication/registry engines and routes;
+- credentialed/mock-fallback legacy Binance service;
+- inactive auth/chat/payments/notifications/dashboard/system/signals/strategy-CRUD code;
+- executable Alpha/Beta/Gamma/regime/indicator legacy stack after retaining useful hypotheses as documentation;
+- unreachable frontend pages, mock/simulation UI, duplicate components and obsolete tests tied to deleted contracts.
+
+The active `backend/app/services/` package now contains only S1-S4 `strategies.py` plus its initializer. `Agent` remains the active identity/lifecycle anchor; old `Trade` rows remain quarantined as invalid pre-provenance evidence. Runtime exposes `legacy_pruning=pruned_phase_9`. Live remains disabled.
+
+**Status:** source/contract/static gate satisfied. Exact-HEAD backend/frontend/build execution remains pending until fresh observed output exists.
 
 ## Phase 10 — Live Readiness
 
 Design a structurally separate exchange adapter, secrets/permissions, exchange constraints, reconciliation, emergency controls and staged rollout. Real-capital activation remains a separate explicit authorization.
+
+**Status:** not started. Phase 9 does not authorize or implement Live.
 
 ## Cross-phase certification debt
 
