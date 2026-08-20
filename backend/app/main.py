@@ -11,6 +11,10 @@ from app.agent_evolution.router import router as evolution_router
 from app.backtesting.router import router as backtesting_router
 from app.backtesting.runner import recover_interrupted_runs
 from app.database import SessionLocal, init_db
+from app.live_execution.adapter import DisabledLiveAdapter
+from app.live_execution.policy import bootstrap_live_policy, ensure_emergency_stop_baseline
+from app.live_execution.reconciliation import reconcile_live_state
+from app.live_execution.router import router as live_router
 from app.market_data.router import router as market_data_router
 from app.paper_execution.router import router as paper_execution_router
 from app.paper_execution.service import PaperExecutionService
@@ -24,9 +28,7 @@ from app.strategy_research.policy import bootstrap_research_policy
 from app.strategy_research.router import router as research_router
 from app.routers import agents, trades, crypto
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 RUNTIME_MODE = "transition"
@@ -39,45 +41,42 @@ AGENT_EVOLUTION_MODE = "evidence_phase_6"
 PAPER_RUNTIME_MODE = "runtime_phase_7"
 STRATEGY_RESEARCH_MODE = "evidence_phase_8"
 LEGACY_PRUNING_MODE = "pruned_phase_9"
+LIVE_EXECUTION_MODE = "readiness_phase_10"
+REAL_CAPITAL_EXECUTION_MODE = "disabled"
 AUTOMATED_TRADING_MODE = "paper_enabled_phase_7"
-LIVE_EXECUTION_MODE = "disabled"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("[MAIN] Starting up...")
     init_db()
-    logger.info("[MAIN] Database initialized")
     with SessionLocal() as session:
         bootstrapped_accounts = ensure_accounting_baseline(session)
         evolution_policy = bootstrap_evolution_policy(session)
         lifecycle_baselines = bootstrap_lifecycle_baselines(session)
         risk_profile = ensure_active_risk_profile(session)
         research_policy = bootstrap_research_policy(session)
+        live_policy = bootstrap_live_policy(session)
+        emergency_stop = ensure_emergency_stop_baseline(session)
         interrupted_backtests = recover_interrupted_runs(session)
         paper_service = PaperExecutionService(session)
         recovered_paper = paper_service.recover_pending()
         recovered_requests = paper_service.recover_requests()
         reconciled_runtime_cycles = reconcile_runtime_cycles(session)
         interrupted_runtime = recover_interrupted_runtime_sessions(session)
+        live_reconciliation = reconcile_live_state(session, DisabledLiveAdapter())
     logger.info("[MAIN] Accounting baseline ready (%s accounts bootstrapped)", bootstrapped_accounts)
     logger.info("[MAIN] Evolution policy ready (%s)", evolution_policy.version)
     logger.info("[MAIN] Agent lifecycle baseline ready (%s agents classified)", lifecycle_baselines)
     logger.info("[MAIN] Risk profile ready (%s, paused=%s)", risk_profile.version, risk_profile.paused)
     logger.info("[MAIN] Research policy ready (%s)", research_policy.version)
+    logger.info("[MAIN] Live Readiness policy ready (%s); emergency_stop=%s", live_policy.version, emergency_stop.active)
     logger.info("[MAIN] Backtest recovery invalidated %s interrupted runs", interrupted_backtests)
-    logger.info(
-        "[MAIN] Paper recovery complete (filled=%s cancelled=%s)",
-        recovered_paper["filled"],
-        recovered_paper["cancelled"],
-    )
-    logger.info(
-        "[MAIN] Paper request recovery complete (completed=%s recovery_required=%s)",
-        recovered_requests["completed"],
-        recovered_requests["recovery_required"],
-    )
+    logger.info("[MAIN] Paper recovery complete (filled=%s cancelled=%s)", recovered_paper["filled"], recovered_paper["cancelled"])
+    logger.info("[MAIN] Paper request recovery complete (completed=%s recovery_required=%s)", recovered_requests["completed"], recovered_requests["recovery_required"])
     logger.info("[MAIN] Runtime cycle recovery reconciled %s interrupted intents without replay", reconciled_runtime_cycles)
     logger.info("[MAIN] Runtime recovery blocked %s interrupted sessions pending explicit operator recovery", interrupted_runtime)
+    logger.info("[MAIN] Live read-only reconciliation status=%s", live_reconciliation.status)
     app.state.runtime_mode = RUNTIME_MODE
     app.state.market_data_mode = MARKET_DATA_MODE
     app.state.accounting_mode = ACCOUNTING_MODE
@@ -88,14 +87,9 @@ async def lifespan(app: FastAPI):
     app.state.paper_runtime_mode = PAPER_RUNTIME_MODE
     app.state.strategy_research_mode = STRATEGY_RESEARCH_MODE
     app.state.legacy_pruning_mode = LEGACY_PRUNING_MODE
-    logger.info("[MAIN] Real read-only market-data contract is available")
-    logger.info("[MAIN] Authoritative portfolio accounting is available")
-    logger.info("[MAIN] Phase 4 Risk remains mandatory for every active Paper order")
-    logger.info("[MAIN] Phase 5 deterministic historical evidence boundary is available")
-    logger.info("[MAIN] Phase 6 evidence-gated manual replication is available")
-    logger.info("[MAIN] Phase 7 autonomous Paper sessions are available but never auto-resume after restart")
-    logger.info("[MAIN] Phase 8 strategy research is evidence-gated and never auto-deploys or mutates strategies")
-    logger.info("[MAIN] Phase 9 legacy Mongo/mock/trading architecture has been pruned from the active source tree")
+    app.state.live_execution_mode = LIVE_EXECUTION_MODE
+    app.state.real_capital_execution_mode = REAL_CAPITAL_EXECUTION_MODE
+    logger.info("[MAIN] Phase 10 Live Readiness boundary is available; real-capital execution remains disabled")
     yield
     runtime_scheduler.cancel_all()
     logger.info("[MAIN] Shutdown complete")
@@ -103,7 +97,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AUTOMATON v2",
-    version="2.12.0",
+    version="2.13.0",
     description="Autonomous crypto-trading research platform",
     lifespan=lifespan,
 )
@@ -127,14 +121,11 @@ app.include_router(backtesting_router, prefix="/api/backtests", tags=["backtests
 app.include_router(evolution_router, prefix="/api/evolution", tags=["evolution"])
 app.include_router(paper_runtime_router, prefix="/api/runtime", tags=["runtime"])
 app.include_router(research_router, prefix="/api/research", tags=["research"])
+app.include_router(live_router, prefix="/api/live", tags=["live-readiness"])
 
 
-@app.get("/")
-def root():
+def _runtime_payload():
     return {
-        "message": "AUTOMATON v2 API",
-        "version": "2.12.0",
-        "status": "operational",
         "runtime_mode": RUNTIME_MODE,
         "market_data": MARKET_DATA_MODE,
         "accounting": ACCOUNTING_MODE,
@@ -145,50 +136,37 @@ def root():
         "paper_runtime": PAPER_RUNTIME_MODE,
         "strategy_research": STRATEGY_RESEARCH_MODE,
         "legacy_pruning": LEGACY_PRUNING_MODE,
+        "live_execution": LIVE_EXECUTION_MODE,
+        "real_capital_execution": REAL_CAPITAL_EXECUTION_MODE,
     }
+
+
+@app.get("/")
+def root():
+    return {"message": "AUTOMATON v2 API", "version": "2.13.0", "status": "operational", **_runtime_payload()}
 
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "runtime_mode": RUNTIME_MODE,
         "synthetic_engine": "disabled",
-        "market_data": MARKET_DATA_MODE,
-        "accounting": ACCOUNTING_MODE,
-        "risk": RISK_MODE,
-        "paper_trading": PAPER_TRADING_MODE,
-        "backtesting": BACKTESTING_MODE,
-        "agent_evolution": AGENT_EVOLUTION_MODE,
-        "paper_runtime": PAPER_RUNTIME_MODE,
-        "strategy_research": STRATEGY_RESEARCH_MODE,
-        "legacy_pruning": LEGACY_PRUNING_MODE,
         "automated_trading": AUTOMATED_TRADING_MODE,
-        "live_execution": LIVE_EXECUTION_MODE,
+        **_runtime_payload(),
     }
 
 
 @app.get("/api/estado")
 def get_estado():
+    payload = _runtime_payload()
     return {
-        "runtime_mode": RUNTIME_MODE,
+        **{f"{key}_mode" if key in {"market_data", "accounting", "risk"} else key: value for key, value in payload.items()},
         "synthetic_engine": "disabled",
-        "market_data_mode": MARKET_DATA_MODE,
-        "accounting_mode": ACCOUNTING_MODE,
-        "risk_mode": RISK_MODE,
-        "paper_trading": PAPER_TRADING_MODE,
-        "backtesting": BACKTESTING_MODE,
-        "agent_evolution": AGENT_EVOLUTION_MODE,
-        "paper_runtime": PAPER_RUNTIME_MODE,
-        "strategy_research": STRATEGY_RESEARCH_MODE,
-        "legacy_pruning": LEGACY_PRUNING_MODE,
         "automated_trading": AUTOMATED_TRADING_MODE,
-        "live_execution": LIVE_EXECUTION_MODE,
-        "financial_evidence": "paper_backtest_evolution_runtime_and_research_records_separated_by_explicit_provenance",
+        "financial_evidence": "paper_backtest_evolution_runtime_research_and_live_readiness_records_separated_by_explicit_provenance",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
