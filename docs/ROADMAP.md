@@ -3,54 +3,63 @@
 This roadmap defines dependency order. Source/static closure and executable certification are intentionally separate.
 
 ## Phases 0–4
-
 Transition safety, Real Market Data, Accounting, deterministic Paper and Risk source contracts are implemented. Fresh exact-HEAD executable certification remains cross-phase debt.
 
 ## Phase 5 — Backtesting & Evidence
+Immutable real historical snapshots, source SHA-256, next-candle deterministic execution and isolated evidence are implemented.
 
-Immutable real historical snapshots, canonical dataset/source SHA-256, next-candle deterministic execution, isolated financial evidence and metrics are implemented.
-
-**Status:** source/contract/static gate satisfied. Exact-HEAD execution and observed real-provider S1-S4 baseline remain pending; no performance numbers are inferred.
+**Status:** source/contract/static gate satisfied; execution/performance evidence remains pending.
 
 ## Phase 6 — Agent Evolution
+`evolution-v1` implements evidence-aware fitness, lineage/lifecycle and manual capital-conserving replication.
 
-`evolution-v1` implements evidence-aware fitness, lineage/lifecycle and manual child replication with conserving Accounting transfer.
-
-**Status:** source/contract/static gate satisfied. Execution certification remains pending.
+**Status:** source/contract/static gate satisfied; execution certification pending.
 
 ## Phase 7 — 24/7 Paper Operation
+Persistent `runtime-v1` sessions execute unchanged S1-S4 through real Market Data -> Risk -> Paper -> Accounting with durable cycles, idempotency, recovery and source provenance.
 
-Persistent `runtime-v1` sessions operate unchanged S1-S4 through real Market Data -> Risk -> Paper -> Accounting with one durable cycle per closed candle, deterministic request ids, recovery/ownership controls, no generated fallback and no auto-resume. Per-session/agent strategy version/source-SHA is captured at first start; later resume/recovery fails on drift, and older sessions are never fingerprinted retroactively.
-
-**Status:** source/contract/static gate satisfied. Fresh backend/frontend/build execution and a sustained real-provider Paper run remain required for operational certification.
+**Status:** source/contract/static gate satisfied; sustained real-provider operational certification pending.
 
 ## Phase 8 — Strategy Research
+`research-v1` uses chronological comparable TRAIN/VALIDATION/OOS plus fingerprinted stopped forward Paper evidence. Promotion is manual and never mutates or auto-deploys.
 
-`research-v1` uses comparable chronological TRAIN/VALIDATION/OOS Backtest evidence plus fingerprinted stopped Phase 7 forward Paper evidence. Promotion is manual, creates a fresh evaluation and never mutates source or auto-deploys.
-
-**Status:** source/contract/static gate satisfied. Fresh executable tests/build plus observed real historical and forward Paper research evidence remain pending; no strategy performance is inferred from source or fixtures.
+**Status:** source/contract/static gate satisfied; observed real research evidence pending.
 
 ## Phase 9 — Legacy Pruning
+The superseded Mongo/mock/trading architecture, dead UI and dependencies were physically removed. Active `services/` contains only S1-S4 strategy code.
 
-Phase 9 removes the superseded second architecture after reference/dependency audits:
-
-- Mongo service/injection/config/seed/models/dependencies and Mongo dev containers;
-- old simulation/Paper/trading/risk/mock/replication/registry engines and routes;
-- credentialed/mock-fallback legacy Binance service;
-- inactive auth/chat/payments/notifications/dashboard/system/signals/strategy-CRUD code;
-- executable Alpha/Beta/Gamma/regime/indicator legacy stack after retaining useful hypotheses as documentation;
-- unreachable frontend pages, mock/simulation UI, duplicate components and obsolete tests tied to deleted contracts.
-
-The active `backend/app/services/` package now contains only S1-S4 `strategies.py` plus its initializer. `Agent` remains the active identity/lifecycle anchor; old `Trade` rows remain quarantined as invalid pre-provenance evidence. Runtime exposes `legacy_pruning=pruned_phase_9`. Live remains disabled.
-
-**Status:** source/contract/static gate satisfied. Exact-HEAD backend/frontend/build execution remains pending until fresh observed output exists.
+**Status:** source/contract/static gate satisfied; executable certification pending.
 
 ## Phase 10 — Live Readiness
 
-Design a structurally separate exchange adapter, secrets/permissions, exchange constraints, reconciliation, emergency controls and staged rollout. Real-capital activation remains a separate explicit authorization.
+Implemented in source:
 
-**Status:** not started. Phase 9 does not authorize or implement Live.
+- separate additive `backend/app/live_execution/` domain;
+- versioned conservative `live-v1` readiness policy;
+- `DisabledLiveAdapter` read/reconciliation contract with no order-transmission method;
+- venue step-size/tick-size/min-notional validation;
+- hard deployable-capital/order/symbol/portfolio ceilings;
+- deterministic idempotent future Live intent ids;
+- intent preparation that requires a promoted candidate, unchanged source SHA and prior `ARCHITECTURE_READY` evidence;
+- persistent emergency stop;
+- fail-closed read-only reconciliation and circuit-breaker events;
+- explicit operator resolution for `RECOVERY_REQUIRED` records;
+- readiness gates over candidate/source, real fail-closed Market Data, Risk, Paper recovery, Live recovery, rollout policy and adapter capabilities;
+- `ARCHITECTURE_READY` separated from `real_capital_blocked=true`;
+- `/api/live` status/policy/readiness/emergency-stop/reconciliation surfaces;
+- no executable `/api/live/orders`, credential-write or real-capital activation endpoint;
+- Settings visibility for readiness, limits and `REAL CAPITAL DISABLED`;
+- runtime `v2.13.0` with `live_execution=readiness_phase_10` and `real_capital_execution=disabled`;
+- architecture guards against real-order transport, secret storage and Paper→Live routing.
+
+Phase 10 intentionally does **not** include a concrete exchange trading adapter, real credentials, real fills or real-capital activation.
+
+**Status:** implementation present. Final exact-HEAD static audit/documentation reconciliation and executable certification gate are still required before declaring source/contract/static closure.
+
+## Future real-capital activation
+
+This is not an automatic “Phase 11”. Any real-capital capability requires a separately scoped and explicitly authorized decision after venue selection, executable adapter review, secret-management design, venue-specific integration tests, operational drills and candidate evidence review.
 
 ## Cross-phase certification debt
 
-Fresh exact-HEAD backend tests, frontend tests/build and relevant real-provider smoke evidence are still required. Static closure must never be reported as a green runtime or profitable-strategy gate.
+Fresh exact-HEAD backend tests, frontend tests/build and relevant real-provider smoke evidence remain required. Static closure must never be reported as a green runtime, profitable strategy or permission to move real money.
