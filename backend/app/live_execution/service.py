@@ -9,7 +9,12 @@ from app.live_execution.adapter import LiveExchangeAdapter
 from app.live_execution.policy import ensure_emergency_stop_baseline, get_active_live_policy
 from app.live_execution.readiness import LiveReadinessEvaluator
 from app.live_execution.rules import validate_live_intent_rules
-from app.models.live_execution import LiveEmergencyStop, LiveOrderIntent, LiveReconciliation
+from app.models.live_execution import (
+    LiveCircuitBreakerEvent,
+    LiveEmergencyStop,
+    LiveOrderIntent,
+    LiveReconciliation,
+)
 from app.models.strategy_research import StrategyCandidate
 
 
@@ -180,6 +185,13 @@ class LiveReadinessService:
         state.reason = reason
         state.updated_at = _utcnow()
         self.session.add(state)
+        self.session.add(
+            LiveCircuitBreakerEvent(
+                event_type="EMERGENCY_STOP_ACTIVATED",
+                reason_code="OPERATOR_EMERGENCY_STOP",
+                reason=reason,
+            )
+        )
         self.session.commit()
         self.session.refresh(state)
         return state
@@ -198,6 +210,13 @@ class LiveReadinessService:
         state.reason = f"CLEARED: {reason}"
         state.updated_at = _utcnow()
         self.session.add(state)
+        self.session.add(
+            LiveCircuitBreakerEvent(
+                event_type="EMERGENCY_STOP_CLEARED",
+                reason_code="OPERATOR_EMERGENCY_CLEAR",
+                reason=reason,
+            )
+        )
         self.session.commit()
         self.session.refresh(state)
         return state
