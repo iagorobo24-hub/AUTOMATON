@@ -78,6 +78,16 @@ export const researchAPI = {
   candidates: (params = {}) => api.get('/research/candidates', { params }),
 };
 
+export const liveAPI = {
+  status: () => api.get('/live/status'),
+  policy: () => api.get('/live/policy'),
+  readiness: (params = {}) => api.get('/live/readiness', { params }),
+  evaluateReadiness: (candidateId) => api.post('/live/readiness/evaluate', null, { params: { candidate_id: candidateId } }),
+  emergencyStop: (reason) => api.post('/live/emergency-stop', null, { params: { reason } }),
+  clearEmergencyStop: (reason) => api.post('/live/emergency-stop/clear', null, { params: { reason } }),
+  reconciliations: (params = {}) => api.get('/live/reconciliations', { params }),
+};
+
 export const stateAPI = { status: () => api.get('/estado') };
 export const healthAPI = { health: () => axios.get(`${BACKEND_BASE}/health`, { timeout: 15000 }), root: () => axios.get(`${BACKEND_BASE}/`, { timeout: 15000 }) };
 
