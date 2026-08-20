@@ -7,12 +7,12 @@ Build a verifiable autonomous Paper Trading research platform: **real market dat
 ## Current baseline
 
 - FastAPI + SQLModel + SQLite and React/Vite are active.
-- Phases 1–9 source/static gates are closed.
+- Phases 1–10 source/contract/static gates are present.
 - Phase 7 provides explicit persistent autonomous Paper sessions; no session starts/resumes merely because the process boots.
 - Phase 8 Research classifies evidence and does not mutate or auto-deploy.
 - Phase 9 physically removed Mongo/mock/legacy trading architecture.
-- Phase 10 Live Readiness implementation is present but does not enable Live execution or real capital.
-- Fresh exact-HEAD execution evidence remains required.
+- Phase 10 adds a Live Readiness boundary while keeping Live execution and real capital disabled.
+- Fresh exact-HEAD execution evidence remains cross-phase debt.
 
 ## Ordered implementation program
 
@@ -76,10 +76,10 @@ See `docs/LIVE_TRADING_GATE.md`, `docs/superpowers/specs/2026-08-20-phase-10-liv
 - [x] Update Settings to display readiness separately from disabled execution and real capital.
 - [x] Add static architecture guards for routing, secrets, Paper→Live isolation and execution flags.
 - [x] Reconcile core documentation with the strengthened Phase 10 contract.
-- [ ] Complete final exact-HEAD static audit from Phase 9 close.
-- [ ] Execute exact-HEAD backend/frontend/build gate.
+- [x] Complete exact-HEAD static audit from Phase 9 close: 89 commits ahead, 0 behind at the audited pre-closure HEAD; S1-S4 blob unchanged.
+- [ ] Execute exact-HEAD backend/frontend/build gate. Last fresh attempt stopped at clone with DNS `Could not resolve host: github.com` (exit 128), before tests could run.
 
-**Phase 10 source/contract/static gate:** pending final exact-HEAD audit. Live execution and real-capital authorization remain disabled regardless of readiness result.
+**Phase 10 source/contract/static gate:** complete. `ARCHITECTURE_READY` remains a readiness classification only. `live_execution=disabled` and `real_capital_execution=disabled` remain mandatory.
 
 ## Future real-capital activation
 
