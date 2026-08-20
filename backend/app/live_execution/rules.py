@@ -10,6 +10,32 @@ def _is_multiple(value: Decimal, increment: Decimal) -> bool:
     return value % increment == 0
 
 
+def validate_live_policy(policy: LivePolicy) -> list[str]:
+    reasons: list[str] = []
+    money_limits = (
+        policy.max_deployable_capital,
+        policy.max_order_notional,
+        policy.max_symbol_exposure,
+        policy.max_portfolio_exposure,
+        policy.max_session_loss,
+    )
+    if any(value <= 0 for value in money_limits):
+        reasons.append("INVALID_LIVE_MONEY_LIMITS")
+    if not (Decimal("0") < policy.max_drawdown <= Decimal("1")):
+        reasons.append("INVALID_LIVE_DRAWDOWN_LIMIT")
+    if policy.max_consecutive_execution_errors <= 0:
+        reasons.append("INVALID_EXECUTION_ERROR_LIMIT")
+    if policy.stale_market_data_seconds <= 0:
+        reasons.append("INVALID_STALE_DATA_LIMIT")
+    if not (Decimal("0") < policy.rollout_capital_fraction <= Decimal("1")):
+        reasons.append("INVALID_ROLLOUT_FRACTION")
+    if policy.max_order_notional > policy.max_deployable_capital:
+        reasons.append("ORDER_LIMIT_EXCEEDS_DEPLOYABLE_CAPITAL")
+    if policy.max_symbol_exposure > policy.max_portfolio_exposure:
+        reasons.append("SYMBOL_LIMIT_EXCEEDS_PORTFOLIO_LIMIT")
+    return reasons
+
+
 def validate_live_intent_rules(
     *,
     policy: LivePolicy,
@@ -20,7 +46,7 @@ def validate_live_intent_rules(
     projected_portfolio_exposure: Decimal,
     deployable_capital: Decimal,
 ) -> list[str]:
-    reasons: list[str] = []
+    reasons = validate_live_policy(policy)
     if rules is None:
         reasons.append("SYMBOL_RULES_UNAVAILABLE")
         return reasons
