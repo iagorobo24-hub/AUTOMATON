@@ -87,9 +87,9 @@ def _seed_candidate_and_gates(session):
 def _service(session): return LiveReadinessService(session, ReadOnlyAdapter(), REAL_MARKET)
 
 
-def _prepare(service, candidate_id, source_event_id="cycle-1", quantity=Decimal("0.001"), side="BUY"):
+def _prepare(service, candidate_id, source_event_id="cycle-1", quantity=Decimal("0.001"), side="BUY", symbol="BTC/USDT"):
     return service.prepare_intent(
-        candidate_id=candidate_id, source_event_id=source_event_id, symbol="BTC/USDT", side=side,
+        candidate_id=candidate_id, source_event_id=source_event_id, symbol=symbol, side=side,
         quantity=quantity, reference_price=Decimal("10000"),
         projected_symbol_exposure=Decimal("10"), projected_portfolio_exposure=Decimal("10"), deployable_capital=Decimal("10"),
     )
@@ -104,6 +104,16 @@ def test_prepare_intent_is_idempotent_only_for_identical_payload():
         assert first.client_order_id.startswith("live:")
         assert len(first.intent_fingerprint) == 64
         assert first.status == "PREPARED"
+
+
+def test_canonical_symbol_identity_prevents_duplicate_intents_for_same_market_event():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        candidate = _seed_candidate_and_gates(session); service = _service(session)
+        first = _prepare(service, candidate.id, source_event_id="same-market-event", symbol="btc-usdt")
+        second = _prepare(service, candidate.id, source_event_id="same-market-event", symbol="BTC/USDT")
+        assert first.id == second.id
+        assert first.symbol == "BTC/USDT"
 
 
 def test_same_client_id_with_different_payload_fails_closed():
@@ -123,6 +133,8 @@ def test_prepare_intent_rejects_invalid_identity_fields():
             _prepare(service, candidate.id, source_event_id="   ")
         with pytest.raises(ValueError, match="BUY or SELL"):
             _prepare(service, candidate.id, source_event_id="bad-side", side="HOLD")
+        with pytest.raises(ValueError, match="symbol"):
+            _prepare(service, candidate.id, source_event_id="bad-symbol", symbol="invalid")
 
 
 def test_prepare_intent_re_evaluates_and_rejects_stale_ready_state():
