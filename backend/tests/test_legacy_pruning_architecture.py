@@ -51,6 +51,7 @@ DELETED_BACKEND_PATHS = [
 def test_superseded_backend_architecture_is_physically_removed():
     remaining = [path for path in DELETED_BACKEND_PATHS if (BACKEND_APP / path).exists()]
     assert remaining == [], f"legacy backend files still present: {remaining}"
+    assert not (REPO_ROOT / "backend" / "test_strategies.py").exists()
 
 
 def test_active_main_has_no_legacy_database_or_synthetic_engine_imports():
