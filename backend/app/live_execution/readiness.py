@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import LiveExchangeAdapter
 from app.live_execution.policy import ensure_emergency_stop_baseline, get_active_live_policy
+from app.live_execution.rules import validate_live_policy
 from app.models.live_execution import LiveReadinessEvaluation, LiveReconciliation
 from app.models.paper_execution import PaperExecution, PaperRequest
 from app.models.risk import RiskProfile
@@ -61,12 +62,11 @@ class LiveReadinessEvaluator:
 
         if stop.active:
             reasons.append("EMERGENCY_STOP_ACTIVE")
+        reasons.extend(validate_live_policy(policy))
         if policy.rollout_stage != "CANARY":
             reasons.append("ROLLOUT_STAGE_NOT_CANARY")
         if not policy.manual_approval_required:
             reasons.append("MANUAL_APPROVAL_REQUIRED")
-        if policy.max_deployable_capital <= 0 or policy.max_order_notional <= 0:
-            reasons.append("INVALID_LIVE_LIMITS")
 
         latest_reconciliation = self.session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc())).first()
         if latest_reconciliation is None:
@@ -79,6 +79,8 @@ class LiveReadinessEvaluator:
             reasons.append("PHASE_10_ADAPTER_MUST_NOT_TRADE")
         if caps.withdrawals_enabled:
             reasons.append("WITHDRAWAL_PERMISSION_FORBIDDEN")
+        if caps.credentials_present and not caps.trade_permission:
+            reasons.append("INVALID_CREDENTIAL_PERMISSION_METADATA")
 
         architecture_ready = not reasons
         result = LiveReadinessEvaluation(
@@ -91,5 +93,7 @@ class LiveReadinessEvaluator:
             reason=("Technical Live boundary satisfies live-v1; real capital remains disabled" if architecture_ready else "Live readiness blocked by one or more fail-closed gates"),
             strategy_source_sha256=(candidate.strategy_source_sha256 if candidate is not None else None),
         )
-        self.session.add(result); self.session.commit(); self.session.refresh(result)
+        self.session.add(result)
+        self.session.commit()
+        self.session.refresh(result)
         return result
