@@ -2,13 +2,14 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy.pool import StaticPool
-from sqlmodel import SQLModel, Session, create_engine
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import AdapterCapabilities, SymbolRules
 from app.live_execution.policy import bootstrap_live_policy, ensure_emergency_stop_baseline
 from app.live_execution.service import LiveReadinessService
 from app.models import (
+    LiveCircuitBreakerEvent,
     LiveReconciliation,
     ResearchEvaluation,
     ResearchStudy,
@@ -135,7 +136,7 @@ def test_prepare_intent_re_evaluates_and_rejects_stale_ready_state():
             _prepare(service, candidate.id, source_event_id="after-risk-pause")
 
 
-def test_emergency_stop_can_clear_only_while_reconciliation_is_clean():
+def test_emergency_stop_can_clear_only_while_reconciliation_is_clean_and_is_audited():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         candidate = _seed_candidate_and_gates(session); service = _service(session)
@@ -144,6 +145,10 @@ def test_emergency_stop_can_clear_only_while_reconciliation_is_clean():
             _prepare(service, candidate.id, "cycle-2")
         cleared = service.clear_emergency_stop("operator reviewed clean state")
         assert cleared.active is False
+        events = session.exec(select(LiveCircuitBreakerEvent).order_by(LiveCircuitBreakerEvent.id)).all()
+        assert [event.event_type for event in events] == ["EMERGENCY_STOP_ACTIVATED", "EMERGENCY_STOP_CLEARED"]
+        assert events[0].reason == "operator test"
+        assert "operator reviewed clean state" in events[1].reason
 
 
 def test_unresolved_reconciliation_blocks_emergency_stop_clear_without_manual_resolution_shortcut():
