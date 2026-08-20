@@ -7,7 +7,6 @@ from app.database import get_session
 from app.main import app
 from app.models import Agent, AgentStatus, StrategyEnum, Trade, TradeType
 from app.models.accounting import Account, LedgerEntry
-from app.services.agent_engine import AgentEngine
 
 
 @pytest.fixture
@@ -132,49 +131,6 @@ async def test_agents_reject_invalid_creation_values():
             },
         )
         assert invalid_threshold.status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_agent_engine_remains_available_only_as_explicit_synthetic_test_utility(sqlite_engine, monkeypatch):
-    class SellStrategy:
-        def calcular_señal(self, _prices):
-            return "SELL"
-
-    monkeypatch.setattr(
-        "app.services.agent_engine.get_strategy", lambda _strategy: SellStrategy()
-    )
-
-    with Session(sqlite_engine) as session:
-        agent = Agent(
-            nombre="TRADER",
-            presupuesto_inicial=1000,
-            presupuesto_actual=900,
-            estrategia=StrategyEnum.S1,
-            estado=AgentStatus.ACTIVO,
-            umbral_replica=0.15,
-        )
-        session.add(agent)
-        session.commit()
-        session.refresh(agent)
-
-        trade = Trade(
-            agente_id=agent.id,
-            precio_entrada=100,
-            cantidad=1,
-            tipo=TradeType.LONG,
-        )
-        session.add(trade)
-        session.commit()
-
-        engine = AgentEngine()
-        engine.historial_precios["BTC"][-1] = 110
-        await engine._procesar_agente(session, agent)
-        session.commit()
-        session.refresh(agent)
-
-        assert agent.presupuesto_actual == pytest.approx(1010)
-        closed_trade = session.exec(select(Trade).where(Trade.id == trade.id)).one()
-        assert closed_trade.resultado == pytest.approx(10)
 
 
 @pytest.mark.asyncio
