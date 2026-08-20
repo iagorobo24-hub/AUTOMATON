@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 
 from app.live_execution.adapter import SymbolRules
 from app.models.live_execution import LivePolicy
@@ -8,6 +8,16 @@ def _is_multiple(value: Decimal, increment: Decimal) -> bool:
     if increment <= 0:
         return False
     return value % increment == 0
+
+
+def normalize_quantity_down(quantity: Decimal, step_size: Decimal) -> Decimal:
+    """Normalize to venue step size without ever increasing requested exposure."""
+    if quantity <= 0:
+        return Decimal("0")
+    if step_size <= 0:
+        raise ValueError("step_size must be positive")
+    steps = (quantity / step_size).to_integral_value(rounding=ROUND_DOWN)
+    return steps * step_size
 
 
 def validate_live_policy(policy: LivePolicy) -> list[str]:
@@ -53,6 +63,10 @@ def validate_live_intent_rules(
     if quantity <= 0 or reference_price <= 0:
         reasons.append("INVALID_QUANTITY_OR_PRICE")
         return reasons
+    if projected_symbol_exposure < 0 or projected_portfolio_exposure < 0:
+        reasons.append("INVALID_PROJECTED_EXPOSURE")
+    if deployable_capital < 0:
+        reasons.append("INVALID_DEPLOYABLE_CAPITAL")
     if not _is_multiple(quantity, rules.step_size):
         reasons.append("STEP_SIZE_VIOLATION")
     notional = quantity * reference_price
