@@ -14,7 +14,7 @@ class LiveReadinessEvaluator:
     """Fail-closed technical readiness evaluator.
 
     It may classify architecture as ready for a future activation review, but
-    every result keeps real-capital execution blocked.
+    every result keeps Live execution and real-capital execution blocked.
     """
 
     def __init__(self, session: Session, adapter: LiveExchangeAdapter, market_data_status: dict):
@@ -104,17 +104,16 @@ class LiveReadinessEvaluator:
             reasons.append("MANUAL_APPROVAL_REQUIRED")
 
         latest_reconciliation = self.session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc())).first()
-        if latest_reconciliation is None:
-            reasons.append("CLEAN_RECONCILIATION_REQUIRED")
-        elif latest_reconciliation.status not in {"CLEAN", "RESOLVED"} and "LIVE_RECOVERY_UNRESOLVED" not in reasons:
-            reasons.append("LIVE_RECOVERY_UNRESOLVED")
+        if latest_reconciliation is None or latest_reconciliation.status != "CLEAN":
+            if "LIVE_RECOVERY_UNRESOLVED" not in reasons:
+                reasons.append("CLEAN_RECONCILIATION_REQUIRED")
 
         caps = self.adapter.capabilities()
         if caps.trading_enabled:
             reasons.append("PHASE_10_ADAPTER_MUST_NOT_TRADE")
         if caps.withdrawals_enabled:
             reasons.append("WITHDRAWAL_PERMISSION_FORBIDDEN")
-        if caps.credentials_present and not caps.trade_permission:
+        if (caps.credentials_present and not caps.trade_permission) or (not caps.credentials_present and caps.trade_permission):
             reasons.append("INVALID_CREDENTIAL_PERMISSION_METADATA")
 
         architecture_ready = not reasons
