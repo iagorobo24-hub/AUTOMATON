@@ -60,13 +60,14 @@ class TestAPI:
             "/api/evolution/status", "/api/runtime/status", "/api/research/status", "/api/live/status",
             "/api/live/policy", "/api/live/readiness", "/api/live/readiness/evaluate",
             "/api/live/emergency-stop", "/api/live/emergency-stop/clear", "/api/live/reconciliations",
-            "/api/live/reconciliations/{reconciliation_id}/resolve",
+            "/api/live/reconcile",
         ):
             assert path in routes
         for forbidden in (
             "/api/paper/live", "/api/backtests/optimize", "/api/research/optimize", "/api/research/mutate",
             "/api/research/live", "/api/live/orders", "/api/live/buy", "/api/live/sell",
             "/api/live/activate", "/api/live/credentials", "/api/live/credentials/write",
+            "/api/live/reconciliations/{reconciliation_id}/resolve",
             "/api/evolution/automation/start", "/api/evolution/automation/replicate",
         ):
             assert forbidden not in routes
