@@ -1,13 +1,14 @@
 from decimal import Decimal
 
 from app.live_execution.adapter import DisabledLiveAdapter, SymbolRules
-from app.live_execution.rules import normalize_quantity_down, validate_limit_price, validate_live_intent_rules
+from app.live_execution.rules import normalize_quantity_down, validate_limit_price, validate_live_intent_rules, validate_live_policy
 from app.models.live_execution import LivePolicy
 
 
 def _policy():
     return LivePolicy(
         version="live-v1",
+        active=True,
         max_deployable_capital=Decimal("100"),
         max_order_notional=Decimal("25"),
         max_symbol_exposure=Decimal("50"),
@@ -42,6 +43,24 @@ def test_live_rules_enforce_venue_and_policy_limits():
     assert "MAX_SYMBOL_EXPOSURE_EXCEEDED" in reasons
     assert "MAX_PORTFOLIO_EXPOSURE_EXCEEDED" in reasons
     assert "MAX_DEPLOYABLE_CAPITAL_EXCEEDED" in reasons
+    assert "ROLLOUT_CAPITAL_FRACTION_EXCEEDED" in reasons
+
+
+def test_canary_rollout_fraction_is_an_enforced_cap_not_documentation_only():
+    rules = SymbolRules("BTC/USDT", Decimal("0.001"), Decimal("0.10"), Decimal("10"))
+    reasons = validate_live_intent_rules(
+        policy=_policy(), rules=rules, quantity=Decimal("0.001"), reference_price=Decimal("10000"),
+        projected_symbol_exposure=Decimal("10"), projected_portfolio_exposure=Decimal("10"),
+        deployable_capital=Decimal("11"),
+    )
+    assert "ROLLOUT_CAPITAL_FRACTION_EXCEEDED" in reasons
+    assert "MAX_DEPLOYABLE_CAPITAL_EXCEEDED" not in reasons
+
+
+def test_inactive_live_policy_fails_closed():
+    policy = _policy()
+    policy.active = False
+    assert "INACTIVE_LIVE_POLICY" in validate_live_policy(policy)
 
 
 def test_quantity_normalization_never_rounds_up_into_more_exposure():
