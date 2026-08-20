@@ -22,6 +22,8 @@ def normalize_quantity_down(quantity: Decimal, step_size: Decimal) -> Decimal:
 
 def validate_live_policy(policy: LivePolicy) -> list[str]:
     reasons: list[str] = []
+    if not policy.active:
+        reasons.append("INACTIVE_LIVE_POLICY")
     money_limits = (
         policy.max_deployable_capital,
         policy.max_order_notional,
@@ -80,6 +82,9 @@ def validate_live_intent_rules(
         reasons.append("MAX_PORTFOLIO_EXPOSURE_EXCEEDED")
     if deployable_capital > policy.max_deployable_capital:
         reasons.append("MAX_DEPLOYABLE_CAPITAL_EXCEEDED")
+    rollout_capital_ceiling = policy.max_deployable_capital * policy.rollout_capital_fraction
+    if deployable_capital > rollout_capital_ceiling:
+        reasons.append("ROLLOUT_CAPITAL_FRACTION_EXCEEDED")
     return reasons
 
 
