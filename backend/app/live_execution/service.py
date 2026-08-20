@@ -4,10 +4,12 @@ from decimal import Decimal
 
 from sqlmodel import Session, select
 
+from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import LiveExchangeAdapter
 from app.live_execution.policy import ensure_emergency_stop_baseline, get_active_live_policy
 from app.live_execution.rules import validate_live_intent_rules
-from app.models.live_execution import LiveEmergencyStop, LiveOrderIntent, LiveReconciliation
+from app.models.live_execution import LiveEmergencyStop, LiveOrderIntent, LiveReadinessEvaluation, LiveReconciliation
+from app.models.strategy_research import StrategyCandidate
 
 
 def _utcnow():
@@ -24,9 +26,27 @@ class LiveReadinessService:
         self.session = session
         self.adapter = adapter
 
+    def _require_ready_candidate(self, candidate_id: int) -> StrategyCandidate:
+        candidate = self.session.get(StrategyCandidate, candidate_id)
+        if candidate is None or candidate.status != "PROMOTED":
+            raise ValueError("Promoted StrategyCandidate is required for Live intent preparation")
+        if strategy_source_sha256() != candidate.strategy_source_sha256:
+            raise ValueError("Strategy source drift blocks Live intent preparation")
+        readiness = self.session.exec(
+            select(LiveReadinessEvaluation)
+            .where(LiveReadinessEvaluation.candidate_id == candidate_id)
+            .order_by(LiveReadinessEvaluation.id.desc())
+        ).first()
+        if readiness is None or not readiness.architecture_ready:
+            raise ValueError("Fresh ARCHITECTURE_READY evaluation is required before Live intent preparation")
+        if readiness.real_capital_blocked is not True:
+            raise ValueError("Phase 10 readiness invariant violated: real capital must remain blocked")
+        return candidate
+
     def prepare_intent(self, *, candidate_id: int, source_event_id: str, symbol: str, side: str, quantity: Decimal,
                        reference_price: Decimal, projected_symbol_exposure: Decimal,
                        projected_portfolio_exposure: Decimal, deployable_capital: Decimal) -> LiveOrderIntent:
+        self._require_ready_candidate(candidate_id)
         client_order_id = deterministic_client_order_id(candidate_id=candidate_id, symbol=symbol, side=side, source_event_id=source_event_id)
         existing = self.session.exec(select(LiveOrderIntent).where(LiveOrderIntent.client_order_id == client_order_id)).first()
         if existing is not None:
