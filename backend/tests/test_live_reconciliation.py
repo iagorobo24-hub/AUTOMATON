@@ -3,11 +3,12 @@ from decimal import Decimal
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import AdapterCapabilities, SymbolRules
 from app.live_execution.policy import bootstrap_live_policy
 from app.live_execution.reconciliation import reconcile_live_state
 from app.live_execution.service import LiveReadinessService
-from app.models import LiveCircuitBreakerEvent
+from app.models import LiveCircuitBreakerEvent, LiveReadinessEvaluation, StrategyCandidate
 
 
 class Adapter:
@@ -26,8 +27,11 @@ def _engine(): return create_engine("sqlite://", connect_args={"check_same_threa
 
 def _prepare(session):
     bootstrap_live_policy(session)
+    candidate = StrategyCandidate(study_id=1, evaluation_id=1, strategy_id="S1", strategy_version="baseline-v1", strategy_source_sha256=strategy_source_sha256(), status="PROMOTED")
+    session.add(candidate); session.commit(); session.refresh(candidate)
+    session.add(LiveReadinessEvaluation(candidate_id=candidate.id, policy_version="live-v1", architecture_ready=True, real_capital_blocked=True, decision="ARCHITECTURE_READY", reason_codes="", reason="test", strategy_source_sha256=candidate.strategy_source_sha256)); session.commit()
     LiveReadinessService(session, Adapter()).prepare_intent(
-        candidate_id=1, source_event_id="cycle-r", symbol="BTC/USDT", side="BUY",
+        candidate_id=candidate.id, source_event_id="cycle-r", symbol="BTC/USDT", side="BUY",
         quantity=Decimal("0.001"), reference_price=Decimal("10000"),
         projected_symbol_exposure=Decimal("10"), projected_portfolio_exposure=Decimal("10"), deployable_capital=Decimal("10"),
     )
