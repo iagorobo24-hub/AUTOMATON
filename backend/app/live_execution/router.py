@@ -79,11 +79,3 @@ def reconciliations(session: Session = Depends(get_session), limit: int = Query(
 @router.post("/reconcile")
 def reconcile(session: Session = Depends(get_session)):
     return reconcile_live_state(session, _adapter())
-
-
-@router.post("/reconciliations/{reconciliation_id}/resolve")
-def resolve_reconciliation(reconciliation_id: int, reason: str, session: Session = Depends(get_session)):
-    try:
-        return LiveReadinessService(session, _adapter()).resolve_reconciliation(reconciliation_id, reason)
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
