@@ -63,6 +63,7 @@ class LiveOrderIntent(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     candidate_id: int = Field(foreign_key="strategy_candidates.id", index=True)
     client_order_id: str = Field(index=True, max_length=80)
+    intent_fingerprint: str = Field(index=True, max_length=64)
     source_event_id: str = Field(index=True, max_length=128)
     symbol: str = Field(index=True, max_length=32)
     side: str = Field(max_length=8)
