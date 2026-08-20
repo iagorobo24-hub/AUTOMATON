@@ -7,11 +7,12 @@ Build a verifiable autonomous Paper Trading research platform: **real market dat
 ## Current baseline
 
 - FastAPI + SQLModel + SQLite and React/Vite are active.
-- Synthetic `AgentEngine` and legacy Mongo/trading engines are outside normal runtime.
-- Phases 1–7 source/static contracts are present.
+- Phase 9 physically removed the superseded Mongo/mock/trading architecture; no Synthetic AgentEngine, legacy Binance execution service or Mongo runtime remains in active source.
+- Phases 1–9 source/static contracts are present.
 - Phase 7 provides explicit persistent autonomous Paper sessions; no session starts or resumes merely because the process boots.
-- Phase 8 Strategy Research is implemented as an evidence/orchestration layer; it does not mutate strategies or auto-deploy candidates.
-- Phase 7 now captures strategy/version/source-SHA evidence at first session start so Phase 8 can prove forward-source identity; sessions started before that contract cannot receive provenance retroactively.
+- Phase 8 Strategy Research is an evidence/orchestration layer; it does not mutate strategies or auto-deploy candidates.
+- Phase 7 captures strategy/version/source-SHA evidence at first session start so Phase 8 can prove forward-source identity; sessions started before that contract cannot receive provenance retroactively.
+- Phase 9 reports `legacy_pruning=pruned_phase_9` and retains only explicitly justified transition records such as quarantined pre-provenance `Trade` rows.
 - Live remains disabled.
 - Fresh exact-HEAD execution evidence remains required.
 
@@ -52,36 +53,37 @@ Market Data, Accounting, Paper Execution, Risk, Backtesting/Evidence and their s
 See `docs/superpowers/specs/2026-08-19-phase-8-strategy-research-design.md` and `docs/STRATEGIES.md`.
 - [x] Add additive `ResearchPolicy`, `ResearchStudy`, `ResearchWindow`, `ResearchEvaluation`, `StrategyCandidate` persistence.
 - [x] Bootstrap versioned `research-v1` idempotently.
-- [x] Freeze strategy version/source SHA, execution policy, fees, slippage and position fraction from first Backtest evidence.
-- [x] Require identical market/timeframe, initial capital and historical risk-profile version across study windows.
+- [x] Freeze strategy version/source SHA and comparable execution assumptions from first Backtest evidence.
 - [x] Require chronological non-overlapping repeating TRAIN -> VALIDATION -> OOS folds.
-- [x] Reject non-COMPLETED Backtests or missing source fingerprint evidence.
-- [x] Require >=5 round trips in VALIDATION and OOS.
-- [x] Require positive VALIDATION/OOS net return and expectancy.
-- [x] Enforce OOS max drawdown <=15%, profit factor >=1.05 when defined and <=50% relative return degradation.
-- [x] Require STOPPED Phase 7 forward sessions on the same symbol/timeframe with matching-strategy agents and persisted runtime cycles.
-- [x] Require Phase 7 captured strategy/version/source SHA to match the frozen historical study identity; legacy sessions without captured provenance are ineligible.
-- [x] Require >=3 unique FILLED closing SELL Paper executions with `origin=strategy_runtime`.
-- [x] Reject unresolved Paper recovery and any qualifying-account FILLED execution outside the exact Research-selected sessions.
-- [x] Require positive authoritative account-level realized PnL context.
-- [x] Persist immutable PASS/REJECT ResearchEvaluation snapshots with historical/forward evidence ids and metrics.
+- [x] Apply holdout sample/return/expectancy/drawdown/profit-factor/degradation gates.
+- [x] Require fingerprinted STOPPED Phase 7 forward sessions and unambiguous Paper execution/PnL attribution.
+- [x] Persist immutable PASS/REJECT ResearchEvaluation snapshots.
 - [x] Re-check current active strategy source SHA on every promotion attempt.
-- [x] Create a fresh evaluation for every promotion attempt; old PASS cannot be reused silently.
-- [x] Persist at most one StrategyCandidate per exact strategy/version/source SHA and preserve manual promotion semantics.
-- [x] Mount `/api/research` studies/windows/evaluate/promote/candidates surfaces.
-- [x] Keep `/optimize`, source mutation, auto-deployment and Live absent.
-- [x] Update backend runtime/client/Settings for `strategy_research=evidence_phase_8`.
-- [x] Complete final exact-HEAD static audit and documentation drift search.
+- [x] Create a fresh evaluation for every promotion attempt and at most one candidate per exact strategy/version/source SHA.
+- [x] Keep optimizer, source mutation, auto-deployment and Live absent.
+- [x] Complete final exact-HEAD static audit and documentation reconciliation.
 - [ ] Execute exact-HEAD backend/frontend/build gate plus observed historical/forward research smoke.
 
 **Phase 8 source/contract/static gate:** complete. Execution certification and observed real historical/forward research evidence remain pending. Promotion remains an evidence classification, not a profitability or deployment guarantee.
 
 ### 9. Legacy Pruning
-See `docs/LEGACY_AUDIT.md`.
-- [ ] Audit imports/routes/pages/config/dependencies against the Phase 8 active runtime.
-- [ ] Migrate any still-useful concepts.
-- [ ] Remove obsolete Mongo, old trading/Paper engines, mock fallbacks and dead UI only after evidence/recovery dependencies are clean.
-- [ ] Re-run repository/API/import/documentation audits.
+See `docs/LEGACY_AUDIT.md`, `docs/superpowers/specs/2026-08-20-phase-9-legacy-pruning-design.md` and `docs/superpowers/plans/2026-08-20-phase-9-legacy-pruning.md`.
+- [x] Audit imports/routes/pages/config/dependencies against the Phase 8 active runtime.
+- [x] Preserve useful historical strategy concepts as research documentation rather than active legacy executables.
+- [x] Remove Mongo DatabaseService/injection/config/seed/models/dependencies and Mongo dev containers.
+- [x] Remove superseded simulation/Paper/trading/risk/mock/replication/registry engines and routers.
+- [x] Remove credentialed/mock-fallback legacy BinanceService and python-binance dependency.
+- [x] Remove inactive auth/chat/payments/notifications/dashboard/system/signals/strategy-CRUD implementation and dedicated dependencies.
+- [x] Remove legacy Alpha/Beta/Gamma/regime/indicator executables without modifying S1-S4.
+- [x] Remove unreachable frontend pages, mock data, simulation hooks and duplicate/neural-fiber UI.
+- [x] Remove obsolete tests that targeted deleted modules/external preview endpoints rather than current contracts.
+- [x] Add source guards preventing deleted backend/frontend/dependency/Mongo infrastructure from silently returning.
+- [x] Expose `legacy_pruning=pruned_phase_9` and backend version `2.12.0` without changing active financial semantics.
+- [x] Reconcile architecture/database/legacy audit/project contracts.
+- [x] Complete exact-HEAD reference/drift audit; S1-S4 remain unchanged and Live remains disabled.
+- [ ] Execute exact-HEAD backend/frontend/build gate.
+
+**Phase 9 source/contract/static gate:** complete. Executable certification remains pending until fresh exact-HEAD test/build output is observed.
 
 ### 10. Live Readiness
 See `docs/LIVE_TRADING_GATE.md`.
@@ -98,4 +100,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Static review is not fresh execution evidence. Phase 8 operational evidence also requires real historical Backtests and completed forward Paper sessions under the research contract.
+Static review is not fresh execution evidence. Operational evidence also requires real historical Backtests and completed forward Paper sessions under the relevant contracts.
