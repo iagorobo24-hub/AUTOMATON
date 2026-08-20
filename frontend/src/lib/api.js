@@ -86,6 +86,7 @@ export const liveAPI = {
   emergencyStop: (reason) => api.post('/live/emergency-stop', null, { params: { reason } }),
   clearEmergencyStop: (reason) => api.post('/live/emergency-stop/clear', null, { params: { reason } }),
   reconciliations: (params = {}) => api.get('/live/reconciliations', { params }),
+  reconcile: () => api.post('/live/reconcile'),
 };
 
 export const stateAPI = { status: () => api.get('/estado') };
