@@ -38,15 +38,15 @@ def _seed_ready_candidate(session):
     return candidate
 
 
-def _prepare(service, candidate_id, source_event_id="cycle-1"):
+def _prepare(service, candidate_id, source_event_id="cycle-1", quantity=Decimal("0.001"), side="BUY"):
     return service.prepare_intent(
-        candidate_id=candidate_id, source_event_id=source_event_id, symbol="BTC/USDT", side="BUY",
-        quantity=Decimal("0.001"), reference_price=Decimal("10000"),
+        candidate_id=candidate_id, source_event_id=source_event_id, symbol="BTC/USDT", side=side,
+        quantity=quantity, reference_price=Decimal("10000"),
         projected_symbol_exposure=Decimal("10"), projected_portfolio_exposure=Decimal("10"), deployable_capital=Decimal("10"),
     )
 
 
-def test_prepare_intent_is_idempotent_and_never_transmitted():
+def test_prepare_intent_is_idempotent_only_for_identical_payload():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         bootstrap_live_policy(session); candidate = _seed_ready_candidate(session)
@@ -54,7 +54,29 @@ def test_prepare_intent_is_idempotent_and_never_transmitted():
         first = _prepare(service, candidate.id); second = _prepare(service, candidate.id)
         assert first.id == second.id
         assert first.client_order_id.startswith("live:")
+        assert len(first.intent_fingerprint) == 64
         assert first.status == "PREPARED"
+
+
+def test_same_client_id_with_different_payload_fails_closed():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        bootstrap_live_policy(session); candidate = _seed_ready_candidate(session)
+        service = LiveReadinessService(session, ReadOnlyAdapter())
+        _prepare(service, candidate.id, source_event_id="same-event", quantity=Decimal("0.001"))
+        with pytest.raises(ValueError, match="idempotency conflict"):
+            _prepare(service, candidate.id, source_event_id="same-event", quantity=Decimal("0.002"))
+
+
+def test_prepare_intent_rejects_invalid_identity_fields():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        bootstrap_live_policy(session); candidate = _seed_ready_candidate(session)
+        service = LiveReadinessService(session, ReadOnlyAdapter())
+        with pytest.raises(ValueError, match="source_event_id"):
+            _prepare(service, candidate.id, source_event_id="   ")
+        with pytest.raises(ValueError, match="BUY or SELL"):
+            _prepare(service, candidate.id, source_event_id="bad-side", side="HOLD")
 
 
 def test_prepare_intent_rejects_candidate_without_architecture_ready_evidence():
