@@ -2,13 +2,13 @@
 
 ## Active baseline
 
-The runtime uses SQLModel + SQLite. MongoDB remains legacy and is not a source of truth for new product work.
+The runtime uses SQLModel + SQLite. Phase 9 physically removed the former MongoDB service, injection/configuration, models, dependencies and development containers. Mongo is not an alternate or preserved runtime.
 
 ## Active records
 
 ### Legacy/transition
-- `Agent`: identity/strategy/status plus compatibility budget/parent fields.
-- `Trade`: historical pre-provenance record outside valid financial evidence.
+- `Agent`: identity/strategy/status plus compatibility budget/parent fields. It remains an active anchor for Accounting, Evolution, Runtime and Research relationships.
+- `Trade`: historical pre-provenance record outside valid financial evidence. It is retained only for quarantined inspection and is exposed with `evidence_mode=legacy_unclassified` and `evidence_valid=false`.
 
 ### Phase 2 Accounting
 - `portfolio_accounts`
@@ -78,6 +78,7 @@ Research does not copy Backtest trades, Paper fills, PnL or balances. It stores 
 - Research records own methodology/evaluation/promotion evidence only.
 - StrategyCandidate never changes source code or runtime configuration by itself.
 - The asyncio scheduler is process-local worker state, not persistent authority.
+- No Mongo collection or deleted legacy model is a source of truth after Phase 9.
 
 ## Phase 8 evidence invariants
 
@@ -97,21 +98,28 @@ Forward account PnL context is accepted only when every FILLED execution in a qu
 
 Promotion creates a fresh evaluation and then, on PASS, one StrategyCandidate for the exact strategy/version/source SHA. Promotion also rechecks the current source SHA, so accepted evidence requires historical SHA == forward captured SHA == current SHA.
 
+## Phase 9 persistence boundary
+
+Phase 9 is intentionally schema-conservative for active records: it removes the competing historical Mongo architecture and unused Pydantic model stack rather than migrating or rewriting active SQLModel evidence. Existing SQLite `Agent`/`Trade` transition rows are not silently converted into newer financial evidence.
+
+Development Docker Compose now runs the backend with a SQLite volume and contains no MongoDB or mongo-express service.
+
 ## Startup and recovery
 
 Normal startup initializes additive SQLModel tables and bootstraps Accounting, Evolution, Risk and `research-v1`, then performs Backtest/Paper/Runtime recovery. Research has no long-running evaluation worker to resume: evaluations are synchronous over already persisted evidence.
 
-No startup step fabricates Research evaluations/candidates, retroactively fingerprints old sessions or starts a Paper session because a candidate exists.
+No startup step fabricates Research evaluations/candidates, retroactively fingerprints old sessions, starts a Paper session because a candidate exists, or initializes Mongo.
 
 ## Current scope
 
 - long-only Paper/Backtest;
 - manual and Phase 7 session-controlled autonomous Paper;
-- S1-S4 unchanged by Research;
+- S1-S4 unchanged by Research/Phase 9;
 - manual evidence-gated replication only;
 - manual evidence-gated Research promotion only;
 - no automatic replication/mutation/deployment;
 - no optimizer;
+- no Mongo runtime;
 - no Live execution.
 
 ## Rules
@@ -122,4 +130,4 @@ No startup step fabricates Research evaluations/candidates, retroactively finger
 - Ambiguous/incomplete evidence fails closed.
 - Runtime orchestration must go through Risk -> Paper -> Accounting.
 - Research may reference financial evidence but never mutate it.
-- No new active Mongo collection is introduced.
+- Do not reintroduce a competing Mongo or legacy financial store.
