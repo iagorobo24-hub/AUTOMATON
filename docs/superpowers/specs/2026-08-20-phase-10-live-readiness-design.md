@@ -4,36 +4,40 @@
 
 Prepare AUTOMATON for a future separately authorized real-capital execution mode without enabling real orders in Phase 10.
 
-## Non-negotiable boundary
+## Approved runtime boundary
 
-Phase 10 may create Live-specific contracts, persistence, readiness evaluation, venue rules, reconciliation records, emergency-stop state, staged-rollout policy, API/UI observability and a disabled adapter. It MUST NOT contain an adapter implementation capable of placing a real exchange order, store real exchange credentials, add an executable `/orders` route, or change Paper into Live through configuration.
+Phase 10 reports:
 
-Runtime after Phase 10:
-
-- `live_readiness=readiness_phase_10`
-- `live_adapter=disabled_adapter`
-- `live_execution=disabled`
+- `live_execution=readiness_phase_10`
 - `real_capital_execution=disabled`
 
-`live_readiness` communicates that the safety/evidence boundary exists. It must never be used as a synonym for execution capability.
+`live_execution=readiness_phase_10` means the Live safety/readiness domain exists. It does **not** mean an executable exchange adapter exists. `real_capital_execution=disabled` is the explicit activation boundary.
+
+## Non-negotiable constraints
+
+Phase 10 MUST NOT:
+
+- implement a production method capable of submitting a real exchange order;
+- store or request real exchange API secrets;
+- add `/api/live/orders`, `/api/live/buy`, `/api/live/sell` or an activation endpoint;
+- allow a config/environment toggle to route Paper into Live;
+- change S1–S4;
+- auto-deploy a Research candidate;
+- interpret readiness as capital authorization.
 
 ## Architecture
 
-Create `backend/app/live_execution/` as a domain independent of Paper Execution.
+`backend/app/live_execution/` is independent of Paper Execution:
 
-Components:
+- `policy.py` — `live-v1` hard limits and bootstrap.
+- `adapter.py` — read/reconciliation protocol + `DisabledLiveAdapter`.
+- `rules.py` — venue precision/minimum and hard-limit validation.
+- `service.py` — idempotent future-intent preparation, emergency stop and explicit recovery resolution.
+- `reconciliation.py` — read-only fail-closed venue-state comparison.
+- `readiness.py` — immutable readiness evaluation.
+- `router.py` — readiness/operations API only.
 
-1. `policy.py` — bootstrap and retrieve versioned `live-v1` hard limits.
-2. `adapter.py` — venue-neutral interfaces plus `DisabledLiveAdapter`; no real-order implementation.
-3. `rules.py` — precision, tick-size, step-size, minimum-notional and hard-limit validation.
-4. `readiness.py` — fail-closed readiness evaluation over Research, Risk, Paper recovery, Market Data, reconciliation, emergency-stop and rollout controls.
-5. `service.py` — persist Live intents/order records in PREPARED/BLOCKED states only and deterministic client-order ids; it cannot transmit orders.
-6. `reconciliation.py` — compare expected Live records with adapter snapshots; uncertainty becomes `RECOVERY_REQUIRED`.
-7. `router.py` — status/policy/readiness/emergency-stop/reconciliation observability only.
-
-## Persistence
-
-Additive SQLModel tables:
+## Additive persistence
 
 - `live_policies`
 - `live_readiness_evaluations`
@@ -44,110 +48,109 @@ Additive SQLModel tables:
 - `live_circuit_breaker_events`
 - `live_emergency_stop`
 
-No existing table is altered.
+No existing Paper/Accounting table is repurposed.
 
-## live-v1 policy
+## live-v1
 
-Initial conservative defaults:
+Readiness ceilings:
 
-- max deployable capital: 100 USD
-- max order notional: 25 USD
-- max symbol exposure: 50 USD
-- max portfolio exposure: 100 USD
-- max session loss: 5 USD
-- max drawdown: 5%
-- max consecutive execution errors: 3
-- stale market-data limit: 30 seconds
+- deployable capital: 100 USD
+- order notional: 25 USD
+- symbol exposure: 50 USD
+- portfolio exposure: 100 USD
+- session loss: 5 USD
+- drawdown: 5%
+- consecutive execution errors: 3
+- stale market data: 30 seconds
 - rollout stage: `CANARY`
-- rollout capital fraction: 10%
-- manual approval required: true
+- rollout fraction: 10%
+- manual approval: required
 
-These are readiness ceilings, not permission to trade.
+These values are conservative design ceilings and never indicate funded or authorized capital.
 
 ## Adapter contract
 
-`LiveExchangeAdapter` exposes read/reconciliation capabilities and a capability descriptor:
+`LiveExchangeAdapter` exposes only read/reconciliation capabilities:
 
-- venue id
-- trading enabled flag
-- credential permission metadata
-- symbol rules
-- balances
-- open orders
-- order lookup by deterministic client id
-- positions
-- fills
+- capability metadata;
+- symbol rules;
+- balances;
+- open orders;
+- lookup by deterministic client id;
+- positions;
+- fills.
 
-`DisabledLiveAdapter` always reports `trading_enabled=False` and provides no production path that can transmit a real order. Any submission-shaped interface used to keep the future adapter contract complete must fail closed unconditionally in this adapter.
+`DisabledLiveAdapter` reports `trading_enabled=False`, no credentials, no withdrawal/trade permission and contains no real-order transmission method.
 
-No environment variable or ordinary settings change may replace the disabled adapter with an executable one in Phase 10.
+## Intent preparation
 
-## Order intent and idempotency
+A future command can be represented as a persisted `LiveOrderIntent` with deterministic `live:<sha256>` client id based on candidate, symbol, side and source event.
 
-A future Live order begins as a persisted `LiveOrderIntent` with deterministic client id derived from strategy candidate, symbol, side and intent nonce/source event.
+Preparation requires:
 
-Phase 10 service may validate and persist an intent as `PREPARED` or `BLOCKED`, but MUST NOT transmit it.
+- exact promoted StrategyCandidate;
+- current source SHA still matching candidate;
+- prior `ARCHITECTURE_READY` evaluation for the candidate;
+- Phase 10 invariant `real_capital_blocked=true`;
+- emergency stop clear;
+- venue rules and hard limits satisfied.
 
-Duplicate deterministic client ids return the existing intent rather than create a second financial command.
+Duplicate client ids return the existing intent. Phase 10 may persist `PREPARED` or `BLOCKED`; it cannot transmit either.
+
+## Venue/hard-limit rules
+
+Validate fail-closed:
+
+- symbol rules present;
+- positive quantity/price;
+- quantity step size;
+- limit-price tick size where applicable;
+- minimum notional;
+- maximum order notional;
+- projected symbol exposure;
+- projected portfolio exposure;
+- deployable capital ceiling.
 
 ## Readiness gate
 
-A fresh `LiveReadinessEvaluation` evaluates all applicable gates:
+Every evaluation is fresh and immutable. It checks:
 
-- one exact promoted `StrategyCandidate` exists;
-- current strategy source still matches candidate SHA;
-- active Risk profile exists and is not paused;
-- no PaperRequest/PaperExecution recovery ambiguity exists;
-- Market Data contract reports real/fail-closed mode;
-- emergency stop state is known and observable;
-- Live policy limits are valid and non-zero;
-- rollout stage is CANARY with manual approval required;
-- latest reconciliation is CLEAN;
-- credential metadata, if supplied in future, must indicate trade-only least privilege and withdrawals disabled;
-- adapter capability is explicit.
+- promoted candidate;
+- current candidate source SHA;
+- Market Data `evidence_mode=real`, `synthetic_fallback=false`, `execution_capability=false`;
+- active unpaused Risk;
+- no PaperRequest/PaperExecution recovery ambiguity;
+- no unresolved Live reconciliation;
+- emergency stop clear;
+- valid `live-v1` limits;
+- CANARY rollout + manual approval;
+- latest Live reconciliation clean/resolved;
+- adapter remains non-trading;
+- withdrawal capability disabled.
 
-Phase 10 distinguishes two decisions:
+Outputs:
 
-- `ARCHITECTURE_READY`: technical/pre-operational readiness gates other than actual execution activation are satisfied.
-- `REAL_CAPITAL_BLOCKED`: always true in Phase 10 because the only production adapter is disabled and no activation authorization exists.
+- `ARCHITECTURE_READY` or `BLOCKED`;
+- `real_capital_blocked=true` always in Phase 10.
 
-`ARCHITECTURE_READY` must never automatically change runtime mode or enable an adapter.
+No evaluation changes runtime or candidate state.
 
-## Precision and hard limits
+## Reconciliation/restart
 
-Venue rules validate:
+Reconciliation is read-only. Unexpected venue state or a trading-enabled adapter during Phase 10 creates:
 
-- normalized symbol exists;
-- quantity conforms to step size;
-- price conforms to tick size when relevant;
-- notional meets venue minimum;
-- order notional <= live-v1 max order notional;
-- projected symbol exposure <= max symbol exposure;
-- projected portfolio exposure <= max portfolio exposure;
-- deployable capital <= max deployable capital.
+- `LiveReconciliation(status=RECOVERY_REQUIRED)`;
+- `LiveCircuitBreakerEvent`.
 
-Normalization must not round quantity upward into additional exposure. Validation fails closed and returns reason codes.
+No order is replayed.
 
-## Reconciliation and restart
+A historical `RECOVERY_REQUIRED` remains blocking even if a later snapshot is CLEAN. The operator must explicitly resolve that exact record with a reason. Only after all unresolved records are resolved can emergency stop be cleared.
 
-No uncertain Live state is replayed.
-
-If a record cannot be reconciled uniquely against adapter snapshots, create `LiveReconciliation(status=RECOVERY_REQUIRED)` and activate a circuit-breaker event. Phase 10 never resubmits anything.
-
-Startup may ensure policy/emergency-stop baseline and inspect persisted unresolved records, but it does not clear ambiguity automatically and never performs order submission.
+Startup bootstraps `live-v1` and emergency-stop state, then runs read-only reconciliation through `DisabledLiveAdapter`. Startup never submits an order or loads secrets.
 
 ## Emergency stop
 
-Persistent singleton state blocks all new Live intents when active.
-
-API actions:
-
-- activate with required reason;
-- clear with required reason and only when no reconciliation is `RECOVERY_REQUIRED`.
-
-Emergency stop survives restart. Clearing it does not imply `ARCHITECTURE_READY` and does not enable execution.
-
-Emergency stop does not automatically liquidate positions or cancel orders; those are separate future operational procedures requiring their own explicit design.
+Persistent singleton state blocks new Live intents. Activate/clear require reasons. Clear fails while any reconciliation is `RECOVERY_REQUIRED`. Emergency stop never auto-liquidates.
 
 ## API
 
@@ -160,154 +163,37 @@ Allowed:
 - `POST /api/live/emergency-stop`
 - `POST /api/live/emergency-stop/clear`
 - `GET /api/live/reconciliations`
-- `POST /api/live/reconcile`
+- `POST /api/live/reconciliations/{id}/resolve`
 
-Forbidden in Phase 10:
+Forbidden:
 
-- executable `POST /api/live/orders`
-- `/api/live/buy` or `/api/live/sell`
-- exchange-key write endpoints
-- activation endpoint for real capital
-- generic mode switch that routes Paper commands to Live
-
-## Secret and credential contract
-
-Phase 10 does not store or request real exchange secrets.
-
-Future credential handling must satisfy all of the following:
-
-- secret values supplied through a reviewed external secret mechanism;
-- no API key/secret persisted in SQLite;
-- no secret values exposed in API/UI/logs;
-- trading permission explicit;
-- withdrawal permission prohibited wherever independently configurable;
-- credential presence never enables execution;
-- future executable adapter installation requires a separate code/product authorization gate.
-
-Only non-secret permission declarations/metadata may be stored for readiness evidence.
+- executable order submission;
+- credential write/storage;
+- real-capital activation;
+- generic Paper→Live mode switching.
 
 ## UI
 
-Settings and/or Ops Monitor may show Live Readiness, policy limits, architecture readiness, emergency-stop status, latest reconciliation and explicit `REAL CAPITAL DISABLED` state. No trade/activate button is added.
+Settings displays readiness mode, policy, architecture-ready state, emergency stop and explicit `REAL CAPITAL DISABLED`. No Live trade/activate button is added.
 
-## Tests
+## Security/architecture tests
 
-Tests must cover:
+Guards must prove:
 
-- policy bootstrap idempotence;
-- disabled adapter cannot trade;
-- no executable order route;
-- Paper cannot route into Live;
-- venue precision/min-notional rules;
-- quantity normalization never increases requested exposure;
-- hard capital/exposure limits;
-- deterministic idempotent intent ids;
-- emergency stop blocks intents and survives persistence;
-- emergency stop clear fails with unresolved reconciliation;
-- readiness fails without candidate/source match/Risk/recovery cleanliness;
-- architecture readiness can be true while real-capital execution remains false;
-- uncertain reconciliation becomes `RECOVERY_REQUIRED` and is never replayed;
-- no hardcoded secret/key material;
-- no Live secret fields persisted in SQLModel tables;
-- runtime reports Phase 10 readiness separately from `live_execution=disabled` and `real_capital_execution=disabled`.
+- disabled adapter has no `create_order`, `place_order` or `submit_order` method;
+- no executable Live order route;
+- Paper domains do not import Live execution;
+- no hardcoded/persisted exchange secrets;
+- Market Data remains read-only/fail-closed;
+- emergency stop and recovery gates fail closed;
+- deterministic intent idempotency;
+- `real_capital_execution=disabled`;
+- `services/strategies.py` remains unchanged from Phase 9.
 
-## Static safety guard
+## Explicit future authorization
 
-Add an architecture regression that fails if:
-
-- deleted legacy exchange/trading modules reappear;
-- `python-binance` or another real trading SDK is added without later explicit authorization;
-- a production real-order endpoint appears;
-- Paper imports `live_execution` or selects it through configuration;
-- `live_execution` or `real_capital_execution` stops being `disabled`;
-- secret-looking exchange credential fields are persisted;
-- `services/strategies.py` changes during Phase 10.
-
-## Out of scope
-
-- real exchange order transmission;
-- actual Binance/Coinbase/Kraken trading adapter;
-- storing API secrets;
-- automatic liquidation;
-- strategy changes;
-- auto-deployment of Research candidates;
-- automatic replication;
-- increasing Paper autonomy.
-
-## Documentation
-
-Update at minimum:
-
-- `README.md`
-- `ARCHITECTURE.md`
-- `IMPLEMENTATION_PLAN.md`
-- `docs/ROADMAP.md`
-- `docs/LIVE_TRADING_GATE.md`
-- `docs/DATABASE_ARCHITECTURE.md`
-- `GEMINI.md`
-- `QWEN.md`
-
-Documentation must distinguish Phase 10 source/static readiness, executable certification, any future venue integration evidence and the separately authorized decision to move real capital.
-
-## Git and scope rules
-
-Implementation is authorized directly on `main` under the established repository strategy.
-
-Allowed:
-
-- additive Phase 10 domain/models/tests/API/UI/docs;
-- small existing-domain changes required only to read evidence or expose readiness;
-- runtime/version-status updates.
-
-Not allowed:
-
-- real trading credentials;
-- real order submission implementation;
-- deployment;
-- Live activation;
-- PR creation/merge as part of this phase;
-- S1–S4 changes;
-- unrelated refactors.
+Completing Phase 10 is not authorization to move real money. A future executable adapter and any real-capital activation require a separately scoped, explicitly authorized project decision after venue selection, secret-management design, exchange-specific integration testing, operational recovery drills and evidence review.
 
 ## Closure
 
-Phase 10 source/contract/static closes only when exact-HEAD audit confirms:
-
-1. separate Live Readiness domain exists;
-2. only disabled/non-executable adapter exists in production;
-3. `live_readiness=readiness_phase_10` is distinct from execution;
-4. `live_execution=disabled`;
-5. `real_capital_execution=disabled`;
-6. no production order-submission endpoint exists;
-7. readiness policy/evaluation persistence exists;
-8. venue precision/minimum/hard-limit validation exists;
-9. deterministic idempotency exists;
-10. reconciliation/restart fail closed;
-11. persistent emergency stop exists;
-12. Research/Risk/recovery gates are enforced;
-13. secrets are not persisted/exposed;
-14. API/UI communicate readiness vs execution clearly;
-15. static guards cover routing/secrets/legacy reintroduction;
-16. S1–S4 are unchanged from Phase 9;
-17. docs match source;
-18. exact Git compare from Phase 9 close is coherent;
-19. CI/status is checked;
-20. executable validation is reported truthfully.
-
-## Execution certification
-
-The normal gate remains:
-
-```bash
-cd backend && pytest tests/ -v
-cd frontend && npm test
-cd frontend && npm run build
-```
-
-If checkout/execution is blocked by the environment, source/static closure may still be audited but execution certification remains pending.
-
-A future executable Live adapter requires its own dedicated integration testing against a deliberately selected venue environment and separate explicit authorization. Phase 10 does not satisfy that future gate.
-
-## Final safety statement
-
-Completing Phase 10 means AUTOMATON has a designed and audited boundary for deciding whether future Live execution could be enabled safely enough to evaluate further. It does **not** mean the system is authorized to move real money, and the Phase 10 production implementation is intentionally incapable of doing so.
+Phase 10 source/contract/static may close only after exact-HEAD audit confirms source, tests, UI and docs match this contract; Git/CI state is checked; S1–S4 are unchanged; and executable test/build status is reported separately rather than inferred.
