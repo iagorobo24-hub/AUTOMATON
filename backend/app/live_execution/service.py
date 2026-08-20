@@ -184,22 +184,6 @@ class LiveReadinessService:
         self.session.refresh(state)
         return state
 
-    def resolve_reconciliation(self, reconciliation_id: int, reason: str) -> LiveReconciliation:
-        reason = reason.strip()
-        if not reason:
-            raise ValueError("Reconciliation resolution reason is required")
-        record = self.session.get(LiveReconciliation, reconciliation_id)
-        if record is None:
-            raise ValueError("Live reconciliation not found")
-        if record.status != "RECOVERY_REQUIRED":
-            raise ValueError("Only RECOVERY_REQUIRED reconciliation can be explicitly resolved")
-        record.status = "RESOLVED"
-        record.details = f"{record.details}\nOPERATOR_RESOLUTION: {reason}".strip()
-        self.session.add(record)
-        self.session.commit()
-        self.session.refresh(record)
-        return record
-
     def clear_emergency_stop(self, reason: str) -> LiveEmergencyStop:
         reason = reason.strip()
         if not reason:
