@@ -12,7 +12,8 @@
 
 ## Global Constraints
 
-- `real_capital_execution=disabled` throughout Phase 10.
+- `live_readiness=readiness_phase_10` communicates readiness only.
+- `live_adapter=disabled_adapter`, `live_execution=disabled` and `real_capital_execution=disabled` throughout Phase 10.
 - No real exchange order transmission method or executable `/api/live/orders` route.
 - No exchange credential storage/write API.
 - Paper and Live adapters remain structurally separate.
@@ -47,7 +48,7 @@
 
 - [ ] Write tests proving adapter has no order-transmission capability and always reports `trading_enabled=False`.
 - [ ] Test step size, tick size, min notional and policy exposure/capital ceilings.
-- [ ] Implement fail-closed validation with machine-readable reason codes.
+- [ ] Implement fail-closed validation with machine-readable reason codes and downward-only quantity normalization.
 
 ### Task 3: Persistent emergency stop and intent preparation
 
@@ -85,10 +86,11 @@
 **Produces:** fresh immutable `LiveReadinessEvaluation` with `architecture_ready`, `real_capital_blocked=True` and reason codes.
 
 - [ ] Test missing candidate/source drift/Risk pause/Paper recovery/emergency stop/non-clean reconciliation all fail closed.
+- [ ] Test credential permission metadata with withdrawal permission fails closed without storing secret values.
 - [ ] Test all technical gates can yield `ARCHITECTURE_READY` while `real_capital_blocked` remains true.
 - [ ] Test no evaluation mutates runtime or candidate state.
 
-### Task 6: Readiness API
+### Task 6: Readiness API and runtime integration
 
 **Files:**
 - Create: `backend/app/live_execution/router.py`
@@ -96,11 +98,12 @@
 - Test: `backend/tests/test_live_readiness_api.py`
 - Modify: `backend/tests/test_api_integration.py`
 
-**Produces:** status/policy/readiness/evaluate/emergency-stop/reconciliations routes only.
+**Produces:** status/policy/readiness/evaluate/emergency-stop/reconciliations/reconcile routes only.
 
-- [ ] Test `/api/live/orders` is absent (404/405 according to FastAPI routing).
-- [ ] Mount `/api/live` and bootstrap Live policy/emergency baseline on startup.
-- [ ] Bump backend to `2.13.0`; set `live_execution=readiness_phase_10`, `real_capital_execution=disabled`.
+- [ ] Test `/api/live/orders`, `/api/live/buy`, `/api/live/sell`, credential-write and activation routes are absent.
+- [ ] Mount `/api/live` and bootstrap Live policy/emergency baseline on startup without submission/replay.
+- [ ] Bump backend to `2.13.0`.
+- [ ] Report `live_readiness=readiness_phase_10`, `live_adapter=disabled_adapter`, `live_execution=disabled`, `real_capital_execution=disabled`.
 
 ### Task 7: UI observability
 
@@ -111,7 +114,7 @@
 
 **Produces:** Live Readiness card with architecture state, hard limits, emergency-stop status and explicit real-capital disabled label.
 
-- [ ] Add read/evaluate/emergency-stop clients only; no submit-order or credential methods.
+- [ ] Add read/evaluate/emergency-stop/reconcile clients only; no submit-order, credential or activation methods.
 - [ ] Add UI tests asserting no activate/trade button and explicit real-capital disabled copy.
 
 ### Task 8: Architecture anti-regression guards
@@ -119,10 +122,11 @@
 **Files:**
 - Create: `backend/tests/test_live_readiness_architecture.py`
 
-- [ ] Assert no real-order exchange client (`create_order`, `place_order`, private exchange endpoint) exists under active Phase 10 source.
-- [ ] Assert no hardcoded credential names/values or secret write route exists.
-- [ ] Assert Paper domain does not import `live_execution` adapter/service for routing.
-- [ ] Assert `services/strategies.py` remains the only executable strategies service and is not edited in Phase 10 compare.
+- [ ] Assert no real-order exchange client or production submission endpoint exists under active Phase 10 source.
+- [ ] Assert no hardcoded credential fields/values or secret write route exists.
+- [ ] Assert Paper domain does not import `live_execution` for routing.
+- [ ] Assert runtime keeps `live_execution=disabled` and `real_capital_execution=disabled`.
+- [ ] Assert `services/strategies.py` remains unchanged from Phase 9.
 
 ### Task 9: Documentation
 
@@ -138,12 +142,14 @@
 
 - [ ] Reconcile Phase 10 as Live Readiness, not Live activation.
 - [ ] Record remaining activation prerequisites and explicit authorization boundary.
+- [ ] Keep source/static closure pending until exact-HEAD audit.
 
 ### Task 10: Exact-HEAD closure
 
 - [ ] Fetch final main HEAD and compare from Phase 9 close `808e34a6815ca4d82c3866f86bceec7acaf15047`.
-- [ ] Confirm `backend/app/services/strategies.py` absent from diff.
-- [ ] Search for real-order transmission, secret storage/write routes and Paper→Live routing.
+- [ ] Confirm `backend/app/services/strategies.py` unchanged from Phase 9.
+- [ ] Search for real-order transmission, trading SDKs, secret storage/write routes, activation surfaces and Paper→Live routing.
+- [ ] Inspect adapter/readiness/reconciliation for fail-open contradictions.
 - [ ] Check GitHub CI/status for exact HEAD.
 - [ ] Attempt backend pytest, frontend tests and build from fresh checkout; report environmental blocking exactly.
-- [ ] Mark Phase 10 source/contract/static gate complete only when the exact-HEAD static evidence is coherent; keep real-capital execution explicitly disabled.
+- [ ] Mark Phase 10 source/contract/static gate complete only when exact-HEAD static evidence is coherent; keep execution/venue/real-capital certification separate.
