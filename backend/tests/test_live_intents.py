@@ -4,17 +4,16 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
+from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import AdapterCapabilities, SymbolRules
 from app.live_execution.policy import bootstrap_live_policy
 from app.live_execution.service import LiveReadinessService
-from app.models import LiveReconciliation
+from app.models import LiveReadinessEvaluation, LiveReconciliation, StrategyCandidate
 
 
 class ReadOnlyAdapter:
-    def capabilities(self):
-        return AdapterCapabilities("test", False, False, False, False)
-    def get_symbol_rules(self, symbol):
-        return SymbolRules(symbol, Decimal("0.001"), Decimal("0.10"), Decimal("10"))
+    def capabilities(self): return AdapterCapabilities("test", False, False, False, False)
+    def get_symbol_rules(self, symbol): return SymbolRules(symbol, Decimal("0.001"), Decimal("0.10"), Decimal("10"))
     def get_balances(self): return {}
     def get_open_orders(self): return []
     def lookup_order(self, client_order_id): return None
@@ -22,39 +21,65 @@ class ReadOnlyAdapter:
     def get_fills(self): return []
 
 
-def _engine():
-    return create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+def _engine(): return create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
 
-def _prepare(service):
+def _seed_ready_candidate(session):
+    candidate = StrategyCandidate(
+        study_id=1, evaluation_id=1, strategy_id="S1", strategy_version="baseline-v1",
+        strategy_source_sha256=strategy_source_sha256(), status="PROMOTED",
+    )
+    session.add(candidate); session.commit(); session.refresh(candidate)
+    session.add(LiveReadinessEvaluation(
+        candidate_id=candidate.id, policy_version="live-v1", architecture_ready=True,
+        real_capital_blocked=True, decision="ARCHITECTURE_READY", reason_codes="", reason="test",
+        strategy_source_sha256=candidate.strategy_source_sha256,
+    )); session.commit()
+    return candidate
+
+
+def _prepare(service, candidate_id, source_event_id="cycle-1"):
     return service.prepare_intent(
-        candidate_id=1, source_event_id="cycle-1", symbol="BTC/USDT", side="BUY",
+        candidate_id=candidate_id, source_event_id=source_event_id, symbol="BTC/USDT", side="BUY",
         quantity=Decimal("0.001"), reference_price=Decimal("10000"),
-        projected_symbol_exposure=Decimal("10"), projected_portfolio_exposure=Decimal("10"),
-        deployable_capital=Decimal("10"),
+        projected_symbol_exposure=Decimal("10"), projected_portfolio_exposure=Decimal("10"), deployable_capital=Decimal("10"),
     )
 
 
 def test_prepare_intent_is_idempotent_and_never_transmitted():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        bootstrap_live_policy(session)
+        bootstrap_live_policy(session); candidate = _seed_ready_candidate(session)
         service = LiveReadinessService(session, ReadOnlyAdapter())
-        first = _prepare(service); second = _prepare(service)
+        first = _prepare(service, candidate.id); second = _prepare(service, candidate.id)
         assert first.id == second.id
         assert first.client_order_id.startswith("live:")
         assert first.status == "PREPARED"
 
 
-def test_emergency_stop_blocks_new_intents_and_clear_requires_clean_recovery():
+def test_prepare_intent_rejects_candidate_without_architecture_ready_evidence():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         bootstrap_live_policy(session)
+        candidate = StrategyCandidate(study_id=1, evaluation_id=1, strategy_id="S1", strategy_version="baseline-v1", strategy_source_sha256=strategy_source_sha256(), status="PROMOTED")
+        session.add(candidate); session.commit(); session.refresh(candidate)
+        with pytest.raises(ValueError, match="ARCHITECTURE_READY"):
+            _prepare(LiveReadinessService(session, ReadOnlyAdapter()), candidate.id)
+
+
+def test_emergency_stop_blocks_new_intents_and_clear_requires_clean_recovery():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        bootstrap_live_policy(session); candidate = _seed_ready_candidate(session)
         service = LiveReadinessService(session, ReadOnlyAdapter())
         service.activate_emergency_stop("operator test")
-        blocked = _prepare(service)
+        blocked = _prepare(service, candidate.id, "cycle-2")
         assert blocked.status == "BLOCKED"
         assert blocked.reason_code == "EMERGENCY_STOP_ACTIVE"
-        session.add(LiveReconciliation(status="RECOVERY_REQUIRED", reason_code="TEST", details="uncertain")); session.commit()
+        rec = LiveReconciliation(status="RECOVERY_REQUIRED", reason_code="TEST", details="uncertain")
+        session.add(rec); session.commit(); session.refresh(rec)
         with pytest.raises(ValueError, match="recovery is unresolved"):
             service.clear_emergency_stop("reviewed")
+        service.resolve_reconciliation(rec.id, "operator reconciled external evidence")
+        cleared = service.clear_emergency_stop("recovery resolved")
+        assert cleared.active is False
