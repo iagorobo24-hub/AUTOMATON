@@ -59,7 +59,7 @@ All Phase 10 tables are additive. They prepare/audit a future Live boundary and 
 
 - `live_policies` — versioned `live-v1` ceilings and rollout requirements.
 - `live_readiness_evaluations` — immutable READY/BLOCKED technical snapshots; every record stores `real_capital_blocked=true` in Phase 10.
-- `live_order_intents` — deterministic future-command preparation records. `PREPARED` does not mean transmitted.
+- `live_order_intents` — deterministic future-command preparation records. Each stores both a stable `client_order_id` and an SHA-256 `intent_fingerprint` of the canonical payload/policy assumptions. `PREPARED` does not mean transmitted.
 - `live_order_records` — reserved/audit representation for future venue order identity; Phase 10 defaults to `NOT_TRANSMITTED`.
 - `live_fill_records` — schema boundary for future reconciled venue fills; Phase 10 creates no real fills.
 - `live_reconciliations` — CLEAN / RECOVERY_REQUIRED / RESOLVED reconciliation snapshots.
@@ -84,7 +84,9 @@ No existing Paper/Accounting table is repurposed for Live Readiness.
 
 ## Phase 10 invariants
 
-A future intent identity uses a deterministic client id derived from candidate, symbol, side and source-event id. Duplicate ids return the existing record rather than create another command.
+A future intent identity uses a deterministic client id derived from candidate, symbol, side and source-event id. The stored payload fingerprint additionally includes candidate, active policy version, source event, normalized symbol/side, quantity, reference price, projected symbol/portfolio exposure and deployable-capital context.
+
+An identical retry returns the existing intent. Reusing the same deterministic client id with a different fingerprint is an idempotency conflict and fails closed rather than silently accepting changed financial intent.
 
 Intent preparation requires:
 
@@ -92,12 +94,13 @@ Intent preparation requires:
 - current source SHA still matching the candidate;
 - a previous `ARCHITECTURE_READY` evaluation for that candidate;
 - Phase 10 invariant `real_capital_blocked=true`;
+- non-empty source event and symbol plus BUY/SELL side;
 - emergency stop clear;
 - venue rules and `live-v1` ceilings passing.
 
 Phase 10 still cannot transmit the prepared intent.
 
-Readiness itself checks the real/fail-closed Market Data contract, active Risk, Paper recovery, Live policy, reconciliation, emergency stop and disabled adapter capability.
+Readiness itself checks the real/fail-closed Market Data contract, active Risk, Paper recovery, complete `live-v1` policy validity, reconciliation, emergency stop and disabled adapter capability.
 
 A Live reconciliation ambiguity is never cleared merely because a later startup produces a CLEAN snapshot. Every historical `RECOVERY_REQUIRED` stays blocking until the operator explicitly changes that exact record to `RESOLVED` with a reason.
 
@@ -133,5 +136,6 @@ Startup does not:
 - Never mix Paper and Live records as one source of truth.
 - Never auto-replay uncertain financial activity.
 - Never fabricate or erase reconciliation provenance.
+- Never accept a changed payload under an existing Live idempotency key.
 - Never interpret readiness ceilings as funded/authorized capital.
 - Never persist exchange secret values in these tables.
