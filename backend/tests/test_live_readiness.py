@@ -7,12 +7,19 @@ from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import DisabledLiveAdapter
 from app.live_execution.policy import bootstrap_live_policy, ensure_emergency_stop_baseline
 from app.live_execution.readiness import LiveReadinessEvaluator
-from app.models import LiveReconciliation, RiskProfile, StrategyCandidate
+from app.models import (
+    LiveReconciliation,
+    ResearchEvaluation,
+    ResearchStudy,
+    RiskProfile,
+    StrategyCandidate,
+)
 
 REAL_MARKET = {"provider": "test", "evidence_mode": "real", "synthetic_fallback": False, "execution_capability": False}
 
 
-def _engine(): return create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+def _engine():
+    return create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 
 
 def _risk():
@@ -24,23 +31,97 @@ def _risk():
     )
 
 
+def _candidate(session, *, decision="PASS", source_sha=None):
+    source_sha = source_sha or strategy_source_sha256()
+    study = ResearchStudy(
+        name="Live candidate study",
+        strategy_id="S1",
+        status="PROMOTED",
+        strategy_version="baseline-v1",
+        strategy_source_sha256=source_sha,
+        execution_policy="backtest-v1",
+        fee_bps=Decimal("10"),
+        slippage_bps=Decimal("10"),
+        position_fraction=Decimal("0.25"),
+    )
+    session.add(study); session.commit(); session.refresh(study)
+    evaluation = ResearchEvaluation(
+        study_id=study.id,
+        policy_version="research-v1",
+        decision=decision,
+        reason_code="OK" if decision == "PASS" else "TEST_REJECT",
+        reason="test",
+        strategy_id="S1",
+        strategy_version="baseline-v1",
+        strategy_source_sha256=source_sha,
+        historical_run_ids="1,2,3",
+        forward_session_ids="1",
+    )
+    session.add(evaluation); session.commit(); session.refresh(evaluation)
+    candidate = StrategyCandidate(
+        study_id=study.id,
+        evaluation_id=evaluation.id,
+        strategy_id="S1",
+        strategy_version="baseline-v1",
+        strategy_source_sha256=source_sha,
+        status="PROMOTED",
+    )
+    session.add(candidate); session.commit(); session.refresh(candidate)
+    return candidate
+
+
+def _seed_common(session):
+    bootstrap_live_policy(session)
+    ensure_emergency_stop_baseline(session)
+    session.add(_risk())
+    session.add(LiveReconciliation(status="CLEAN", reason_code="MATCHED_READ_ONLY_STATE", details=""))
+    session.commit()
+
+
 def test_architecture_can_be_ready_while_real_capital_remains_blocked():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        bootstrap_live_policy(session); ensure_emergency_stop_baseline(session); session.add(_risk())
-        candidate = StrategyCandidate(study_id=1, evaluation_id=1, strategy_id="S1", strategy_version="baseline-v1", strategy_source_sha256=strategy_source_sha256(), status="PROMOTED")
-        session.add(candidate); session.add(LiveReconciliation(status="CLEAN", reason_code="MATCHED_READ_ONLY_STATE", details="")); session.commit(); session.refresh(candidate)
+        _seed_common(session)
+        candidate = _candidate(session)
         result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), REAL_MARKET).evaluate(candidate.id)
         assert result.architecture_ready is True
         assert result.decision == "ARCHITECTURE_READY"
         assert result.real_capital_blocked is True
 
 
+def test_readiness_rejects_promoted_candidate_without_valid_pass_evidence():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_common(session)
+        rejected_candidate = _candidate(session, decision="REJECT")
+        result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), REAL_MARKET).evaluate(rejected_candidate.id)
+        assert result.architecture_ready is False
+        assert "CANDIDATE_RESEARCH_EVIDENCE_NOT_PASS" in result.reason_codes
+
+
+def test_readiness_rejects_orphan_promoted_candidate_even_when_sqlite_fk_is_not_enforced():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_common(session)
+        orphan = StrategyCandidate(
+            study_id=999,
+            evaluation_id=999,
+            strategy_id="S1",
+            strategy_version="baseline-v1",
+            strategy_source_sha256=strategy_source_sha256(),
+            status="PROMOTED",
+        )
+        session.add(orphan); session.commit(); session.refresh(orphan)
+        result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), REAL_MARKET).evaluate(orphan.id)
+        assert result.architecture_ready is False
+        assert "CANDIDATE_RESEARCH_EVIDENCE_MISSING" in result.reason_codes
+
+
 def test_readiness_fails_closed_without_candidate_and_on_emergency_stop():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        bootstrap_live_policy(session); stop = ensure_emergency_stop_baseline(session); session.add(_risk())
-        session.add(LiveReconciliation(status="CLEAN", reason_code="MATCHED_READ_ONLY_STATE", details=""))
+        _seed_common(session)
+        stop = ensure_emergency_stop_baseline(session)
         stop.active = True; stop.reason = "operator"; session.add(stop); session.commit()
         result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), REAL_MARKET).evaluate(None)
         assert result.architecture_ready is False
@@ -52,8 +133,7 @@ def test_readiness_fails_closed_without_candidate_and_on_emergency_stop():
 def test_readiness_rejects_synthetic_or_execution_capable_market_data_contract():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        bootstrap_live_policy(session); ensure_emergency_stop_baseline(session); session.add(_risk())
-        session.add(LiveReconciliation(status="CLEAN", reason_code="MATCHED_READ_ONLY_STATE", details="")); session.commit()
+        _seed_common(session)
         bad_market = {"evidence_mode": "synthetic", "synthetic_fallback": True, "execution_capability": True}
         result = LiveReadinessEvaluator(session, DisabledLiveAdapter(), bad_market).evaluate(None)
         assert "REAL_FAIL_CLOSED_MARKET_DATA_REQUIRED" in result.reason_codes
