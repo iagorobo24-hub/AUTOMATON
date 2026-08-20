@@ -76,8 +76,8 @@ See `docs/LIVE_TRADING_GATE.md`, `docs/superpowers/specs/2026-08-20-phase-10-liv
 - [x] Update Settings to display readiness separately from disabled execution and real capital.
 - [x] Add static architecture guards for routing, secrets, Paper→Live isolation and execution flags.
 - [x] Reconcile core documentation with the strengthened Phase 10 contract.
-- [x] Complete exact-HEAD static audit from Phase 9 close: 89 commits ahead, 0 behind at the audited pre-closure HEAD; S1-S4 blob unchanged.
-- [ ] Execute exact-HEAD backend/frontend/build gate. Last fresh attempt stopped at clone with DNS `Could not resolve host: github.com` (exit 128), before tests could run.
+- [x] Complete final source/static audit from the Phase 9 close: linear history with zero commits behind, unchanged S1-S4 blob, disabled Live execution/capital flags, and reconciled README/Architecture/Roadmap/Live gate.
+- [ ] Execute exact-HEAD backend/frontend/build gate. Final fresh attempt still stopped at clone with DNS `Could not resolve host: github.com` (exit 128), before tests could run.
 
 **Phase 10 source/contract/static gate:** complete. `ARCHITECTURE_READY` remains a readiness classification only. `live_execution=disabled` and `real_capital_execution=disabled` remain mandatory.
 
