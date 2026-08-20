@@ -135,17 +135,24 @@ def test_prepare_intent_re_evaluates_and_rejects_stale_ready_state():
             _prepare(service, candidate.id, source_event_id="after-risk-pause")
 
 
-def test_emergency_stop_blocks_new_intent_before_persistence_and_clear_requires_recovery_resolution():
+def test_emergency_stop_can_clear_only_while_reconciliation_is_clean():
     engine = _engine(); SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         candidate = _seed_candidate_and_gates(session); service = _service(session)
         service.activate_emergency_stop("operator test")
         with pytest.raises(ValueError, match="EMERGENCY_STOP_ACTIVE"):
             _prepare(service, candidate.id, "cycle-2")
-        rec = LiveReconciliation(status="RECOVERY_REQUIRED", reason_code="TEST", details="uncertain")
-        session.add(rec); session.commit(); session.refresh(rec)
+        cleared = service.clear_emergency_stop("operator reviewed clean state")
+        assert cleared.active is False
+
+
+def test_unresolved_reconciliation_blocks_emergency_stop_clear_without_manual_resolution_shortcut():
+    engine = _engine(); SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        _seed_candidate_and_gates(session); service = _service(session)
+        service.activate_emergency_stop("recovery")
+        session.add(LiveReconciliation(status="RECOVERY_REQUIRED", reason_code="TEST", details="uncertain"))
+        session.commit()
         with pytest.raises(ValueError, match="recovery is unresolved"):
             service.clear_emergency_stop("reviewed")
-        service.resolve_reconciliation(rec.id, "operator reconciled external evidence")
-        cleared = service.clear_emergency_stop("recovery resolved")
-        assert cleared.active is False
+        assert not hasattr(service, "resolve_reconciliation")
