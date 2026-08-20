@@ -5,6 +5,7 @@ from app.database import get_session
 from app.live_execution.adapter import DisabledLiveAdapter
 from app.live_execution.policy import ensure_emergency_stop_baseline, get_active_live_policy
 from app.live_execution.readiness import LiveReadinessEvaluator
+from app.live_execution.reconciliation import reconcile_live_state
 from app.live_execution.service import LiveReadinessService
 from app.market_data.router import get_market_data_service
 from app.models.live_execution import LiveReadinessEvaluation, LiveReconciliation
@@ -21,15 +22,20 @@ def status(session: Session = Depends(get_session)):
     policy = get_active_live_policy(session)
     stop = ensure_emergency_stop_baseline(session)
     latest = session.exec(select(LiveReadinessEvaluation).order_by(LiveReadinessEvaluation.id.desc())).first()
+    latest_reconciliation = session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc())).first()
     return {
         "mode": "readiness_phase_10",
         "policy_version": policy.version,
         "architecture_ready": bool(latest.architecture_ready) if latest else False,
+        "live_execution": "disabled",
         "real_capital_execution": "disabled",
-        "adapter": "disabled_read_only",
+        "adapter": "disabled_adapter",
+        "adapter_trading_enabled": False,
         "emergency_stop": stop.active,
+        "latest_reconciliation": latest_reconciliation.status if latest_reconciliation else None,
         "order_submission_available": False,
         "credential_write_available": False,
+        "activation_available": False,
     }
 
 
@@ -68,6 +74,11 @@ def clear_emergency_stop(reason: str, session: Session = Depends(get_session)):
 @router.get("/reconciliations")
 def reconciliations(session: Session = Depends(get_session), limit: int = Query(default=20, ge=1, le=100)):
     return list(session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc()).limit(limit)))
+
+
+@router.post("/reconcile")
+def reconcile(session: Session = Depends(get_session)):
+    return reconcile_live_state(session, _adapter())
 
 
 @router.post("/reconciliations/{reconciliation_id}/resolve")
