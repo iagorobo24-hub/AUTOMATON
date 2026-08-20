@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 @pytest.mark.integration
 class TestAPI:
     @pytest.mark.asyncio
-    async def test_health_endpoint_reports_phase_8_research_contract(self):
+    async def test_health_endpoint_reports_phase_9_pruned_runtime_contract(self):
         from app.main import app
 
         transport = ASGITransport(app=app)
@@ -30,6 +30,7 @@ class TestAPI:
             "agent_evolution": "evidence_phase_6",
             "paper_runtime": "runtime_phase_7",
             "strategy_research": "evidence_phase_8",
+            "legacy_pruning": "pruned_phase_9",
             "automated_trading": "paper_enabled_phase_7",
             "live_execution": "disabled",
         }
@@ -54,12 +55,13 @@ class TestAPI:
         assert payload["agent_evolution"] == "evidence_phase_6"
         assert payload["paper_runtime"] == "runtime_phase_7"
         assert payload["strategy_research"] == "evidence_phase_8"
+        assert payload["legacy_pruning"] == "pruned_phase_9"
         assert payload["automated_trading"] == "paper_enabled_phase_7"
         assert payload["live_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
 
-    def test_active_api_routes_include_phase_8_research_but_not_optimizer_mutation_or_live(self):
+    def test_active_api_routes_include_research_but_not_legacy_optimizer_mutation_or_live(self):
         from app.main import app
 
         routes = {route.path for route in app.routes}
@@ -102,6 +104,9 @@ class TestAPI:
         assert "/api/trading/engine/status" not in routes
         assert "/api/trading/engine/start" not in routes
         assert "/api/trading/mode" not in routes
+        assert "/api/simulation/status" not in routes
+        assert "/api/auth/token" not in routes
+        assert "/api/payments/create-session" not in routes
         assert "/ws/trading" not in routes
 
     def test_cors_middleware_is_configured(self):
