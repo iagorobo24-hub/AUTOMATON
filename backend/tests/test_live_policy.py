@@ -18,12 +18,15 @@ def test_live_v1_bootstrap_is_idempotent_and_conservative():
         second = bootstrap_live_policy(session)
         assert first.id == second.id
         assert first.version == "live-v1"
+        assert first.active is True
         assert first.max_deployable_capital == Decimal("100")
         assert first.max_order_notional == Decimal("25")
         assert first.max_symbol_exposure == Decimal("50")
         assert first.max_portfolio_exposure == Decimal("100")
         assert first.max_session_loss == Decimal("5")
         assert first.max_drawdown == Decimal("0.05")
+        assert first.max_consecutive_execution_errors == 3
+        assert first.stale_market_data_seconds == 30
         assert first.rollout_stage == "CANARY"
         assert first.rollout_capital_fraction == Decimal("0.10")
         assert first.manual_approval_required is True
