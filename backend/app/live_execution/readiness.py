@@ -7,7 +7,7 @@ from app.live_execution.rules import validate_live_policy
 from app.models.live_execution import LiveReadinessEvaluation, LiveReconciliation
 from app.models.paper_execution import PaperExecution, PaperRequest
 from app.models.risk import RiskProfile
-from app.models.strategy_research import StrategyCandidate
+from app.models.strategy_research import ResearchEvaluation, ResearchStudy, StrategyCandidate
 
 
 class LiveReadinessEvaluator:
@@ -22,6 +22,40 @@ class LiveReadinessEvaluator:
         self.adapter = adapter
         self.market_data_status = market_data_status
 
+    def _candidate_research_evidence_reasons(self, candidate: StrategyCandidate) -> list[str]:
+        reasons: list[str] = []
+        study = self.session.get(ResearchStudy, candidate.study_id)
+        evaluation = self.session.get(ResearchEvaluation, candidate.evaluation_id)
+        if study is None or evaluation is None:
+            return ["CANDIDATE_RESEARCH_EVIDENCE_MISSING"]
+        if evaluation.decision != "PASS":
+            reasons.append("CANDIDATE_RESEARCH_EVIDENCE_NOT_PASS")
+        if evaluation.study_id != candidate.study_id:
+            reasons.append("CANDIDATE_EVALUATION_STUDY_MISMATCH")
+        if study.status != "PROMOTED":
+            reasons.append("CANDIDATE_STUDY_NOT_PROMOTED")
+
+        candidate_identity = (
+            candidate.strategy_id,
+            candidate.strategy_version,
+            candidate.strategy_source_sha256,
+        )
+        evaluation_identity = (
+            evaluation.strategy_id,
+            evaluation.strategy_version,
+            evaluation.strategy_source_sha256,
+        )
+        study_identity = (
+            study.strategy_id,
+            study.strategy_version,
+            study.strategy_source_sha256,
+        )
+        if evaluation_identity != candidate_identity:
+            reasons.append("CANDIDATE_EVALUATION_IDENTITY_MISMATCH")
+        if study_identity != candidate_identity:
+            reasons.append("CANDIDATE_STUDY_IDENTITY_MISMATCH")
+        return reasons
+
     def evaluate(self, candidate_id: int | None = None) -> LiveReadinessEvaluation:
         reasons: list[str] = []
         policy = get_active_live_policy(self.session)
@@ -33,6 +67,7 @@ class LiveReadinessEvaluator:
         elif candidate.status != "PROMOTED":
             reasons.append("CANDIDATE_NOT_PROMOTED")
         else:
+            reasons.extend(self._candidate_research_evidence_reasons(candidate))
             try:
                 current_sha = strategy_source_sha256()
             except Exception:
@@ -90,7 +125,7 @@ class LiveReadinessEvaluator:
             real_capital_blocked=True,
             decision="ARCHITECTURE_READY" if architecture_ready else "BLOCKED",
             reason_codes=",".join(reasons),
-            reason=("Technical Live boundary satisfies live-v1; real capital remains disabled" if architecture_ready else "Live readiness blocked by one or more fail-closed gates"),
+            reason=("Technical Live boundary satisfies live-v1; Live and real capital remain disabled" if architecture_ready else "Live readiness blocked by one or more fail-closed gates"),
             strategy_source_sha256=(candidate.strategy_source_sha256 if candidate is not None else None),
         )
         self.session.add(result)
