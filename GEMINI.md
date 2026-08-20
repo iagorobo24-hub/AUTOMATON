@@ -6,12 +6,11 @@ Canonical direction: `docs/PRODUCT_CONTRACT.md`, `ARCHITECTURE.md`, `docs/ROADMA
 
 ## Objective
 
-Build autonomous Paper Trading on **real market data + virtual capital**, supported by reproducible historical/forward evidence and disciplined Strategy Research. Never present synthetic/mock results as financial evidence.
+Build autonomous Paper Trading on **real market data + virtual capital**, supported by reproducible historical/forward evidence and disciplined Strategy Research. Never present generated/mock results as financial evidence.
 
 ## Current runtime
 
 - FastAPI + SQLModel + SQLite; React/Vite.
-- Synthetic AgentEngine disabled.
 - Phase 1 real-only Market Data.
 - Phase 2 authoritative Accounting.
 - Phase 3 deterministic Paper Execution.
@@ -20,7 +19,8 @@ Build autonomous Paper Trading on **real market data + virtual capital**, suppor
 - Phase 6 evidence-aware Agent Evolution.
 - Phase 7 persistent autonomous Paper runtime.
 - Phase 8 persistent Strategy Research.
-- Runtime: `paper_trading=autonomous_phase_7`, `paper_runtime=runtime_phase_7`, `automated_trading=paper_enabled_phase_7`, `agent_evolution=evidence_phase_6`, `strategy_research=evidence_phase_8`, `live_execution=disabled`.
+- Phase 9 physically pruned the superseded Mongo/mock/trading architecture; the old Synthetic AgentEngine and mock-fallback BinanceService no longer exist in source.
+- Runtime: `paper_trading=autonomous_phase_7`, `paper_runtime=runtime_phase_7`, `automated_trading=paper_enabled_phase_7`, `agent_evolution=evidence_phase_6`, `strategy_research=evidence_phase_8`, `legacy_pruning=pruned_phase_9`, `live_execution=disabled`.
 
 Autonomous Paper remains session-controlled. A Research candidate never starts or modifies a session automatically.
 
@@ -38,25 +38,21 @@ PaperExecution accepts only `operator` and `strategy_runtime`; both require pers
 
 `backend/app/strategy_research/` owns methodology/evaluation/promotion evidence only.
 
-`research-v1` requires repeating chronological non-overlapping `TRAIN -> VALIDATION -> OOS` folds based on completed Phase 5 Backtests. The first window freezes strategy version/source SHA and execution/cost assumptions; later windows must also match market/timeframe, initial capital and historical risk profile.
-
-VALIDATION/OOS require sufficient round trips, positive return/expectancy, and OOS must respect drawdown/profit-factor/degradation limits.
-
-Forward evidence requires STOPPED Phase 7 sessions on the same market/timeframe, matching-strategy agents, runtime cycles, >=3 unique FILLED closing SELL `PaperExecution(origin=strategy_runtime)` records, positive authoritative account-level realized-PnL context and clean Paper recovery. If qualifying account PnL is contaminated by FILLED manual/non-runtime Paper execution, Research fails closed.
+`research-v1` requires repeating chronological non-overlapping `TRAIN -> VALIDATION -> OOS` folds based on completed Phase 5 Backtests. Historical and forward evidence must preserve matching strategy/source identity and comparable execution assumptions. Forward Paper also requires clean recovery and unambiguous execution attribution.
 
 Every promotion attempt creates a fresh evaluation and rechecks current strategy source SHA. `StrategyCandidate` means only that this exact source/config passed `research-v1` against referenced evidence at that time.
 
-Research must never:
+Research must never modify S1-S4 automatically, optimize-and-score the same evidence, auto-deploy candidates, auto-replicate agents or enable Live.
 
-- modify S1-S4 automatically;
-- optimize parameters and score on the same evidence window;
-- auto-deploy a candidate to Paper Runtime;
-- auto-replicate an agent;
-- enable Live.
+## Phase 9 pruning rules
+
+Do not recreate deleted Mongo services, legacy API aggregators, old trading/Paper/risk engines, mock market fallbacks, Alpha/Beta/Gamma executables or unreachable frontend surfaces as shortcuts. Useful historical strategy ideas belong in research documentation until explicitly reimplemented and versioned through the current evidence pipeline.
+
+`Agent` remains an active identity/lifecycle model. Pre-provenance `Trade` remains quarantined historical data with invalid evidence status; do not reinterpret it as Paper/Backtest/Research evidence.
 
 ## Paper Runtime rules
 
-SQLite session/cycle state is authoritative; asyncio tasks are process-local workers only. Restart reconciliation never resubmits uncertain orders or auto-resumes sessions. Financial ambiguity => RECOVERY_REQUIRED. No synthetic fallback or automatic replication.
+SQLite session/cycle state is authoritative; asyncio tasks are process-local workers only. Restart reconciliation never resubmits uncertain orders or auto-resumes sessions. Financial ambiguity => RECOVERY_REQUIRED. No generated fallback or automatic replication.
 
 ## Backtesting / Evolution
 
@@ -64,11 +60,11 @@ Historical datasets are real/immutable/SHA-256 identified and source-fingerprint
 
 ## Live isolation
 
-No active route/service may place a real exchange order. Do not introduce exchange credentials into Paper Runtime or Research. Live requires the future separate adapter and explicit authorization.
+No active route/service may place a real exchange order. Do not introduce exchange credentials into Paper Runtime or Research. Live requires a future separate adapter and explicit authorization.
 
 ## Evidence discipline
 
-Never merge Synthetic/Backtest/Paper/Live silently. Fixture tests prove software behavior, not trading performance. A Research PASS/PROMOTED label is not a profitability, safety or Live-readiness claim.
+Never merge historical/Backtest/Paper/Live evidence silently. Fixture tests prove software behavior, not trading performance. A Research PASS/PROMOTED label is not a profitability, safety or Live-readiness claim.
 
 ## Validation
 
