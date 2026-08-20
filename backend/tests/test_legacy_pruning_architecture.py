@@ -45,7 +45,9 @@ def test_active_main_has_no_legacy_database_or_synthetic_engine_imports():
     for forbidden in ("motor", "pymongo", "DatabaseService", "AgentEngine", "mock_engine", "paper_engine", "trading_engine", "binance_service"):
         assert forbidden not in source
     assert 'LEGACY_PRUNING_MODE = "pruned_phase_9"' in source
-    assert 'LIVE_EXECUTION_MODE = "readiness_phase_10"' in source
+    assert 'LIVE_READINESS_MODE = "readiness_phase_10"' in source
+    assert 'LIVE_ADAPTER_MODE = "disabled_adapter"' in source
+    assert 'LIVE_EXECUTION_MODE = "disabled"' in source
     assert 'REAL_CAPITAL_EXECUTION_MODE = "disabled"' in source
 
 
