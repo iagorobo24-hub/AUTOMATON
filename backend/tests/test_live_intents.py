@@ -8,7 +8,13 @@ from app.backtesting.runner import strategy_source_sha256
 from app.live_execution.adapter import AdapterCapabilities, SymbolRules
 from app.live_execution.policy import bootstrap_live_policy, ensure_emergency_stop_baseline
 from app.live_execution.service import LiveReadinessService
-from app.models import LiveReconciliation, RiskProfile, StrategyCandidate
+from app.models import (
+    LiveReconciliation,
+    ResearchEvaluation,
+    ResearchStudy,
+    RiskProfile,
+    StrategyCandidate,
+)
 
 REAL_MARKET = {"provider": "test", "evidence_mode": "real", "synthetic_fallback": False, "execution_capability": False}
 
@@ -39,9 +45,39 @@ def _seed_candidate_and_gates(session):
     bootstrap_live_policy(session); ensure_emergency_stop_baseline(session)
     session.add(_risk())
     session.add(LiveReconciliation(status="CLEAN", reason_code="MATCHED_READ_ONLY_STATE", details=""))
+    source_sha = strategy_source_sha256()
+    study = ResearchStudy(
+        name="Intent candidate",
+        strategy_id="S1",
+        status="PROMOTED",
+        strategy_version="baseline-v1",
+        strategy_source_sha256=source_sha,
+        execution_policy="backtest-v1",
+        fee_bps=Decimal("10"),
+        slippage_bps=Decimal("10"),
+        position_fraction=Decimal("0.25"),
+    )
+    session.add(study); session.commit(); session.refresh(study)
+    evaluation = ResearchEvaluation(
+        study_id=study.id,
+        policy_version="research-v1",
+        decision="PASS",
+        reason_code="OK",
+        reason="test",
+        strategy_id="S1",
+        strategy_version="baseline-v1",
+        strategy_source_sha256=source_sha,
+        historical_run_ids="1,2,3",
+        forward_session_ids="1",
+    )
+    session.add(evaluation); session.commit(); session.refresh(evaluation)
     candidate = StrategyCandidate(
-        study_id=1, evaluation_id=1, strategy_id="S1", strategy_version="baseline-v1",
-        strategy_source_sha256=strategy_source_sha256(), status="PROMOTED",
+        study_id=study.id,
+        evaluation_id=evaluation.id,
+        strategy_id="S1",
+        strategy_version="baseline-v1",
+        strategy_source_sha256=source_sha,
+        status="PROMOTED",
     )
     session.add(candidate); session.commit(); session.refresh(candidate)
     return candidate
