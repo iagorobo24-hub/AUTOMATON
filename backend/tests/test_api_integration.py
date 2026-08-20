@@ -29,7 +29,9 @@ class TestAPI:
         assert data["strategy_research"] == "evidence_phase_8"
         assert data["legacy_pruning"] == "pruned_phase_9"
         assert data["automated_trading"] == "paper_enabled_phase_7"
-        assert data["live_execution"] == "readiness_phase_10"
+        assert data["live_readiness"] == "readiness_phase_10"
+        assert data["live_adapter"] == "disabled_adapter"
+        assert data["live_execution"] == "disabled"
         assert data["real_capital_execution"] == "disabled"
 
     @pytest.mark.asyncio
@@ -43,7 +45,9 @@ class TestAPI:
         assert payload["market_data_mode"] == "real_contract_available"
         assert payload["accounting_mode"] == "authoritative_phase_2"
         assert payload["risk_mode"] == "authoritative_phase_4"
-        assert payload["live_execution"] == "readiness_phase_10"
+        assert payload["live_readiness"] == "readiness_phase_10"
+        assert payload["live_adapter"] == "disabled_adapter"
+        assert payload["live_execution"] == "disabled"
         assert payload["real_capital_execution"] == "disabled"
         assert "precios_actuales" not in payload
         assert "profit_total" not in payload
@@ -61,7 +65,8 @@ class TestAPI:
             assert path in routes
         for forbidden in (
             "/api/paper/live", "/api/backtests/optimize", "/api/research/optimize", "/api/research/mutate",
-            "/api/research/live", "/api/live/orders", "/api/live/activate", "/api/live/credentials",
+            "/api/research/live", "/api/live/orders", "/api/live/buy", "/api/live/sell",
+            "/api/live/activate", "/api/live/credentials", "/api/live/credentials/write",
             "/api/evolution/automation/start", "/api/evolution/automation/replicate",
         ):
             assert forbidden not in routes
