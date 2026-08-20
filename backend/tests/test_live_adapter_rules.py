@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from app.live_execution.adapter import DisabledLiveAdapter, SymbolRules
-from app.live_execution.rules import validate_limit_price, validate_live_intent_rules
+from app.live_execution.rules import normalize_quantity_down, validate_limit_price, validate_live_intent_rules
 from app.models.live_execution import LivePolicy
 
 
@@ -42,6 +42,25 @@ def test_live_rules_enforce_venue_and_policy_limits():
     assert "MAX_SYMBOL_EXPOSURE_EXCEEDED" in reasons
     assert "MAX_PORTFOLIO_EXPOSURE_EXCEEDED" in reasons
     assert "MAX_DEPLOYABLE_CAPITAL_EXCEEDED" in reasons
+
+
+def test_quantity_normalization_never_rounds_up_into_more_exposure():
+    normalized = normalize_quantity_down(Decimal("0.0039"), Decimal("0.001"))
+    assert normalized == Decimal("0.003")
+    assert normalized <= Decimal("0.0039")
+    assert normalize_quantity_down(Decimal("0.003"), Decimal("0.001")) == Decimal("0.003")
+    assert normalize_quantity_down(Decimal("0"), Decimal("0.001")) == Decimal("0")
+
+
+def test_negative_projected_exposure_or_capital_fails_closed():
+    rules = SymbolRules("BTC/USDT", Decimal("0.001"), Decimal("0.10"), Decimal("10"))
+    reasons = validate_live_intent_rules(
+        policy=_policy(), rules=rules, quantity=Decimal("0.001"), reference_price=Decimal("10000"),
+        projected_symbol_exposure=Decimal("-1"), projected_portfolio_exposure=Decimal("-2"),
+        deployable_capital=Decimal("-3"),
+    )
+    assert "INVALID_PROJECTED_EXPOSURE" in reasons
+    assert "INVALID_DEPLOYABLE_CAPITAL" in reasons
 
 
 def test_tick_size_is_validated_for_limit_price_contract():
