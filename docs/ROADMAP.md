@@ -32,33 +32,38 @@ The superseded Mongo/mock/trading architecture, dead UI and dependencies were ph
 
 ## Phase 10 — Live Readiness
 
-Implemented in source:
+Implementation currently present:
 
 - separate additive `backend/app/live_execution/` domain;
 - versioned conservative `live-v1` readiness policy;
-- `DisabledLiveAdapter` read/reconciliation contract with no order-transmission method;
-- venue step-size/tick-size/min-notional validation;
-- hard deployable-capital/order/symbol/portfolio ceilings;
-- deterministic idempotent future Live intent ids;
-- intent preparation that requires a promoted candidate, unchanged source SHA and prior `ARCHITECTURE_READY` evidence;
-- persistent emergency stop;
-- fail-closed read-only reconciliation and circuit-breaker events;
-- explicit operator resolution for `RECOVERY_REQUIRED` records;
-- readiness gates over candidate/source, real fail-closed Market Data, Risk, Paper recovery, Live recovery, rollout policy and adapter capabilities;
-- `ARCHITECTURE_READY` separated from `real_capital_blocked=true`;
-- `/api/live` status/policy/readiness/emergency-stop/reconciliation surfaces;
-- no executable `/api/live/orders`, credential-write or real-capital activation endpoint;
-- Settings visibility for readiness, limits and `REAL CAPITAL DISABLED`;
-- runtime `v2.13.0` with `live_execution=readiness_phase_10` and `real_capital_execution=disabled`;
+- `DisabledLiveAdapter` with no order-transmission capability;
+- venue step/tick/min-notional rules and downward-only quantity normalization;
+- absolute order/symbol/portfolio/deployable ceilings plus enforced CANARY 10% rollout-capital fraction;
+- canonical market identity before deterministic Live intent idempotency;
+- PREPARED/BLOCKED future intent records only; no transmit path;
+- full Research Study PROMOTED → Evaluation PASS → Candidate PROMOTED identity verification plus current source SHA;
+- real/fail-closed Market Data, active Risk and Paper recovery gates;
+- read-only reconciliation that treats unexplained orders/positions/fills, impossible transmitted records and trading-enabled adapters as `RECOVERY_REQUIRED`;
+- persistent circuit-breaker and emergency-stop audit evidence;
+- no automatic replay/adoption or manual text-only reconciliation-resolution shortcut;
+- positive readiness requires latest reconciliation exactly CLEAN and no unresolved historical Live recovery;
+- `/api/live` status/policy/readiness/emergency/reconciliation surfaces only;
+- no order/buy/sell/credential-write/activation endpoint;
+- Settings visibility for readiness separately from disabled execution;
+- backend v2.13.0 runtime identifiers:
+  - `live_readiness=readiness_phase_10`
+  - `live_adapter=disabled_adapter`
+  - `live_execution=disabled`
+  - `real_capital_execution=disabled`;
 - architecture guards against real-order transport, secret storage and Paper→Live routing.
 
 Phase 10 intentionally does **not** include a concrete exchange trading adapter, real credentials, real fills or real-capital activation.
 
-**Status:** implementation present. Final exact-HEAD static audit/documentation reconciliation and executable certification gate are still required before declaring source/contract/static closure.
+**Status:** implementation and documentation reconciliation are present. Final exact-HEAD static audit and executable certification gate remain before declaring source/contract/static closure.
 
 ## Future real-capital activation
 
-This is not an automatic “Phase 11”. Any real-capital capability requires a separately scoped and explicitly authorized decision after venue selection, executable adapter review, secret-management design, venue-specific integration tests, operational drills and candidate evidence review.
+This is not an automatic “Phase 11”. Any real-capital capability requires a separately scoped and explicitly authorized decision after venue selection, executable adapter review, external secret-management design, venue-specific integration/recovery tests, operational drills, an evidence-backed ambiguity-resolution procedure and candidate evidence review.
 
 ## Cross-phase certification debt
 
