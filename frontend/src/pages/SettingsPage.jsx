@@ -29,12 +29,13 @@ export default function SettingsPage() {
 
   const apiOperational = runtime?.status === "ok", syntheticDisabled = runtime?.synthetic_engine === "disabled", backtestingReady = runtime?.backtesting === "evidence_phase_5";
   const evolutionReady = runtime?.agent_evolution === "evidence_phase_6", paperRuntimeReady = runtime?.paper_runtime === "runtime_phase_7", researchReady = runtime?.strategy_research === "evidence_phase_8";
-  const liveReadinessAvailable = runtime?.live_execution === "readiness_phase_10" && liveStatus?.mode === "readiness_phase_10";
+  const liveReadinessAvailable = runtime?.live_readiness === "readiness_phase_10" && liveStatus?.mode === "readiness_phase_10";
+  const liveExecutionDisabled = runtime?.live_execution === "disabled" && liveStatus?.live_execution === "disabled";
   const activeSessions = runtimeSessions.filter((item) => ["RUNNING", "DEGRADED", "RECOVERY_REQUIRED"].includes(item.status)).length;
   const runtimeLabel = loading ? "Consultando…" : !runtime ? "Desconocido" : syntheticDisabled ? "Sintético desactivado" : "Revisar configuración";
 
   return <div className="min-h-screen bg-background" data-testid="settings-page"><div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-    <div className="flex items-center justify-between gap-4"><div><h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1><p className="text-sm text-muted-foreground mt-1">Paper autónomo, Research reproducible y frontera Live preparada sin capital real</p></div><button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /><span className="ml-2 hidden sm:inline">Actualizar</span></button></div>
+    <div className="flex items-center justify-between gap-4"><div><h1 className="font-heading text-3xl font-bold tracking-wide text-foreground uppercase">Configuración</h1><p className="text-sm text-muted-foreground mt-1">Paper autónomo, Research reproducible y frontera Live preparada sin capacidad de ejecución real</p></div><button onClick={fetchRuntime} disabled={loading} className="evo-button-outline px-4 py-2.5 text-sm"><RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} /><span className="ml-2 hidden sm:inline">Actualizar</span></button></div>
     {error && <div className="glass-card rounded-xl p-4 border border-red-500/20 text-sm text-red-400" role="alert">{error}</div>}
 
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -45,6 +46,7 @@ export default function SettingsPage() {
       <StatusCard label="Paper Runtime" value={loading ? "Consultando…" : paperRuntimeReady ? `Phase 7 · ${activeSessions} activas` : "No disponible"} description="Sesiones persistentes sin auto-resume." active={!loading && paperRuntimeReady} />
       <StatusCard label="Strategy Research" value={loading ? "Consultando…" : researchPolicy?.version || "Desconocido"} description="TRAIN/VALIDATION/OOS + forward Paper; promoción manual." active={!loading && researchReady && researchPolicy?.active} />
       <StatusCard label="Live Readiness" value={loading ? "Consultando…" : liveReadinessAvailable ? (liveStatus?.architecture_ready ? "Architecture ready" : "Phase 10 · gated") : "No disponible"} description="Controles, reconciliación y límites preparados. No existe transmisión de órdenes reales." active={!loading && liveReadinessAvailable} />
+      <StatusCard label="Live Execution" value={loading ? "Consultando…" : liveExecutionDisabled ? "DISABLED" : "REVISAR"} description="Readiness no es capacidad de ejecución." active={false} />
       <StatusCard label="REAL CAPITAL" value={loading ? "Consultando…" : runtime?.real_capital_execution === "disabled" ? "DISABLED" : "REVISAR"} description="Fase 10 no autoriza ni activa dinero real." active={false} />
       <StatusCard label="Synthetic/Test" value={runtimeLabel} description="El generador aleatorio no participa en evidencia financiera." active={!loading && syntheticDisabled} />
     </div>
@@ -55,7 +57,9 @@ export default function SettingsPage() {
       <RuntimeRow label="Risk Engine" value={runtime?.risk || "unknown"} description={`Perfil ${riskProfile?.version || "desconocido"}; ${riskProfile?.paused ? "PAUSADO" : "activo"}.`} />
       <RuntimeRow label="Paper Runtime" value={runtime?.paper_runtime || "unknown"} description={`${runtimeStatus?.policy_version || "runtime-v1"}; sin auto-resume.`} />
       <RuntimeRow label="Strategy Research" value={runtime?.strategy_research || "unknown"} description={`Política ${researchPolicy?.version || "desconocida"}; promoción manual.`} />
-      <RuntimeRow label="Live Readiness" value={runtime?.live_execution || "unknown"} description={`Política ${livePolicy?.version || "live-v1"}; adapter ${liveStatus?.adapter || "disabled"}; emergency stop ${liveStatus?.emergency_stop ? "ACTIVE" : "clear"}.`} />
+      <RuntimeRow label="Live Readiness" value={runtime?.live_readiness || "unknown"} description={`Política ${livePolicy?.version || "live-v1"}; latest reconciliation ${liveStatus?.latest_reconciliation || "unknown"}.`} />
+      <RuntimeRow label="Live adapter" value={runtime?.live_adapter || "disabled_adapter"} description="Adapter de Phase 10 no transmite órdenes." />
+      <RuntimeRow label="Live execution" value={runtime?.live_execution || "disabled"} description="Debe permanecer disabled aunque ARCHITECTURE_READY sea true." />
       <RuntimeRow label="Máximo readiness capital" value={livePolicy?.max_deployable_capital ? `$${livePolicy.max_deployable_capital}` : "unknown"} description="Ceiling de diseño; no es capital autorizado." />
       <RuntimeRow label="Real capital" value={runtime?.real_capital_execution || "disabled"} description="Sin endpoint de órdenes Live, sin credenciales de trading y sin activación automática." />
     </div></div>
@@ -66,6 +70,6 @@ export default function SettingsPage() {
       <p>No existe botón de activar Live ni de enviar órdenes reales en esta interfaz.</p>
     </div></div>
 
-    <div className="glass-card rounded-xl p-5 border border-amber-500/15"><div className="flex items-start gap-3"><ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" /><div><p className="text-sm font-medium text-foreground">REAL CAPITAL DISABLED</p><p className="text-xs text-muted-foreground mt-1">`ARCHITECTURE_READY` solo significa que la frontera técnica cumple los gates de `live-v1`. Activar dinero real requiere otra decisión explícita y un adapter de exchange auditado que no existe en Phase 10.</p></div></div></div>
+    <div className="glass-card rounded-xl p-5 border border-amber-500/15"><div className="flex items-start gap-3"><ShieldAlert className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" /><div><p className="text-sm font-medium text-foreground">REAL CAPITAL DISABLED</p><p className="text-xs text-muted-foreground mt-1">`ARCHITECTURE_READY` solo significa que la frontera técnica cumple los gates de `live-v1`. Live execution sigue `disabled`. Activar dinero real requiere otra decisión explícita y un adapter de exchange auditado que no existe en Phase 10.</p></div></div></div>
   </div></div>;
 }
