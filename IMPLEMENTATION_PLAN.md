@@ -2,95 +2,88 @@
 
 ## Current program objective
 
-Build a verifiable autonomous Paper Trading research platform: **real market data, virtual capital, deterministic accounting/execution, explicit risk, reproducible historical/forward evidence and disciplined strategy promotion**.
+Build a verifiable autonomous Paper Trading research platform: **real market data, virtual capital, deterministic accounting/execution, explicit risk, reproducible historical/forward evidence and disciplined strategy promotion**, with a separately gated future Live boundary.
 
 ## Current baseline
 
 - FastAPI + SQLModel + SQLite and React/Vite are active.
-- Phase 9 physically removed the superseded Mongo/mock/trading architecture; no Synthetic AgentEngine, legacy Binance execution service or Mongo runtime remains in active source.
-- Phases 1–9 source/static contracts are present.
-- Phase 7 provides explicit persistent autonomous Paper sessions; no session starts or resumes merely because the process boots.
-- Phase 8 Strategy Research is an evidence/orchestration layer; it does not mutate strategies or auto-deploy candidates.
-- Phase 7 captures strategy/version/source-SHA evidence at first session start so Phase 8 can prove forward-source identity; sessions started before that contract cannot receive provenance retroactively.
-- Phase 9 reports `legacy_pruning=pruned_phase_9` and retains only explicitly justified transition records such as quarantined pre-provenance `Trade` rows.
-- Live remains disabled.
+- Phases 1–9 source/static gates are closed.
+- Phase 7 provides explicit persistent autonomous Paper sessions; no session starts/resumes merely because the process boots.
+- Phase 8 Research classifies evidence and does not mutate or auto-deploy.
+- Phase 9 physically removed Mongo/mock/legacy trading architecture.
+- Phase 10 Live Readiness implementation is present but does not enable Live execution or real capital.
 - Fresh exact-HEAD execution evidence remains required.
 
 ## Ordered implementation program
 
 ### 0–5 — Foundation and evidence
-
-Market Data, Accounting, Paper Execution, Risk, Backtesting/Evidence and their source/static gates are complete. Fresh execution certification remains pending; Phase 5 real-provider S1-S4 baseline is still unobserved.
+Market Data, Accounting, Paper Execution, Risk and Backtesting/Evidence source/static gates are complete. Fresh execution certification and observed S1-S4 performance remain separate evidence.
 
 ### 6. Agent Evolution
-- [x] Versioned fitness, lineage and lifecycle records.
-- [x] Current-source Backtest provenance + agent-specific Paper evidence gates.
-- [x] Accounting/recovery integrity requirements.
-- [x] Funded-liquid child allocation with conserved parent+child capital.
-- [x] Manual evidence-gated replication; no mutation/auto-replication.
-- [x] Exact-HEAD static audit/documentation reconciliation.
+- [x] Versioned fitness, lineage/lifecycle and capital-conserving manual replication.
+- [x] Current-source and Paper evidence gates.
+- [x] Source/static audit.
 - [ ] Execute exact-HEAD backend/frontend/build gate.
 
-**Phase 6 source/contract/static gate:** complete. Execution certification remains pending.
+**Phase 6 source/contract/static gate:** complete.
 
 ### 7. 24/7 Paper Operation
-- [x] Persistent session/agent/cycle/event state and explicit lifecycle.
-- [x] Market Data contract validation before session persistence.
-- [x] One evaluation per new real closed candle.
-- [x] Unchanged S1-S4 -> Risk -> PaperExecution(strategy_runtime) -> Accounting.
-- [x] Deterministic request ids, recovery, ownership and no auto-resume.
-- [x] Async scheduler controls execute on an active event loop.
-- [x] Capture per-session/agent strategy ID/version/source SHA at first start; block resume/recovery on strategy/source drift.
-- [x] Never fabricate source evidence for sessions that had already started before the fingerprint contract.
-- [x] Ops Monitor/Settings/Dashboard observability.
-- [x] No auto-replication, optimizer or Live.
-- [x] Exact-HEAD static audit/documentation reconciliation.
-- [ ] Execute exact-HEAD backend/frontend/build and sustained real-provider runtime smoke.
+- [x] Persistent runtime sessions/cycles, Risk→Paper→Accounting, idempotency and recovery.
+- [x] Strategy source provenance and no auto-resume.
+- [x] Source/static audit.
+- [ ] Execute exact-HEAD gate and sustained real-provider runtime smoke.
 
-**Phase 7 source/contract/static gate:** complete. Execution/operational certification remains pending.
+**Phase 7 source/contract/static gate:** complete.
 
 ### 8. Strategy Research
-See `docs/superpowers/specs/2026-08-19-phase-8-strategy-research-design.md` and `docs/STRATEGIES.md`.
-- [x] Add additive `ResearchPolicy`, `ResearchStudy`, `ResearchWindow`, `ResearchEvaluation`, `StrategyCandidate` persistence.
-- [x] Bootstrap versioned `research-v1` idempotently.
-- [x] Freeze strategy version/source SHA and comparable execution assumptions from first Backtest evidence.
-- [x] Require chronological non-overlapping repeating TRAIN -> VALIDATION -> OOS folds.
-- [x] Apply holdout sample/return/expectancy/drawdown/profit-factor/degradation gates.
-- [x] Require fingerprinted STOPPED Phase 7 forward sessions and unambiguous Paper execution/PnL attribution.
-- [x] Persist immutable PASS/REJECT ResearchEvaluation snapshots.
-- [x] Re-check current active strategy source SHA on every promotion attempt.
-- [x] Create a fresh evaluation for every promotion attempt and at most one candidate per exact strategy/version/source SHA.
-- [x] Keep optimizer, source mutation, auto-deployment and Live absent.
-- [x] Complete final exact-HEAD static audit and documentation reconciliation.
-- [ ] Execute exact-HEAD backend/frontend/build gate plus observed historical/forward research smoke.
+- [x] TRAIN/VALIDATION/OOS methodology and comparable Backtest evidence.
+- [x] Fingerprinted forward Paper evidence and manual candidate promotion.
+- [x] No optimizer/mutation/auto-deployment/Live.
+- [x] Source/static audit.
+- [ ] Execute exact-HEAD gate plus observed historical/forward research smoke.
 
-**Phase 8 source/contract/static gate:** complete. Execution certification and observed real historical/forward research evidence remain pending. Promotion remains an evidence classification, not a profitability or deployment guarantee.
+**Phase 8 source/contract/static gate:** complete.
 
 ### 9. Legacy Pruning
-See `docs/LEGACY_AUDIT.md`, `docs/superpowers/specs/2026-08-20-phase-9-legacy-pruning-design.md` and `docs/superpowers/plans/2026-08-20-phase-9-legacy-pruning.md`.
-- [x] Audit imports/routes/pages/config/dependencies against the Phase 8 active runtime.
-- [x] Preserve useful historical strategy concepts as research documentation rather than active legacy executables.
-- [x] Remove Mongo DatabaseService/injection/config/seed/models/dependencies and Mongo dev containers.
-- [x] Remove superseded simulation/Paper/trading/risk/mock/replication/registry engines and routers.
-- [x] Remove credentialed/mock-fallback legacy BinanceService and python-binance dependency.
-- [x] Remove inactive auth/chat/payments/notifications/dashboard/system/signals/strategy-CRUD implementation and dedicated dependencies.
-- [x] Remove legacy Alpha/Beta/Gamma/regime/indicator executables without modifying S1-S4.
-- [x] Remove unreachable frontend pages, mock data, simulation hooks and duplicate/neural-fiber UI.
-- [x] Remove obsolete tests that targeted deleted modules/external preview endpoints rather than current contracts.
-- [x] Add source guards preventing deleted backend/frontend/dependency/Mongo infrastructure from silently returning.
-- [x] Expose `legacy_pruning=pruned_phase_9` and backend version `2.12.0` without changing active financial semantics.
-- [x] Reconcile architecture/database/legacy audit/project contracts.
-- [x] Complete exact-HEAD reference/drift audit; S1-S4 remain unchanged and Live remains disabled.
+- [x] Remove Mongo, legacy engines/routes/mock fallbacks/dead UI and dependencies after reference audits.
+- [x] Preserve S1-S4 and active evidence/recovery domains.
+- [x] Add anti-regression guards and reconcile docs.
+- [x] Exact-HEAD source/static audit.
 - [ ] Execute exact-HEAD backend/frontend/build gate.
 
-**Phase 9 source/contract/static gate:** complete. Executable certification remains pending until fresh exact-HEAD test/build output is observed.
+**Phase 9 source/contract/static gate:** complete.
 
 ### 10. Live Readiness
-See `docs/LIVE_TRADING_GATE.md`.
-- [ ] Design a separate Live adapter; never toggle Paper into Live.
-- [ ] Implement secret permissions, exchange filters/precision, idempotency and reconciliation.
-- [ ] Add hard capital/position limits, emergency stop and staged rollout controls.
-- [ ] Require explicit authorization before any real-capital activation.
+See `docs/LIVE_TRADING_GATE.md`, `docs/superpowers/specs/2026-08-20-phase-10-live-readiness-design.md` and `docs/superpowers/plans/2026-08-20-phase-10-live-readiness.md`.
+
+- [x] Add separate additive Live Readiness domain and persistence.
+- [x] Bootstrap conservative versioned `live-v1` policy and persistent emergency-stop singleton.
+- [x] Add `DisabledLiveAdapter` with read/reconciliation capabilities only and no real-order transport.
+- [x] Add venue step/tick/min-notional validation and downward-only quantity normalization.
+- [x] Enforce absolute capital/exposure ceilings plus current CANARY 10% rollout-capital fraction.
+- [x] Canonicalize market identity before deterministic idempotency keys.
+- [x] Persist PREPARED/BLOCKED future Live intents only; no transmission path.
+- [x] Require full promoted Research Study → PASS Evaluation → PROMOTED Candidate identity chain plus current source SHA.
+- [x] Require real/fail-closed/non-executing Market Data, active Risk and clean Paper recovery.
+- [x] Fail closed on unexplained venue orders/positions/fills, lookup matches, impossible transmitted records or trading-enabled adapter.
+- [x] Persist `RECOVERY_REQUIRED` and circuit-breaker evidence without replay/adoption.
+- [x] Require latest reconciliation exactly CLEAN and no unresolved historical Live recovery for positive readiness.
+- [x] Add persistent audited emergency-stop activation/clear; clear cannot cross unresolved recovery.
+- [x] Keep manual reconciliation-resolution shortcut absent in Phase 10.
+- [x] Mount Live status/policy/readiness/evaluate/emergency/reconciliation surfaces only.
+- [x] Keep order/buy/sell/credential/activation routes absent.
+- [x] Expose `live_readiness=readiness_phase_10`, `live_adapter=disabled_adapter`, `live_execution=disabled`, `real_capital_execution=disabled` in backend v2.13.0.
+- [x] Update Settings to display readiness separately from disabled execution and real capital.
+- [x] Add static architecture guards for routing, secrets, Paper→Live isolation and execution flags.
+- [x] Reconcile core documentation with the strengthened Phase 10 contract.
+- [ ] Complete final exact-HEAD static audit from Phase 9 close.
+- [ ] Execute exact-HEAD backend/frontend/build gate.
+
+**Phase 10 source/contract/static gate:** pending final exact-HEAD audit. Live execution and real-capital authorization remain disabled regardless of readiness result.
+
+## Future real-capital activation
+
+This is not automatically the next numbered phase. A concrete venue adapter, external secret-management design, exchange-specific integration/recovery testing, operational drills, evidence-backed ambiguity-resolution procedure and an explicit product authorization are all separately required before real capital could be considered.
 
 ## Validation gate
 
@@ -100,4 +93,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Static review is not fresh execution evidence. Operational evidence also requires real historical Backtests and completed forward Paper sessions under the relevant contracts.
+Static review is not fresh execution evidence. `ARCHITECTURE_READY` is not venue certification, profitability evidence or permission to move money.
