@@ -10,93 +10,59 @@ The current product target is **autonomous Paper Trading with real market data a
 
 Active stack: FastAPI + SQLModel + SQLite with React/Vite.
 
-- Legacy Mongo/mock/trading architecture: physically pruned from the active source tree in Phase 9; the former synthetic `AgentEngine` is no longer versioned.
 - Market Data: real-only, provider-neutral and fail-closed.
 - Accounting: authoritative long-only financial source for active Paper state.
 - Paper Execution: deterministic MARKET execution with manual `operator` and controlled `strategy_runtime` origins.
 - Risk: persistent mandatory `risk-v1` authorization before every normal Paper execution.
 - Backtesting: immutable real historical datasets, deterministic `backtest-v1` and strategy-source SHA-256 evidence.
 - Agent Evolution: `evolution-v1` fitness, lineage/lifecycle evidence and manual non-duplicating replication.
-- Paper Runtime: persistent `runtime-v1` sessions that can execute S1-S4 autonomously on new real closed candles and capture strategy/version/source SHA at first start.
-- Strategy Research: `research-v1` studies with chronological TRAIN/VALIDATION/OOS evidence, forward Phase 7 Paper provenance and manual candidate promotion.
-- Legacy pruning: `pruned_phase_9`; no Mongo runtime, mock financial engine, legacy Binance execution service or duplicate trading engine remains.
-- Automated trading: enabled **only inside explicitly started Phase 7 Paper sessions**.
-- Live execution: disabled and structurally separate.
+- Paper Runtime: persistent `runtime-v1` autonomous Paper sessions with recovery/idempotency and source provenance.
+- Strategy Research: `research-v1` TRAIN/VALIDATION/OOS + forward Paper evidence and manual candidate promotion.
+- Legacy pruning: `pruned_phase_9`; Mongo/mock/legacy trading engines are physically removed.
+- Live Readiness: `readiness_phase_10`; separate `live-v1` policy, read-only disabled adapter, hard limits, reconciliation, emergency stop and readiness evidence.
+- Real-capital execution: **disabled**.
 
-Legacy pre-provenance `Trade` rows remain stored only for quarantined historical inspection and are excluded from valid Paper/Backtest/fitness/research evidence. Phase 7 sessions that ran before strategy-source capture existed remain readable but cannot be retroactively fingerprinted for Research promotion.
+A Phase 10 `ARCHITECTURE_READY` result is only a technical readiness classification. It does not authorize money, credentials, an exchange adapter or a real order.
 
-## Implemented core
+## Phase 10 — Live Readiness
 
-### Phases 1–7
+`backend/app/live_execution/` creates the future Live safety boundary without implementing Live trading.
 
-Market Data, Accounting, deterministic Paper Execution, Risk, reproducible Backtesting, evidence-aware Agent Evolution and recoverable 24/7 Paper orchestration are implemented as separate domains. S1-S4 remain baseline algorithms; infrastructure completion does not imply performance.
+Persistent records:
 
-### Phase 8 — Strategy Research
+- `LivePolicy`
+- `LiveReadinessEvaluation`
+- `LiveOrderIntent`
+- `LiveOrderRecord`
+- `LiveFillRecord`
+- `LiveReconciliation`
+- `LiveCircuitBreakerEvent`
+- `LiveEmergencyStop`
 
-`backend/app/strategy_research/` adds a persistent research/evidence boundary over Phase 5 and Phase 7:
+`live-v1` uses conservative readiness ceilings: $100 deployable capital, $25 maximum order notional, $50 symbol exposure, $100 portfolio exposure, $5 session-loss ceiling, 5% drawdown, three consecutive execution errors, 30-second stale-data limit and CANARY rollout at 10% with manual approval required. These are design ceilings, not authorized capital.
 
-```text
-immutable Backtests -> TRAIN / VALIDATION / OOS
-                              +
-              fingerprinted stopped forward Paper
-                              ↓
-                       research-v1
-                              ↓
-                    PASS / REJECT snapshot
-                              ↓
-                 manual StrategyCandidate
-```
+The Phase 10 adapter is `DisabledLiveAdapter`. It exposes only read/reconciliation capability metadata and **has no order-transmission method**. `/api/live/orders` does not exist and there is no API for writing exchange credentials.
 
-`research-v1` requires, among other gates:
+Intent preparation is persistent and idempotent through deterministic `live:<sha256>` client ids. A prepared intent can be `PREPARED` or `BLOCKED`; Phase 10 cannot transmit it.
 
-- complete chronological non-overlapping TRAIN/VALIDATION/OOS folds;
-- identical strategy version/source SHA, market/timeframe, execution policy, capital, costs, position fraction and historical risk profile across study windows;
-- at least 5 round trips in VALIDATION and OOS;
-- positive VALIDATION/OOS return and expectancy;
-- OOS drawdown <= 15%;
-- OOS profit factor >= 1.05 when defined;
-- no more than 50% relative return degradation from VALIDATION to OOS;
-- stopped Phase 7 Paper evidence on the same market/timeframe;
-- Phase 7 captured strategy ID/version/source SHA matching the frozen historical study identity;
-- at least 3 unique FILLED `strategy_runtime` closing SELL executions;
-- positive authoritative account-level realized PnL context;
-- no unresolved Paper recovery;
-- no FILLED execution outside the exact Research-selected forward sessions contaminating qualifying account PnL;
-- current strategy source SHA still equal to the historical/forward SHA when promotion is requested.
+Reconciliation is fail-closed. Unexpected venue state produces `RECOVERY_REQUIRED` plus a circuit-breaker event. Resolution requires an explicit operator reason; later clean snapshots do not erase ambiguity automatically.
 
-Each promotion attempt creates a fresh evaluation. A promoted candidate is an immutable evidence classification for one exact strategy version/source SHA; it does **not** mutate S1-S4, auto-deploy a session, replicate an agent or enable Live.
+Emergency stop is persistent, blocks new Live intents and cannot be cleared while a reconciliation remains unresolved. It never auto-liquidates positions.
 
-### Phase 9 — Legacy Pruning
+Readiness requires a promoted Research candidate with current matching source SHA, active unpaused Risk, clean Paper recovery, valid `live-v1` limits, no emergency stop, explicit CANARY/manual-approval policy and clean/resolved Live reconciliation. Every readiness evaluation keeps `real_capital_blocked=true`.
 
-Phase 9 removes the superseded second architecture instead of preserving it as a hidden fallback:
+## Active Live Readiness API
 
-- Mongo `DatabaseService`, injection, config, seed and Docker services;
-- obsolete auth/chat/payments/notifications/dashboard/system/simulation/trading API implementations;
-- old Paper/trading/risk/replication/mock engines and service registry;
-- credentialed/mock-fallback legacy `BinanceService`;
-- executable Alpha/Beta/Gamma/regime/indicator legacy strategy stack after retaining useful ideas as research hypotheses in documentation;
-- Pydantic models, dependencies and tests used only by those deleted subsystems;
-- unreachable legacy frontend pages, mock data and duplicate UI implementations.
+- `GET /api/live/status`
+- `GET /api/live/policy`
+- `GET /api/live/readiness`
+- `POST /api/live/readiness/evaluate`
+- `POST /api/live/emergency-stop`
+- `POST /api/live/emergency-stop/clear`
+- `GET /api/live/reconciliations`
+- `POST /api/live/reconciliations/{id}/resolve`
 
-`backend/app/services/` now intentionally contains only the S1-S4 strategy implementation plus its package initializer. Phase 9 does not change active Accounting, Risk, Paper, Runtime or Research financial semantics.
-
-## Active APIs
-
-The active application mounts agents/trades/crypto plus Market Data, Accounting, Risk, Paper, Backtests, Evolution, Runtime and Research APIs. Phase 8 Research includes:
-
-- `GET /api/research/status`
-- `GET /api/research/policies/active`
-- `POST /api/research/studies`
-- `GET /api/research/studies`
-- `GET /api/research/studies/{id}`
-- `POST /api/research/studies/{id}/windows`
-- `GET /api/research/studies/{id}/windows`
-- `POST /api/research/studies/{id}/evaluate`
-- `GET /api/research/studies/{id}/evaluations`
-- `POST /api/research/studies/{id}/promote`
-- `GET /api/research/candidates`
-
-There is no Research optimizer, strategy-mutation endpoint or Live execution endpoint.
+There is no executable Live-order route, credential-write route or real-capital activation endpoint.
 
 ## Runtime identifiers
 
@@ -108,15 +74,8 @@ Current backend reports:
 - `agent_evolution=evidence_phase_6`
 - `strategy_research=evidence_phase_8`
 - `legacy_pruning=pruned_phase_9`
-- `live_execution=disabled`
-
-A Research promotion does not alter the runtime configuration automatically.
-
-## Development order
-
-real market data → accounting → paper execution → risk → backtesting/evidence → agent evolution → 24/7 Paper → strategy research → legacy pruning → **live-readiness gate**.
-
-Phase 9 removes old Live-capable code; it does not authorize or implement a new Live adapter.
+- `live_execution=readiness_phase_10`
+- `real_capital_execution=disabled`
 
 ## Validation
 
@@ -126,4 +85,4 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Source/static gates are not runtime certification. Strategy promotion is not a profitability guarantee. Fresh exact-HEAD execution plus observed historical/forward evidence is required before making performance claims.
+Source/static gates are not runtime certification. Research promotion is not a profitability guarantee, and Live Readiness is not authorization for real capital.
