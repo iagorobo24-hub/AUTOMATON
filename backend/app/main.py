@@ -41,7 +41,9 @@ AGENT_EVOLUTION_MODE = "evidence_phase_6"
 PAPER_RUNTIME_MODE = "runtime_phase_7"
 STRATEGY_RESEARCH_MODE = "evidence_phase_8"
 LEGACY_PRUNING_MODE = "pruned_phase_9"
-LIVE_EXECUTION_MODE = "readiness_phase_10"
+LIVE_READINESS_MODE = "readiness_phase_10"
+LIVE_ADAPTER_MODE = "disabled_adapter"
+LIVE_EXECUTION_MODE = "disabled"
 REAL_CAPITAL_EXECUTION_MODE = "disabled"
 AUTOMATED_TRADING_MODE = "paper_enabled_phase_7"
 
@@ -87,9 +89,11 @@ async def lifespan(app: FastAPI):
     app.state.paper_runtime_mode = PAPER_RUNTIME_MODE
     app.state.strategy_research_mode = STRATEGY_RESEARCH_MODE
     app.state.legacy_pruning_mode = LEGACY_PRUNING_MODE
+    app.state.live_readiness_mode = LIVE_READINESS_MODE
+    app.state.live_adapter_mode = LIVE_ADAPTER_MODE
     app.state.live_execution_mode = LIVE_EXECUTION_MODE
     app.state.real_capital_execution_mode = REAL_CAPITAL_EXECUTION_MODE
-    logger.info("[MAIN] Phase 10 Live Readiness boundary is available; real-capital execution remains disabled")
+    logger.info("[MAIN] Phase 10 Live Readiness boundary is available; Live and real-capital execution remain disabled")
     yield
     runtime_scheduler.cancel_all()
     logger.info("[MAIN] Shutdown complete")
@@ -136,6 +140,8 @@ def _runtime_payload():
         "paper_runtime": PAPER_RUNTIME_MODE,
         "strategy_research": STRATEGY_RESEARCH_MODE,
         "legacy_pruning": LEGACY_PRUNING_MODE,
+        "live_readiness": LIVE_READINESS_MODE,
+        "live_adapter": LIVE_ADAPTER_MODE,
         "live_execution": LIVE_EXECUTION_MODE,
         "real_capital_execution": REAL_CAPITAL_EXECUTION_MODE,
     }
