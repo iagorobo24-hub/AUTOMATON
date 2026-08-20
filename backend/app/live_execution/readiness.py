@@ -16,9 +16,10 @@ class LiveReadinessEvaluator:
     every result keeps real-capital execution blocked.
     """
 
-    def __init__(self, session: Session, adapter: LiveExchangeAdapter):
+    def __init__(self, session: Session, adapter: LiveExchangeAdapter, market_data_status: dict):
         self.session = session
         self.adapter = adapter
+        self.market_data_status = market_data_status
 
     def evaluate(self, candidate_id: int | None = None) -> LiveReadinessEvaluation:
         reasons: list[str] = []
@@ -38,6 +39,12 @@ class LiveReadinessEvaluator:
                 reasons.append("ACTIVE_STRATEGY_FINGERPRINT_UNAVAILABLE")
             if current_sha is not None and current_sha != candidate.strategy_source_sha256:
                 reasons.append("STRATEGY_SOURCE_DRIFT")
+
+        market = self.market_data_status or {}
+        if market.get("evidence_mode") != "real" or market.get("synthetic_fallback") is not False:
+            reasons.append("REAL_FAIL_CLOSED_MARKET_DATA_REQUIRED")
+        if market.get("execution_capability") is not False:
+            reasons.append("MARKET_DATA_MUST_NOT_EXECUTE")
 
         risk = self.session.exec(select(RiskProfile).where(RiskProfile.active == True)).first()  # noqa: E712
         if risk is None:
@@ -64,9 +71,8 @@ class LiveReadinessEvaluator:
         latest_reconciliation = self.session.exec(select(LiveReconciliation).order_by(LiveReconciliation.id.desc())).first()
         if latest_reconciliation is None:
             reasons.append("CLEAN_RECONCILIATION_REQUIRED")
-        elif latest_reconciliation.status not in {"CLEAN", "RESOLVED"}:
-            if "LIVE_RECOVERY_UNRESOLVED" not in reasons:
-                reasons.append("LIVE_RECOVERY_UNRESOLVED")
+        elif latest_reconciliation.status not in {"CLEAN", "RESOLVED"} and "LIVE_RECOVERY_UNRESOLVED" not in reasons:
+            reasons.append("LIVE_RECOVERY_UNRESOLVED")
 
         caps = self.adapter.capabilities()
         if caps.trading_enabled:
