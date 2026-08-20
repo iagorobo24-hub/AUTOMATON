@@ -9,6 +9,7 @@ from app.live_execution.adapter import LiveExchangeAdapter
 from app.live_execution.policy import ensure_emergency_stop_baseline, get_active_live_policy
 from app.live_execution.readiness import LiveReadinessEvaluator
 from app.live_execution.rules import validate_live_intent_rules
+from app.market_data.quality import MarketDataQualityError, normalize_symbol
 from app.models.live_execution import (
     LiveCircuitBreakerEvent,
     LiveEmergencyStop,
@@ -27,7 +28,7 @@ def _canonical_decimal(value: Decimal) -> str:
 
 
 def deterministic_client_order_id(*, candidate_id: int, symbol: str, side: str, source_event_id: str) -> str:
-    raw = f"live-v1|{candidate_id}|{symbol.upper()}|{side.upper()}|{source_event_id}"
+    raw = f"live-v1|{candidate_id}|{symbol}|{side.upper()}|{source_event_id}"
     return "live:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:56]
 
 
@@ -50,7 +51,7 @@ def live_intent_fingerprint(
             str(candidate_id),
             policy_version,
             source_event_id,
-            symbol.upper(),
+            symbol,
             side.upper(),
             _canonical_decimal(quantity),
             _canonical_decimal(reference_price),
@@ -104,12 +105,13 @@ class LiveReadinessService:
         deployable_capital: Decimal,
     ) -> LiveOrderIntent:
         source_event_id = source_event_id.strip()
-        symbol = symbol.strip().upper()
         side = side.strip().upper()
         if not source_event_id:
             raise ValueError("Live intent source_event_id is required")
-        if not symbol:
-            raise ValueError("Live intent symbol is required")
+        try:
+            symbol = normalize_symbol(symbol)
+        except MarketDataQualityError as exc:
+            raise ValueError(f"Invalid Live intent symbol: {exc}") from exc
         if side not in {"BUY", "SELL"}:
             raise ValueError("Live intent side must be BUY or SELL")
 
@@ -145,10 +147,13 @@ class LiveReadinessService:
         reasons: list[str] = []
         if stop.active:
             reasons.append("EMERGENCY_STOP_ACTIVE")
+        symbol_rules = self.adapter.get_symbol_rules(symbol)
+        if symbol_rules is not None and symbol_rules.symbol != symbol:
+            reasons.append("SYMBOL_RULES_IDENTITY_MISMATCH")
         reasons.extend(
             validate_live_intent_rules(
                 policy=policy,
-                rules=self.adapter.get_symbol_rules(symbol),
+                rules=symbol_rules,
                 quantity=quantity,
                 reference_price=reference_price,
                 projected_symbol_exposure=projected_symbol_exposure,
