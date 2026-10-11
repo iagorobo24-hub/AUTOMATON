@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="t d">
+  <title id="t">Arquitectura de AUTOMATON</title>
+  <desc id="d">Flujo de Paper: datos de mercado, estrategias S1 a S4, sesiones de Paper Runtime, autorización de Risk, ejecución Paper y Accounting. Debajo, la cadena de evidencia: Backtesting, Research, candidatos promovidos y Live Readiness, con la ejecución real deshabilitada.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d1020"/><stop offset="1" stop-color="#10223a"/></linearGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8fa3c8"/></marker>
+    <marker id="arg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2ee6a6"/></marker>
+    <marker id="arb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4cc3ff"/></marker>
+  </defs>
+  <rect width="1280" height="640" rx="20" fill="url(#bg)"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <text x="40" y="48" font-size="26" font-weight="700" fill="#f4f6ff">Cómo encajan las piezas</text>
+    <text x="40" y="92" font-size="15" font-weight="700" fill="#2ee6a6" letter-spacing="2">PAPER: CAPITAL VIRTUAL, MERCADO REAL</text>
+    <text x="1240" y="394" text-anchor="end" font-size="15" font-weight="700" fill="#4cc3ff" letter-spacing="2">EVIDENCIA: DE LA HISTORIA A LA PREPARACIÓN</text>
+
+    <g stroke-width="2">
+      <rect x="40" y="108" width="200" height="120" rx="14" fill="#14223a" stroke="#4cc3ff"/>
+      <rect x="290" y="108" width="200" height="120" rx="14" fill="#14223a" stroke="#4cc3ff"/>
+      <rect x="540" y="108" width="200" height="120" rx="14" fill="#14223a" stroke="#2ee6a6"/>
+      <rect x="790" y="108" width="200" height="120" rx="14" fill="#14223a" stroke="#ffb020"/>
+      <rect x="1040" y="108" width="200" height="120" rx="14" fill="#14223a" stroke="#2ee6a6"/>
+    </g>
+    <g font-size="20" font-weight="700" fill="#f4f6ff" text-anchor="middle">
+      <text x="140" y="140">Market Data</text><text x="390" y="140">Estrategias</text><text x="640" y="140">Paper Runtime</text><text x="890" y="140">Risk</text><text x="1140" y="140">Paper Execution</text>
+    </g>
+    <g font-size="14" fill="#aab8d8" text-anchor="middle">
+      <text x="140" y="168">Velas y cotizaciones</text><text x="140" y="188">reales (API pública)</text><text x="140" y="208">Si hay duda, falla</text>
+      <text x="390" y="168">S1 Momentum</text><text x="390" y="188">S2 Reversión, S3 Ruptura</text><text x="390" y="208">S4 Híbrida, deterministas</text>
+      <text x="640" y="168">Sesiones persistentes</text><text x="640" y="188">Tras reiniciar: nunca</text><text x="640" y="208">reanuda solo</text>
+      <text x="890" y="168">Autorización ALLOW</text><text x="890" y="188">persistida antes de</text><text x="890" y="208">cada orden Paper</text>
+      <text x="1140" y="168">Órdenes MARKET</text><text x="1140" y="188">simuladas, solo largos,</text><text x="1140" y="208">con costes</text>
+    </g>
+    <g stroke="#8fa3c8" stroke-width="2.5" fill="none" marker-end="url(#ar)">
+      <path d="M240 168H284"/><path d="M490 168H534"/><path d="M740 168H784"/><path d="M990 168H1034"/>
+    </g>
+
+    <rect x="1040" y="262" width="200" height="86" rx="14" fill="#14223a" stroke="#2ee6a6" stroke-width="2"/>
+    <text x="1140" y="292" font-size="20" font-weight="700" fill="#f4f6ff" text-anchor="middle">Accounting</text>
+    <text x="1140" y="318" font-size="14" fill="#aab8d8" text-anchor="middle">Libro mayor: la única</text>
+    <text x="1140" y="336" font-size="14" fill="#aab8d8" text-anchor="middle">autoridad del dinero Paper</text>
+    <path d="M1140 228V256" stroke="#8fa3c8" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+
+    <g stroke-width="2">
+      <rect x="40" y="408" width="200" height="120" rx="14" fill="#14223a" stroke="#4cc3ff"/>
+      <rect x="290" y="408" width="200" height="120" rx="14" fill="#14223a" stroke="#4cc3ff"/>
+      <rect x="540" y="408" width="200" height="120" rx="14" fill="#14223a" stroke="#4cc3ff"/>
+      <rect x="790" y="408" width="200" height="120" rx="14" fill="#14223a" stroke="#ffb020"/>
+      <rect x="1040" y="408" width="200" height="120" rx="14" fill="#2a1822" stroke="#ff6b81"/>
+    </g>
+    <g font-size="20" font-weight="700" fill="#f4f6ff" text-anchor="middle">
+      <text x="140" y="440">Backtesting</text><text x="390" y="440">Research</text><text x="640" y="440">Candidatos</text><text x="890" y="440">Live Readiness</text><text x="1140" y="440" fill="#ff9aa9">Live</text>
+    </g>
+    <g font-size="14" fill="#aab8d8" text-anchor="middle">
+      <text x="140" y="468">Velas históricas reales,</text><text x="140" y="488">ejecución en la vela</text><text x="140" y="508">siguiente, con costes</text>
+      <text x="390" y="468">TRAIN, VALIDATION y OOS</text><text x="390" y="488">más Paper hacia delante</text><text x="390" y="508">(research-v1)</text>
+      <text x="640" y="468">Promoción manual,</text><text x="640" y="488">ligada a la huella SHA-256</text><text x="640" y="508">de la estrategia</text>
+      <text x="890" y="468">Comprueba requisitos y</text><text x="890" y="488">registra la evaluación;</text><text x="890" y="508">no envía nada</text>
+      <text x="1140" y="468" fill="#ff9aa9">live_execution:</text><text x="1140" y="488" fill="#ff9aa9" font-weight="700">disabled</text><text x="1140" y="508" fill="#ff9aa9">capital real: disabled</text>
+    </g>
+    <g stroke="#8fa3c8" stroke-width="2.5" fill="none" marker-end="url(#ar)">
+      <path d="M240 468H284"/><path d="M490 468H534"/><path d="M740 468H784"/>
+    </g>
+    <path d="M990 468H1034" stroke="#ff6b81" stroke-width="2.5" stroke-dasharray="6 6" fill="none"/>
+    <path d="M1012 452V484" stroke="#ff6b81" stroke-width="4" stroke-linecap="round"/>
+
+    <path d="M140 228V402" stroke="#4cc3ff" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#arb)"/>
+    <text x="152" y="320" font-size="14" fill="#4cc3ff">historia real</text>
+    <path d="M1140 348V372H390V402" stroke="#2ee6a6" stroke-width="2" stroke-dasharray="6 6" fill="none" marker-end="url(#arg)"/>
+    <text x="1128" y="364" font-size="14" fill="#2ee6a6" text-anchor="end">evidencia Paper hacia delante</text>
+
+    <rect x="40" y="552" width="1200" height="40" rx="12" fill="#ffffff" fill-opacity=".07"/>
+    <text x="640" y="578" font-size="16" fill="#e8ebff" text-anchor="middle">FastAPI + SQLModel + SQLite (local)  ·  React + Vite  ·  Electron (envoltorio de escritorio, sin validar)</text>
+    <text x="640" y="618" font-size="14" fill="#8fa3c8" text-anchor="middle">Esquema de lo descrito en ARCHITECTURE.md; no implica que todos los flujos estén validados de extremo a extremo.</text>
+  </g>
+</svg>

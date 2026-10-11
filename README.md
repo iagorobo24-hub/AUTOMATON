@@ -1,86 +1,111 @@
-# AUTOMATON
+<div align="center">
 
-AUTOMATON is a local platform for developing, testing and evaluating autonomous crypto-trading agents.
+<img src="docs/img/banner.svg" alt="AUTOMATON: investigación de agentes de trading con datos reales y capital virtual" width="100%">
 
-## Product contract
+<br>
 
-The current product target is **autonomous Paper Trading with real market data and virtual capital**, supported by reproducible historical evidence, explicit Risk, evidence-aware agent lifecycle and disciplined Strategy Research. Backtest, Paper and any future Live mode remain separate evidence/execution boundaries.
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?logo=fastapi&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-SQLModel-003B57?logo=sqlite&logoColor=white)
+![React](https://img.shields.io/badge/React-19%20%2B%20Vite-61DAFB?logo=react&logoColor=black)
+![Tests](https://img.shields.io/badge/tests-pytest%20%2B%20vitest-0A9EDC)
+![Live](https://img.shields.io/badge/ejecuci%C3%B3n%20real-deshabilitada-FF6B81)
+![Estado](https://img.shields.io/badge/estado-laboratorio%20en%20validaci%C3%B3n-F5A623)
 
-## Current runtime
+**Plataforma local para desarrollar, probar y evaluar agentes autónomos de trading de criptomonedas**
+usando datos de mercado reales y **capital virtual**. Es un laboratorio de investigación: no opera con dinero real.
 
-Active stack: FastAPI + SQLModel + SQLite with React/Vite.
+[Qué hace](#qué-hace) ·
+[Cómo funciona](#cómo-funciona) ·
+[Estado](#estado-del-proyecto) ·
+[Inicio rápido](#inicio-rápido) ·
+[Límites](#límites-conocidos) ·
+[Aviso](#aviso-importante)
 
-- Market Data: real-only, provider-neutral and fail-closed.
-- Accounting: authoritative long-only financial source for active Paper state.
-- Paper Execution: deterministic MARKET execution with manual `operator` and controlled `strategy_runtime` origins.
-- Risk: persistent mandatory `risk-v1` authorization before every normal Paper execution.
-- Backtesting: immutable real historical datasets, deterministic `backtest-v1` and strategy-source SHA-256 evidence.
-- Agent Evolution: `evolution-v1` fitness, lineage/lifecycle evidence and manual non-duplicating replication.
-- Paper Runtime: persistent `runtime-v1` autonomous Paper sessions with recovery/idempotency and source provenance.
-- Strategy Research: `research-v1` TRAIN/VALIDATION/OOS + forward Paper evidence and manual candidate promotion.
-- Legacy pruning: `pruned_phase_9`; Mongo/mock/legacy trading engines are physically removed.
-- Live Readiness: `readiness_phase_10`; separate `live-v1` policy, disabled adapter, hard limits, reconciliation, emergency stop and readiness evidence.
-- Live execution: **disabled**.
-- Real-capital execution: **disabled**.
+</div>
 
-A Phase 10 `ARCHITECTURE_READY` result is only a technical readiness classification. It does not authorize money, credentials, an exchange adapter or a real order.
+---
 
-## Phase 10 — Live Readiness
+> [!WARNING]
+> **Este proyecto no es asesoramiento financiero ni un sistema para operar con dinero real.** No hay evidencia de
+> rentabilidad en este repositorio, y ningún resultado de Backtest, Paper o Research debe interpretarse como una
+> promesa de beneficios futuros. La ejecución real y el capital real están **deshabilitados por diseño**.
 
-`backend/app/live_execution/` creates a future Live safety boundary without implementing Live trading.
+## Qué hace
 
-Persistent records:
+| | |
+|---|---|
+| 📡 **Datos reales, sin inventar** | Velas y cotizaciones de la API pública de Binance, con validación de contratos (precios positivos, OHLC coherente, antigüedad, continuidad). Ante la duda, falla en lugar de rellenar. |
+| 🧮 **Estrategias deterministas** | Cuatro reglas de referencia: S1 momentum, S2 reversión a la media, S3 ruptura y S4 híbrida. No hay LLM ni optimización automática. |
+| 🧪 **Backtesting reproducible** | Conjuntos de datos históricos reales, ejecución en la vela siguiente, costes explícitos y huella SHA-256 del código de la estrategia. |
+| 🧾 **Paper trading con contabilidad propia** | Órdenes MARKET simuladas, solo largas, siempre tras una autorización de Risk persistida; Accounting es la única fuente de verdad del dinero virtual. |
+| 🔁 **Sesiones autónomas de Paper** | Sesiones persistentes que evalúan estrategias sobre velas, con recuperación tras reinicio (no reanudan solas) e idempotencia. |
+| 🧬 **Ciclo de vida de agentes** | Aptitud (fitness), linaje y replicación manual que transfiere capital en lugar de duplicarlo. |
+| 🔬 **Research con evidencia** | Estudios TRAIN → VALIDATION → OOS más evidencia de Paper hacia delante, y promoción manual de candidatos. Promover no significa rentable. |
+| 🛑 **Live Readiness, sin Live** | Política, intents idempotentes, conciliación y parada de emergencia. El adaptador está deshabilitado y no puede enviar órdenes. |
 
-- `LivePolicy`
-- `LiveReadinessEvaluation`
-- `LiveOrderIntent`
-- `LiveOrderRecord`
-- `LiveFillRecord`
-- `LiveReconciliation`
-- `LiveCircuitBreakerEvent`
-- `LiveEmergencyStop`
+**Para quién es:** para quien quiera estudiar cómo construir un sistema de trading auditable (contratos de datos,
+separación de modos, idempotencia, recuperación) o experimentar con estrategias sin arriesgar capital.
 
-`live-v1` uses conservative absolute ceilings of $100 deployable capital, $25 order notional, $50 symbol exposure, $100 portfolio exposure, $5 session loss and 5% drawdown, plus three consecutive execution errors and a 30-second stale-data threshold. The current `CANARY` rollout fraction is 10%, so the effective prepared-intent deployable-capital ceiling is $10. These are design gates, not authorized capital.
+## Cómo funciona
 
-The Phase 10 adapter is `DisabledLiveAdapter`. It has read/reconciliation methods only and **no order-transmission method**. `/api/live/orders`, buy/sell, activation and credential-write routes do not exist.
+<img src="docs/img/arquitectura.svg" alt="Market Data, estrategias, Paper Runtime, Risk, Paper Execution y Accounting; debajo Backtesting, Research, Candidatos, Live Readiness y Live deshabilitado" width="100%">
 
-Future intent preparation is persistent and idempotent through deterministic `live:<sha256>` client ids. Market symbols are canonicalized before that identity is derived, so aliases such as `btc-usdt` and `BTC/USDT` cannot create two commands for the same source event. Phase 10 can persist `PREPARED`/`BLOCKED` intent evidence but cannot transmit it.
+Las reglas de diseño que documenta [`ARCHITECTURE.md`](ARCHITECTURE.md) incluyen, entre otras:
 
-Readiness verifies the full Research chain (`Study PROMOTED -> Evaluation PASS -> Candidate PROMOTED`) plus matching strategy/version/source SHA, current source integrity, active Risk, clean Paper recovery, fail-closed Market Data, valid Live policy, emergency-stop state and clean Live reconciliation.
+- Backtest y Paper usan datos reales y capital virtual; los datos sintéticos solo se permiten en tests técnicos y nunca cuentan como evidencia.
+- Toda ejecución Paper normal exige una decisión **ALLOW** de Risk persistida y vigente.
+- Tras un reinicio, la actividad financiera dudosa **no se reanuda sola**.
+- Research clasifica evidencia: no modifica estrategias, no las despliega y no activa Live.
 
-Reconciliation is fail-closed: any unexplained venue order, position, fill, trading-enabled adapter or impossible transmitted Live record creates `RECOVERY_REQUIRED` plus circuit-breaker evidence. Phase 10 provides no shortcut for converting ambiguous financial state to trusted state merely from an operator note.
+### Live Readiness: preparar no es ejecutar
 
-Emergency-stop activation/clear is persistent and audited. It cannot be cleared while any Live reconciliation remains unresolved, and it never auto-liquidates positions.
+<img src="docs/img/live-readiness.svg" alt="Requisitos técnicos que alimentan una evaluación con resultado ARCHITECTURE_READY o BLOCKED; en ambos casos la ejecución real queda deshabilitada" width="100%">
 
-## Active Live Readiness API
+`ARCHITECTURE_READY` es solo una clasificación técnica. Los límites de `live-v1` (por ejemplo 100 $ de capital
+desplegable y 25 $ por orden, con un 10 % en la fase `CANARY`) son puertas de diseño, **no capital autorizado**.
+No existe ninguna ruta para enviar órdenes, escribir credenciales ni activar capital real.
 
-- `GET /api/live/status`
-- `GET /api/live/policy`
-- `GET /api/live/readiness`
-- `POST /api/live/readiness/evaluate`
-- `POST /api/live/emergency-stop`
-- `POST /api/live/emergency-stop/clear`
-- `GET /api/live/reconciliations`
-- `POST /api/live/reconcile`
+## Estado del proyecto
 
-There is no executable Live-order route, credential-write route, manual recovery-resolution shortcut or real-capital activation endpoint.
+Resumen honesto, basado en la auditoría realizada sobre el commit `72daae1` (30 de septiembre de 2026) en un entorno
+aislado. No es una certificación.
 
-## Runtime identifiers
+| Pieza | Estado | Nota |
+|---|:---:|---|
+| Contratos de Market Data y proveedor público | ✅ | 13 tests aprobados con transporte HTTP simulado; no se probó contra el servicio real. |
+| Estrategias S1–S4 | 🟡 | Implementadas; 2 tests fallan por contradicciones entre el test y los datos/contrato, no por un fallo demostrado de ejecución. |
+| Accounting | 🟡 | Invariantes cubiertas por tests (11 aprobados en la selección auditada). |
+| Risk → Paper Execution | 🚧 | **Defecto reproducido:** la fecha de la cotización persistida pierde su zona horaria (UTC) y Paper rechaza la orden al compararla. Bloquea el flujo feliz. |
+| Backtesting | 🟡 | Diseño sólido; 20 de 23 tests aprobados. Detectado que no se descartan velas aún abiertas y que la huella del dataset no se reverifica al ejecutar. |
+| Paper Runtime (sesiones) | 🟡 | Recuperación e idempotencia con tests; depende del flujo Risk → Paper y no se probó un funcionamiento prolongado. |
+| Research y evolución de agentes | 🟡 | Con tests; sus caminos positivos usan datos parcialmente simulados. |
+| Live Readiness | 🟡 | Barreras y adaptador deshabilitado cubiertos por tests y guardas estáticas, que no son una garantía universal de seguridad. |
+| Arranque con base de datos nueva | 🚧 | **Falla** en el entorno de auditoría (error de sesión SQLAlchemy antes de aceptar peticiones). |
+| Frontend (React) | 🚧 | `npm run build` falla en una instalación aislada: `axios` no está declarado en `frontend/package.json`. |
+| Electron | 🚧 | Revisado solo estáticamente; sin distribución de escritorio demostrada. |
 
-Current backend reports:
+✅ probado · 🟡 implementado, pendiente de validar · 🚧 en construcción o con defectos conocidos.
 
-- `paper_trading=autonomous_phase_7`
-- `paper_runtime=runtime_phase_7`
-- `automated_trading=paper_enabled_phase_7`
-- `agent_evolution=evidence_phase_6`
-- `strategy_research=evidence_phase_8`
-- `legacy_pruning=pruned_phase_9`
-- `live_readiness=readiness_phase_10`
-- `live_adapter=disabled_adapter`
-- `live_execution=disabled`
-- `real_capital_execution=disabled`
+Suite completa del backend en la auditoría: **225 tests, 204 aprobados y 21 fallidos**. Los fallos se agrupan en pocas
+causas (ver arriba) y no se han corregido en este repositorio.
 
-## Validation
+## Inicio rápido
+
+> [!NOTE]
+> Dado el estado descrito arriba, **no se garantiza que el proyecto arranque ni compile sin ajustes**. Estos son
+> los comandos que declaran `package.json`, el `Makefile` y la integración continua.
+
+Requisitos: **Python 3.11**, **Node.js** (la CI usa la versión 20) y npm.
+
+```bash
+npm run setup        # instala dependencias raíz, frontend y Electron, y las del backend (pip)
+npm run dev          # backend (127.0.0.1:8000) + frontend (localhost:5173) + Electron
+```
+
+También hay un lanzador para Windows (`AUTOMATON.bat`) que ejecuta `npm run dev`.
+
+Pruebas y compilación:
 
 ```bash
 cd backend && pytest tests/ -v
@@ -88,4 +113,97 @@ cd frontend && npm test
 cd frontend && npm run build
 ```
 
-Source/static gates are not runtime certification. Research promotion is not a profitability guarantee, and Live Readiness is not authorization for real capital.
+Es una aplicación **local**: el script `npm run dev` enlaza el backend a `127.0.0.1`, y los endpoints de Live
+Readiness no añaden autenticación propia, así que no la expongas a internet ni a otros usuarios.
+
+<details>
+<summary><b>API principal (prefijos de ruta)</b></summary>
+
+| Prefijo | Dominio |
+|---|---|
+| `/api/market-data` | Cotizaciones y velas reales |
+| `/api/accounting` | Contabilidad de Paper |
+| `/api/risk` | Perfil y decisiones de riesgo |
+| `/api/paper` | Ejecución Paper |
+| `/api/backtests` | Conjuntos de datos y ejecuciones históricas |
+| `/api/evolution` | Aptitud, linaje y replicación |
+| `/api/runtime` | Sesiones autónomas de Paper |
+| `/api/research` | Estudios y candidatos |
+| `/api/live` | Estado de Live Readiness (lectura, evaluación, parada de emergencia y conciliación) |
+| `/api/agents`, `/api/trades`, `/api/crypto` | Agentes, operaciones y datos de apoyo |
+
+Hay además `/health` y `/api/estado`, que devuelven etiquetas de modo fijas y **no certifican** que el proveedor o el
+libro contable funcionen.
+
+</details>
+
+<details>
+<summary><b>Las cuatro estrategias de referencia</b></summary>
+
+- **S1 Momentum:** compra si los tres últimos precios suben de forma consecutiva; si no, mantiene.
+- **S2 Reversión a la media:** con los últimos 20 precios, compra por debajo del 98 % de la media y vende por encima del 102 %.
+- **S3 Ruptura:** compra si el precio actual supera el máximo de los 10 precios anteriores.
+- **S4 Híbrida:** combinación determinista; exige al menos dos señales de compra.
+
+Son líneas base para investigar, no recomendaciones. Los porcentajes de rendimiento de documentos históricos del
+repositorio no están reproducidos y no deben tomarse como hechos.
+
+</details>
+
+## Configuración
+
+No se necesitan claves para el uso previsto (datos públicos y capital virtual). [`.env.example`](.env.example) solo
+documenta `FRONTEND_URL` (por defecto `http://localhost:5173`) para Electron. **No guardes credenciales de ningún
+exchange**: el proyecto no tiene ruta de escritura de credenciales.
+
+## Límites conocidos
+
+- **Sin evidencia de rentabilidad.** Nada en el repositorio demuestra que alguna estrategia gane dinero.
+- **Live deshabilitado a propósito.** Activar capital real exigiría un adaptador de exchange auditado, gestión de secretos y una decisión explícita ajena a este código.
+- **Los defectos de la tabla de estado siguen abiertos** (zona horaria en Risk/Paper, arranque con base nueva, `axios` en el frontend, velas abiertas en Backtesting).
+- Sin autenticación ni autorización en los endpoints; pensado para uso local de un solo usuario.
+- La ruta de la base de datos SQLite es relativa al directorio de trabajo; el scheduler no demuestra exclusión entre varios procesos.
+- Sin pruebas de funcionamiento prolongado ni contra servicios reales.
+- Los documentos históricos (`CHANGELOG`, planes antiguos, `.docx` de estrategias) incluyen afirmaciones obsoletas; la fuente vigente es [`ARCHITECTURE.md`](ARCHITECTURE.md) y [`docs/PRODUCT_CONTRACT.md`](docs/PRODUCT_CONTRACT.md).
+
+## Estructura del proyecto
+
+```
+backend/app/
+  market_data/       contratos de Quote/Candle, proveedor público y controles de calidad
+  services/          estrategias S1–S4
+  risk/              autorización obligatoria antes de cada orden Paper
+  paper_execution/   órdenes simuladas
+  accounting/        libro mayor y posiciones del capital virtual
+  paper_runtime/     sesiones autónomas, ciclos y scheduler
+  backtesting/       datasets históricos, ejecución y métricas
+  agent_evolution/   aptitud, linaje y replicación
+  strategy_research/ estudios, evaluación y promoción de candidatos
+  live_execution/    Live Readiness (adaptador deshabilitado)
+backend/tests/       suite de pytest
+frontend/            React + Vite (Dashboard, mercado, monitor, agentes, ajustes)
+electron/            envoltorio de escritorio
+docs/                contrato de producto, arquitectura de datos y notas históricas
+```
+
+## Documentación
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md): límites no negociables y dominios activos.
+- [`docs/PRODUCT_CONTRACT.md`](docs/PRODUCT_CONTRACT.md): modos de operación y reglas de veracidad.
+- [`docs/LIVE_TRADING_GATE.md`](docs/LIVE_TRADING_GATE.md): qué implica (y qué no) la preparación para Live.
+- [`docs/STRATEGIES.md`](docs/STRATEGIES.md): estrategias y modelo de estados de evidencia.
+- [`docs/RISK_MANAGEMENT.md`](docs/RISK_MANAGEMENT.md), [`docs/PAPER_TRADING.md`](docs/PAPER_TRADING.md), [`docs/BACKTESTING.md`](docs/BACKTESTING.md).
+
+El repositorio no incluye un archivo de licencia, así que no se concede ninguna licencia de uso por defecto.
+
+---
+
+## Aviso importante
+
+<div align="center">
+
+<sub>Proyecto personal de investigación y aprendizaje. No es asesoramiento financiero, de inversión ni fiscal, y no está
+afiliado a ningún exchange. El trading de criptomonedas conlleva un riesgo alto de pérdida; no uses este software
+con dinero real. Los resultados simulados no garantizan resultados futuros.</sub>
+
+</div>

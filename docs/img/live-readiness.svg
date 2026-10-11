@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 440" width="1280" height="440" role="img" aria-labelledby="t d">
+  <title id="t">Live Readiness: preparación, no ejecución</title>
+  <desc id="d">Una lista de requisitos técnicos alimenta una evaluación de preparación cuyo resultado es ARCHITECTURE_READY o BLOCKED. En ambos casos la ejecución real y el capital real permanecen deshabilitados, porque el adaptador no puede enviar órdenes.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0d1020"/><stop offset="1" stop-color="#10223a"/></linearGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8fa3c8"/></marker>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#ff6b81"/></marker>
+  </defs>
+  <rect width="1280" height="440" rx="20" fill="url(#bg)"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <text x="40" y="48" font-size="26" font-weight="700" fill="#f4f6ff">Live Readiness: se prepara, no se ejecuta</text>
+    <g fill="#14223a" stroke="#4cc3ff" stroke-width="1.5">
+      <rect x="40" y="70" width="460" height="38" rx="10"/><rect x="40" y="116" width="460" height="38" rx="10"/><rect x="40" y="162" width="460" height="38" rx="10"/><rect x="40" y="208" width="460" height="38" rx="10"/>
+      <rect x="40" y="254" width="460" height="38" rx="10"/><rect x="40" y="300" width="460" height="38" rx="10"/><rect x="40" y="346" width="460" height="38" rx="10"/><rect x="40" y="392" width="460" height="38" rx="10"/>
+    </g>
+    <g font-size="15" fill="#e8ebff">
+      <text x="56" y="94">Estudio, evaluación y candidato de Research promovidos</text>
+      <text x="56" y="140">La huella SHA-256 del código sigue coincidiendo</text>
+      <text x="56" y="186">Market Data real y que falla cerrado</text>
+      <text x="56" y="232">Risk activo y sin pausa</text>
+      <text x="56" y="278">Recuperación de Paper limpia</text>
+      <text x="56" y="324">Política live-v1 y despliegue gradual CANARY</text>
+      <text x="56" y="370">Parada de emergencia desactivada</text>
+      <text x="56" y="416">Conciliación Live exactamente CLEAN</text>
+    </g>
+    <path d="M504 250H560" stroke="#8fa3c8" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+    <rect x="566" y="188" width="230" height="124" rx="14" fill="#14223a" stroke="#ffb020" stroke-width="2"/>
+    <text x="681" y="226" font-size="20" font-weight="700" fill="#f4f6ff" text-anchor="middle">Evaluación</text>
+    <g font-size="14" fill="#aab8d8" text-anchor="middle">
+      <text x="681" y="254">Cada intento escribe un</text><text x="681" y="274">registro nuevo; no reutiliza</text><text x="681" y="294">un PASS antiguo</text>
+    </g>
+    <path d="M800 250H846" stroke="#8fa3c8" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+    <rect x="852" y="110" width="388" height="56" rx="12" fill="#14223a" stroke="#2ee6a6" stroke-width="2"/>
+    <text x="1046" y="145" font-size="18" font-weight="700" fill="#2ee6a6" text-anchor="middle">ARCHITECTURE_READY</text>
+    <rect x="852" y="178" width="388" height="56" rx="12" fill="#14223a" stroke="#ffb020" stroke-width="2"/>
+    <text x="1046" y="213" font-size="18" font-weight="700" fill="#ffb020" text-anchor="middle">BLOCKED</text>
+    <text x="1046" y="266" font-size="14" fill="#aab8d8" text-anchor="middle">Ambos son solo una clasificación técnica</text>
+    <path d="M1046 280V318" stroke="#ff6b81" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+    <rect x="852" y="326" width="388" height="96" rx="14" fill="#2a1822" stroke="#ff6b81" stroke-width="2"/>
+    <text x="1046" y="356" font-size="18" font-weight="700" fill="#ff9aa9" text-anchor="middle">live_execution = disabled</text>
+    <text x="1046" y="382" font-size="18" font-weight="700" fill="#ff9aa9" text-anchor="middle">real_capital_execution = disabled</text>
+    <text x="1046" y="408" font-size="14" fill="#aab8d8" text-anchor="middle">El adaptador no tiene método para enviar órdenes</text>
+  </g>
+</svg>
